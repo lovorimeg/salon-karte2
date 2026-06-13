@@ -802,6 +802,7 @@ select.input { appearance:none; }
 
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
+const API_SECRET = 'lovori2024salon'
 
 // ── 状態 ──
 let allCustomers     = []
@@ -950,10 +951,10 @@ async function api(params) {
   try {
     let r
     if (params.action.startsWith('get')) {
-      const q = new URLSearchParams({ action: params.action, ...params })
+      const q = new URLSearchParams({ action: params.action, secret: API_SECRET, ...params })
       r = await fetch(`${GAS_URL}?${q}`, { signal: controller.signal })
     } else {
-      r = await fetch(GAS_URL, { method:'POST', body:JSON.stringify(params), headers:{'Content-Type':'text/plain'}, signal: controller.signal })
+      r = await fetch(GAS_URL, { method:'POST', body:JSON.stringify({ ...params, secret: API_SECRET }), headers:{'Content-Type':'text/plain'}, signal: controller.signal })
     }
     clearTimeout(timer)
     const result = await r.json()
