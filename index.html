@@ -770,8 +770,9 @@ select.input { appearance:none; }
 
 <!-- 予約アクションポップアップ -->
 <div id="res-action-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:300;" onclick="closeResActionPopup()"></div>
-<div id="res-action-popup" style="display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:480px;background:#fff;border-radius:20px 20px 0 0;z-index:301;padding:20px 16px 40px;">
-  <div id="res-action-name" style="text-align:center;font-size:17px;font-weight:700;margin-bottom:16px;color:#1c1c1e;"></div>
+<div id="res-action-popup" style="display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:480px;background:#fff;border-radius:20px 20px 0 0;z-index:301;padding:20px 16px 40px;max-height:90vh;overflow-y:auto;">
+  <div id="res-action-name" style="text-align:center;font-size:17px;font-weight:700;margin-bottom:4px;color:#1c1c1e;"></div>
+  <div id="res-action-reslist" style="margin:10px 0 14px;border-top:1px solid #f0f0f5;border-bottom:1px solid #f0f0f5;padding:10px 0;font-size:13px;color:#555;line-height:1.9;"></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
     <button onclick="resActionCheckout()" style="padding:18px;border-radius:14px;border:none;background:#f0f0f5;font-size:15px;font-weight:600;cursor:pointer;color:#1c1c1e;">💳 お会計</button>
     <button onclick="resActionKarte()" style="padding:18px;border-radius:14px;border:none;background:#f0f0f5;font-size:15px;font-weight:600;cursor:pointer;color:#1c1c1e;">📋 カルテ詳細</button>
@@ -1236,7 +1237,29 @@ let _resActionTarget = null
 
 function openResActionMenu(r) {
   _resActionTarget = r
-  document.getElementById('res-action-name').textContent = r.customer_name + '様　' + (r.date||'') + ' ' + (r.time||'')
+  document.getElementById('res-action-name').textContent = r.customer_name + '様'
+
+  // 同じお客様の予約一覧（今日以降）を表示
+  const today = todayStr()
+  const custRes = allReservations
+    .filter(cr => cr.customer_id === r.customer_id && cr.date >= today)
+    .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
+
+  const dayNames = ['日','月','火','水','木','金','土']
+  const listEl = document.getElementById('res-action-reslist')
+  if (custRes.length === 0) {
+    listEl.textContent = '今後の予約はありません'
+  } else {
+    listEl.innerHTML = custRes.map(cr => {
+      const d = new Date(cr.date)
+      const dow = dayNames[d.getDay()]
+      const isCurrent = cr.id === r.id
+      const mark = isCurrent ? '▶ ' : '　'
+      const style = isCurrent ? 'font-weight:700;color:#007aff;' : ''
+      return `<div style="${style}">${mark}${cr.date}（${dow}）${cr.time}　${cr.menu||'—'}</div>`
+    }).join('')
+  }
+
   document.getElementById('res-action-overlay').style.display = 'block'
   document.getElementById('res-action-popup').style.display = 'block'
 }
