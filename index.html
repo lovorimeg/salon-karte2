@@ -794,7 +794,8 @@ select.input { appearance:none; }
     <button onclick="resActionCheckout()" style="padding:18px;border-radius:14px;border:none;background:#f0f0f5;font-size:15px;font-weight:600;cursor:pointer;color:#1c1c1e;">💳 お会計</button>
     <button onclick="resActionKarte()" style="padding:18px;border-radius:14px;border:none;background:#f0f0f5;font-size:15px;font-weight:600;cursor:pointer;color:#1c1c1e;">📋 カルテ詳細</button>
     <button onclick="resActionEdit()" style="padding:18px;border-radius:14px;border:none;background:#f0f0f5;font-size:15px;font-weight:600;cursor:pointer;color:#1c1c1e;">✏️ 予約編集</button>
-    <button onclick="resActionDelete()" style="padding:18px;border-radius:14px;border:none;background:#fff0f0;font-size:15px;font-weight:600;cursor:pointer;color:#e33;">🗑️ 削除する</button>
+    <button id="res-action-line-btn" onclick="resActionLine()" style="padding:18px;border-radius:14px;border:none;background:#f0fff4;font-size:15px;font-weight:600;cursor:pointer;color:#06c755;">💬 LINEコピー</button>
+    <button onclick="resActionDelete()" style="padding:18px;border-radius:14px;border:none;background:#fff0f0;font-size:15px;font-weight:600;cursor:pointer;color:#e33;grid-column:1/-1;">🗑️ 削除する</button>
   </div>
 </div>
 <div id="offline-banner" style="display:none;position:fixed;top:0;left:0;right:0;background:#ff9500;color:#fff;padding:10px 16px;text-align:center;font-size:14px;font-weight:600;z-index:500;letter-spacing:0.5px;">
@@ -1285,6 +1286,13 @@ function resActionEdit() {
   const r = _resActionTarget
   closeResActionPopup()
   if (r) openEditReservation(r)
+}
+
+function resActionLine() {
+  const r = _resActionTarget
+  if (!r) return
+  const btn = document.getElementById('res-action-line-btn')
+  copyLineMsg(r, btn)
 }
 
 async function resActionDelete() {
