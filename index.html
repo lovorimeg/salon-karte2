@@ -350,7 +350,7 @@ select.input { appearance:none; }
     </div>
   </div>
   <div id="cal-day-view"  style="display:none"></div>
-  <div class="list" id="cal-day-list" style="padding-top:0"></div>
+  <div id="cal-day-list-wrap" style="display:none"><div class="list" id="cal-day-list" style="padding-top:0"></div></div>
 </div>
 
 <!-- ═══════════════ 顧客一覧画面 ═══════════════ -->
@@ -1307,9 +1307,10 @@ function setCalView(v) {
   document.getElementById('cal-btn-month').classList.toggle('active', v==='month')
   document.getElementById('cal-btn-week').classList.toggle('active', v==='week')
   document.getElementById('cal-btn-day').classList.toggle('active', v==='day')
-  document.getElementById('cal-month-view').style.display = v==='month' ? 'block' : 'none'
-  document.getElementById('cal-week-view').style.display  = v==='week'  ? 'block' : 'none'
-  document.getElementById('cal-day-view').style.display   = v==='day'   ? 'block' : 'none'
+  document.getElementById('cal-month-view').style.display    = v==='month' ? 'block' : 'none'
+  document.getElementById('cal-week-view').style.display     = v==='week'  ? 'block' : 'none'
+  document.getElementById('cal-day-view').style.display      = v==='day'   ? 'block' : 'none'
+  document.getElementById('cal-day-list-wrap').style.display = v==='day'   ? 'block' : 'none'
   renderCalendar()
 }
 
