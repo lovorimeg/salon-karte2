@@ -2161,27 +2161,52 @@ function renderDayCalendar() {
   renderCalDayList(ds)
 
   const dayEl = document.getElementById('cal-day-view')
+  const PX = DH_PX
+  const START = DH_START
+  const END = DH_END
+  const totalH = (END - START) * PX
+
   const dayEvts = allEvents.filter(ev => ev.date === ds)
-  const evBanner = dayEvts.length ? `<div style="padding:6px 16px 0">${dayEvts.map(ev =>
+  const evBanner = dayEvts.length ? `<div style="padding:6px 16px 4px">${dayEvts.map(ev =>
     `<span class="event-chip ${ev.type==='holiday'?'event-holiday':'event-other'}" style="display:inline-block;margin-right:4px" onclick="openAddEvent('${ds}')">${ev.title||'定休日'}</span>`
   ).join('')}</div>` : ''
+
   const dayRes = allReservations
     .filter(r => r.date === ds && r.status !== 'cancelled' && r.status !== 'no_show')
     .sort((a,b) => a.time.localeCompare(b.time))
 
-  const hours = Array.from({length:12}, (_,i) => i + 9) // 9〜20時
-  dayEl.innerHTML = evBanner + '<div class="day-slots">' + hours.map(h => {
-    const hStr = String(h).padStart(2,'0') + ':00'
-    const hRes = dayRes.filter(r => r.time >= hStr && r.time < String(h+1).padStart(2,'0')+':00')
-    return `<div class="day-slot">
-      <div class="day-slot-time">${hStr}</div>
-      <div class="day-slot-line">${hRes.map(r => `
-        <div class="day-slot-res ${r.status}" ontouchstart="lpStart(event,${JSON.stringify(r).replace(/"/g,'&quot;')})" ontouchend="lpEnd(event)" ontouchmove="lpMove(event)" onclick="openResActionMenu(${JSON.stringify(r).replace(/"/g,'&quot;')})">
-          <div class="day-slot-res-name">${r.time} ${r.customer_name}</div>
-          <div class="day-slot-res-info">${r.menu||'—'}${r.duration ? ' · '+fmtDur(r.duration) : ''}</div>
-        </div>`).join('')}</div>
+  // 時間ラベル + 横線
+  const hours = Array.from({length: END - START + 1}, (_,i) => i + START)
+  const lines = hours.map(h => {
+    const top = (h - START) * PX
+    const label = String(h).padStart(2,'0') + ':00'
+    return `<div style="position:absolute;top:${top}px;left:0;right:0;border-top:1px solid ${h===START?'transparent':'#f0f0f5'};">
+      <span style="position:absolute;left:4px;top:-8px;font-size:10px;color:#aaa;">${label}</span>
     </div>`
-  }).join('') + '</div>'
+  }).join('')
+
+  // 予約ブロック（施術時間分の高さ）
+  const blocks = dayRes.map(r => {
+    const [rh, rm] = r.time.split(':').map(Number)
+    const startMin = rh * 60 + rm
+    const dur = r.duration || 60
+    const topPx = ((startMin - START * 60) / 60) * PX
+    const hPx = Math.max((dur / 60) * PX, PX * 0.5)
+    const rj = JSON.stringify(r).replace(/"/g,'&quot;')
+    const statusCls = 'week-tg-block status-' + (r.status || 'reserved')
+    return `<div class="${statusCls}" style="top:${topPx}px;height:${hPx}px;left:52px;right:8px;"
+      ontouchstart="lpStart(event,${rj})" ontouchend="lpEnd(event)" ontouchmove="lpMove(event)"
+      onclick="openResActionMenu(${rj})">
+      <div style="font-size:13px;font-weight:700;">${r.time} ${r.customer_name}</div>
+      ${hPx > 36 ? `<div style="font-size:11px;opacity:0.85;">${r.menu||'—'}${r.duration?' · '+fmtDur(r.duration):''}</div>` : ''}
+    </div>`
+  }).join('')
+
+  dayEl.innerHTML = evBanner +
+    `<div style="position:relative;height:${totalH}px;margin:0 0 32px;">${lines}${blocks}</div>`
+
+  // 9時付近にスクロール
+  dayEl.parentElement.scrollTop = (9 - START) * PX
 }
 
 function renderCalDayList(ds) {
