@@ -1033,7 +1033,7 @@ function showCalendar() {
   setCalView('week')
 }
 function showList() { showScreen('screen-list'); loadCustomers() }
-function goSales()  { showScreen('screen-sales'); loadSalesSummary() }
+function goSales()  { showScreen('screen-sales'); setSalesView('day'); loadSalesSummary() }
 function backFromDetail() {
   if (detailFrom === 'reservations') showReservations()
   else if (detailFrom === 'home') showReservations()
