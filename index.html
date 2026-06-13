@@ -2341,9 +2341,21 @@ async function doDeleteCustomer() {
 // ═══════════════ カルテ ═══════════════
 async function loadVisits(customerId) {
   const list = document.getElementById('visit-list')
-  list.innerHTML = '<div class="loading">読み込み中...</div>'
+  // キャッシュがあれば即表示
+  const cached = _loadLocalCache({ action:'getVisits', customerId })
+  if (cached) {
+    _lastVisits = cached
+    renderVisits(cached)
+  } else {
+    list.innerHTML = '<div class="loading">読み込み中...</div>'
+  }
   const data = await api({ action:'getVisits', customerId })
   _lastVisits = Array.isArray(data) ? data : []
+  renderVisits(data)
+}
+
+function renderVisits(data) {
+  const list = document.getElementById('visit-list')
   if (!Array.isArray(data)||!data.length) { list.innerHTML='<div class="empty">カルテがありません</div>'; return }
   list.innerHTML = data.map(v => `
     <div class="visit-card">
