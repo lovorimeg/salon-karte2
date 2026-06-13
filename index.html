@@ -302,24 +302,6 @@ select.input { appearance:none; }
   </div>
 </div>
 
-<!-- ═══════════════ 予約一覧画面 ═══════════════ -->
-<div id="screen-reservations" style="display:none">
-  <div class="header">
-    <div class="header-row">
-      <h1>予約一覧</h1>
-      <button class="btn-add" onclick="openAddReservation(null)">＋</button>
-    </div>
-    <input class="search" type="search" placeholder="顧客名・メニューで検索" oninput="filterReservations(this.value)" />
-    <div style="display:flex;gap:6px;padding:8px 0 2px;">
-      <button id="rf-all"   onclick="setResFilter('all')"   style="padding:5px 12px;border-radius:20px;border:1.5px solid #007aff;background:#007aff;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">すべて</button>
-      <button id="rf-today" onclick="setResFilter('today')" style="padding:5px 12px;border-radius:20px;border:1.5px solid #e5e5ea;background:#fff;color:#555;font-size:13px;cursor:pointer;">今日</button>
-      <button id="rf-tomorrow" onclick="setResFilter('tomorrow')" style="padding:5px 12px;border-radius:20px;border:1.5px solid #e5e5ea;background:#fff;color:#555;font-size:13px;cursor:pointer;">明日</button>
-      <button id="rf-week"  onclick="setResFilter('week')"  style="padding:5px 12px;border-radius:20px;border:1.5px solid #e5e5ea;background:#fff;color:#555;font-size:13px;cursor:pointer;">今週</button>
-    </div>
-  </div>
-  <div class="list" id="res-list"><div class="loading">読み込み中...</div></div>
-</div>
-
 <!-- ═══════════════ カレンダー画面 ═══════════════ -->
 <div id="screen-calendar" style="display:none" ontouchstart="calSwipeStart(event)" ontouchend="calSwipeEnd(event)">
   <div style="background:#fff; border-bottom:1px solid #e5e5ea; position:sticky; top:0; z-index:10;">
@@ -429,15 +411,15 @@ select.input { appearance:none; }
 
 <!-- ═══════════════ ボトムナビ ═══════════════ -->
 <nav class="bottom-nav">
-  <button class="nav-btn active" id="nav-res" onclick="showReservations()">
+  <button class="nav-btn" id="nav-add" onclick="openAddReservation(null)">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+    <span>予約追加</span>
+  </button>
+  <button class="nav-btn active" id="nav-cal" onclick="showCalendar()">
     <div class="nav-btn-wrap">
-      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg>
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
       <span id="res-badge" class="nav-badge" style="display:none"></span>
     </div>
-    <span>予約</span>
-  </button>
-  <button class="nav-btn" id="nav-cal" onclick="showCalendar()">
-    <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
     <span>カレンダー</span>
   </button>
   <button class="nav-btn" id="nav-cust" onclick="showList()">
@@ -1031,16 +1013,16 @@ function showError(id, msg) {
 function hideError(id) { document.getElementById(id).style.display = 'none' }
 
 // ── ナビ管理 ──
-const allScreens = ['screen-home','screen-reservations','screen-calendar','screen-list','screen-detail','screen-sales']
+const allScreens = ['screen-home','screen-calendar','screen-list','screen-detail','screen-sales']
 function showScreen(id) {
   allScreens.forEach(s => document.getElementById(s).style.display = s===id ? 'block' : 'none')
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
-  const navMap = { 'screen-home':'nav-res','screen-reservations':'nav-res','screen-calendar':'nav-cal','screen-list':'nav-cust','screen-detail':'nav-cust','screen-sales':null }
+  const navMap = { 'screen-home':'nav-cal','screen-calendar':'nav-cal','screen-list':'nav-cust','screen-detail':'nav-cust','screen-sales':null }
   if (navMap[id]) document.getElementById(navMap[id]).classList.add('active')
 }
 
 function showHome() { showScreen('screen-home'); loadHome() }
-function showReservations() { showScreen('screen-reservations'); loadReservationList() }
+function showReservations() { showCalendar() }
 function showCalendar() {
   showScreen('screen-calendar')
   setCalView('week')
@@ -1048,11 +1030,10 @@ function showCalendar() {
 function showList() { showScreen('screen-list'); loadCustomers() }
 function goSales()  { showScreen('screen-sales'); setSalesView('day'); loadSalesSummary() }
 function backFromDetail() {
-  if (detailFrom === 'reservations') showReservations()
-  else if (detailFrom === 'home') showReservations()
-  else showList()
+  if (detailFrom === 'list') showList()
+  else showCalendar()
 }
-function backFromSales() { showReservations() }
+function backFromSales() { showCalendar() }
 
 // ── 一括読み込み ──
 function _applyAllData(custs, ress, menus, evts) {
@@ -1072,8 +1053,7 @@ async function loadAll() {
   if (hasCache) {
     _applyAllData(cachedC, cachedR, cachedM, cachedE)
     updateResBadge()
-    showReservations()
-    if (document.getElementById('screen-calendar').style.display !== 'none') renderCalendar()
+    showCalendar()
   }
   // バックグラウンドで最新データ取得
   const [custs, ress, menus, evts] = await Promise.all([
@@ -1084,7 +1064,7 @@ async function loadAll() {
   ])
   _applyAllData(custs, ress, menus, evts)
   updateResBadge()
-  if (!hasCache) showReservations()
+  if (!hasCache) showCalendar()
   // 表示中の画面も更新
   if (document.getElementById('screen-calendar').style.display !== 'none') renderCalendar()
 }
@@ -1183,7 +1163,6 @@ function setResFilter(f) {
     btn.style.borderColor = active ? '#007aff' : '#e5e5ea'
     btn.style.fontWeight = active ? '600' : 'normal'
   })
-  loadReservationList()
 }
 
 function loadReservationList() {
@@ -2801,7 +2780,6 @@ async function submitEditReservation() {
   allReservations = await api({ action:'getReservations', filter:'' }).then(d => Array.isArray(d)?d:allReservations)
   updateResBadge(); loadHome()
   renderCalendar()
-  loadReservationList()
 }
 
 async function doDeleteReservation() {
@@ -2809,7 +2787,7 @@ async function doDeleteReservation() {
   await api({ action:'deleteReservation', id:editingResId })
   closeModal('modal-edit-res'); toast('削除しました')
   allReservations = allReservations.filter(r => r.id !== editingResId)
-  updateResBadge(); loadHome(); renderCalendar(); loadReservationList()
+  updateResBadge(); renderCalendar()
 }
 
 function selectResPayment(m) {
