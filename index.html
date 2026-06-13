@@ -1,0 +1,3171 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" sizes="180x180" href="https://files.catbox.moe/wkgy1z.png">
+<link rel="icon" type="image/png" href="https://files.catbox.moe/wkgy1z.png">
+<meta name="apple-mobile-web-app-title" content="美容室カルテ">
+<title>美容室カルテ</title>
+<style>
+* { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+body { font-family:-apple-system,'Hiragino Sans',sans-serif; background:#f5f5f7; color:#1c1c1e; padding-bottom:70px; }
+
+/* ── ヘッダー ── */
+.header { background:#fff; padding:12px 16px; border-bottom:1px solid #e5e5ea; position:sticky; top:0; z-index:10; }
+.header-row { display:flex; align-items:center; justify-content:space-between; }
+.header h1 { font-size:20px; font-weight:700; }
+.search { width:100%; margin-top:10px; padding:10px 14px; border-radius:10px; border:none; background:#f0f0f5; font-size:16px; }
+
+/* ── ボタン ── */
+.btn-add  { width:44px; height:44px; border-radius:22px; background:#1c1c1e; color:#fff; border:none; font-size:24px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+.btn-icon { width:44px; height:44px; border-radius:22px; background:#f0f0f5; color:#1c1c1e; border:none; font-size:18px; cursor:pointer; }
+.btn-primary   { width:100%; padding:15px; border-radius:12px; background:#1c1c1e; color:#fff; border:none; font-size:17px; font-weight:600; cursor:pointer; margin-top:8px; }
+.btn-secondary { width:100%; padding:15px; border-radius:12px; background:#f0f0f5; color:#1c1c1e; border:none; font-size:17px; cursor:pointer; margin-top:8px; }
+.btn-danger    { width:100%; padding:14px; border-radius:12px; background:#fff0f0; color:#e33; border:1px solid #fcc; font-size:16px; cursor:pointer; margin-top:8px; }
+.btn-small { padding:8px 14px; border-radius:8px; background:#f0f0f5; color:#1c1c1e; border:none; font-size:14px; cursor:pointer; }
+.btn-blue  { padding:8px 14px; border-radius:8px; background:#007aff; color:#fff; border:none; font-size:14px; cursor:pointer; }
+.header-btns { display:flex; gap:8px; align-items:center; }
+
+/* ── リスト・カード ── */
+.list { padding:12px 16px; }
+.card { background:#fff; border-radius:14px; padding:16px; margin-bottom:10px; border:1px solid #e5e5ea; display:flex; align-items:center; justify-content:space-between; cursor:pointer; }
+.card:active { background:#f9f9f9; }
+.card-name { font-size:17px; font-weight:600; }
+.card-sub  { font-size:13px; color:#888; margin-top:3px; }
+.chevron   { color:#c7c7cc; font-size:20px; }
+
+/* ── モーダル ── */
+.overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:100; align-items:flex-end; justify-content:center; }
+.overlay.show { display:flex; }
+.modal { background:#fff; width:100%; max-width:480px; border-radius:20px 20px 0 0; padding:24px 20px 40px; max-height:92vh; overflow-y:auto; }
+.modal-handle { width:40px; height:4px; background:#ddd; border-radius:2px; margin:0 auto 20px; }
+.modal-title  { font-size:20px; font-weight:700; margin-bottom:20px; }
+
+/* ── フォーム ── */
+.field { margin-bottom:16px; }
+.label { display:block; font-size:12px; color:#8e8e93; font-weight:600; margin-bottom:6px; letter-spacing:0.5px; }
+.input { width:100%; padding:13px 14px; border-radius:10px; border:1px solid #e5e5ea; font-size:16px; background:#fafafa; }
+.input:focus { outline:none; border-color:#007aff; background:#fff; }
+textarea.input { min-height:80px; resize:none; }
+select.input { appearance:none; }
+.row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+
+/* ── 支払方法 ── */
+.payment-group { display:flex; gap:8px; }
+.payment-btn { flex:1; padding:11px 6px; border-radius:10px; border:1.5px solid #e5e5ea; background:#fafafa; font-size:14px; cursor:pointer; text-align:center; color:#555; }
+.payment-btn.active { border-color:#1c1c1e; background:#1c1c1e; color:#fff; font-weight:600; }
+
+/* ── ステータスボタン ── */
+.status-group { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.status-btn { padding:10px 6px; border-radius:10px; border:1.5px solid #e5e5ea; background:#fafafa; font-size:13px; cursor:pointer; text-align:center; color:#555; }
+.status-btn.active-reserved  { border-color:#007aff; background:#007aff; color:#fff; font-weight:600; }
+.status-btn.active-visited   { border-color:#34c759; background:#34c759; color:#fff; font-weight:600; }
+.status-btn.active-cancelled { border-color:#8e8e93; background:#8e8e93; color:#fff; font-weight:600; }
+.status-btn.active-no_show   { border-color:#ff3b30; background:#ff3b30; color:#fff; font-weight:600; }
+
+/* ── 詳細 ── */
+.detail-row   { padding:12px 0; border-bottom:1px solid #f2f2f7; }
+.detail-label { font-size:12px; color:#8e8e93; margin-bottom:3px; }
+.detail-value { font-size:16px; }
+
+/* ── カルテカード ── */
+.visit-card    { background:#f9f9f9; border-radius:12px; padding:14px; margin-bottom:8px; }
+.visit-date    { font-size:15px; font-weight:600; }
+.visit-menu    { font-size:14px; color:#555; margin-top:3px; }
+.visit-price   { font-size:14px; color:#007aff; margin-top:3px; font-weight:600; }
+.visit-actions { display:flex; gap:6px; margin-top:8px; }
+.pay-badge { display:inline-block; font-size:11px; color:#fff; border-radius:6px; padding:2px 7px; margin-top:3px; }
+.pay-cash { background:#34c759; } .pay-card { background:#007aff; } .pay-qr { background:#ff9500; }
+
+/* ── 予約カード ── */
+.res-card { background:#fff; border-radius:14px; padding:14px 16px; margin-bottom:8px; border:1px solid #e5e5ea; cursor:pointer; touch-action:pan-y; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
+.res-card:active { background:#f9f9f9; }
+.res-time-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; }
+.res-time  { font-size:16px; font-weight:700; }
+.res-name  { font-size:15px; font-weight:600; margin-bottom:2px; }
+.res-menu  { font-size:13px; color:#555; }
+.res-price { font-size:13px; color:#007aff; font-weight:600; }
+.res-badge { font-size:11px; padding:3px 9px; border-radius:12px; color:#fff; font-weight:600; }
+.badge-reserved  { background:#007aff; }
+.badge-visited   { background:#34c759; }
+.badge-cancelled { background:#8e8e93; }
+.badge-no_show   { background:#ff3b30; }
+
+/* ── ホーム ── */
+.stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
+.stat-card  { background:#fff; border-radius:14px; padding:14px; border:1px solid #e5e5ea; text-align:center; }
+.stat-label { font-size:12px; color:#8e8e93; margin-bottom:6px; }
+.stat-value { font-size:22px; font-weight:700; }
+.next-res-card { background:#fff; color:#1c1c1e; border-radius:14px; padding:16px; margin-bottom:16px; cursor:pointer; border:1px solid #e5e5ea; }
+.next-res-label { font-size:12px; color:#8e8e93; margin-bottom:4px; }
+.next-res-time  { font-size:24px; font-weight:700; margin-bottom:2px; }
+.next-res-name  { font-size:16px; }
+.next-res-menu  { font-size:13px; opacity:.7; margin-top:2px; }
+
+/* ── カレンダー ── */
+.cal-nav { display:flex; align-items:center; padding:4px 4px 4px 4px; gap:2px; }
+.cal-nav-title { font-size:15px; font-weight:700; flex:1; text-align:center; }
+.cal-nav-btn { background:none; border:none; font-size:22px; cursor:pointer; color:#1c1c1e; padding:2px 8px; }
+.cal-view-toggle { display:flex; gap:0; background:#f0f0f5; border-radius:8px; padding:2px; flex-shrink:0; }
+.cal-view-btn { padding:5px 10px; border:none; background:none; border-radius:6px; font-size:13px; cursor:pointer; color:#555; }
+.cal-view-btn.active { background:#fff; font-weight:600; color:#1c1c1e; box-shadow:0 1px 3px rgba(0,0,0,0.1); }
+
+/* 月カレンダー */
+.month-grid { display:grid; grid-template-columns:repeat(7,1fr); padding:0 8px 8px; }
+.month-dow  { text-align:center; font-size:11px; font-weight:600; color:#8e8e93; padding:6px 0; }
+.month-dow.sun { color:#e33; } .month-dow.sat { color:#007aff; }
+.month-cell { min-height:48px; padding:4px 2px; cursor:pointer; border-radius:8px; display:flex; flex-direction:column; align-items:center; }
+.month-cell:active { background:#f0f0f5; }
+.month-cell.selected { background:#f0f0f5; }
+.month-num  { width:28px; height:28px; line-height:28px; text-align:center; font-size:13px; border-radius:50%; }
+.month-cell.today .month-num  { background:#1c1c1e; color:#fff; font-weight:700; }
+.month-cell.sun .month-num { color:#e33; }
+.month-cell.sat .month-num { color:#007aff; }
+.month-cell.today .month-num { color:#fff; }
+.month-dot  { display:flex; gap:2px; margin-top:2px; height:5px; }
+.month-dot span { width:5px; height:5px; border-radius:50%; background:#007aff; display:block; }
+
+/* 週タイムグリッド */
+.week-tg-wrap   { display:flex; flex-direction:column; overflow:hidden; height:calc(100dvh - 120px); -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+.week-tg-header { display:grid; grid-template-columns:44px repeat(7,1fr); border-bottom:1px solid #e5e5ea; background:#fff; flex-shrink:0; }
+.week-tg-hcell  { text-align:center; padding:3px 2px; }
+.week-tg-hday   { font-size:10px; color:#8e8e93; }
+.week-tg-hnum   { font-size:15px; font-weight:600; width:26px; height:26px; line-height:26px; border-radius:50%; margin:0 auto 1px; }
+.week-tg-hnum.today-num { background:#1c1c1e; color:#fff; }
+.week-tg-hnum.sun-num   { color:#e33; }
+.week-tg-hnum.sat-num   { color:#007aff; }
+.week-tg-scroll { overflow-y:auto; flex:1; min-height:0; }
+.week-tg-body   { display:grid; grid-template-columns:44px repeat(7,1fr); position:relative; }
+.week-tg-times  { display:flex; flex-direction:column; }
+.week-tg-time   { position:absolute; right:5px; font-size:10px; color:#888; transform:translateY(-50%); line-height:1; white-space:nowrap; font-weight:500; }
+.week-tg-col    { position:relative; border-left:1px solid #f0f0f5; cursor:crosshair; }
+.week-tg-col.today-col { background:rgba(0,122,255,0.03); }
+.week-tg-col.weekend-col { background:rgba(0,0,0,0.015); }
+.week-tg-hline  { position:absolute; left:0; right:0; border-top:1px solid #c8ccd8; }
+.week-tg-hline.half { border-top:1px dashed #dde0e8; }
+.week-tg-block  { position:absolute; left:1px; right:1px; border-radius:6px; padding:3px 5px; overflow:hidden; cursor:pointer; font-size:11px; line-height:1.3; touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
+.week-tg-block.status-reserved  { background:#ff6b9d; color:#fff; }
+.week-tg-block.status-visited   { background:#ff9500; color:#fff; }
+.week-tg-block.status-cancelled { background:#c7c7cc; color:#fff; }
+.week-tg-block.status-no_show   { background:#ff3b30; color:#fff; }
+.week-tg-bname  { font-weight:600; font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.week-tg-bmenu  { font-size:10px; opacity:.85; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* 日カレンダー */
+.day-slots { padding:0 16px 8px; }
+.day-slot  { display:flex; gap:10px; min-height:52px; }
+.day-slot-time { width:44px; font-size:12px; color:#aaa; padding-top:4px; flex-shrink:0; text-align:right; }
+.day-slot-line { flex:1; border-top:1px solid #f0f0f5; padding:4px 0 0; }
+.day-slot-res  { background:#e8f0fe; border-left:3px solid #007aff; border-radius:0 8px 8px 0; padding:6px 8px; margin-bottom:4px; cursor:pointer; touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
+.day-slot-res.visited   { background:#e8fbe8; border-left-color:#34c759; }
+.day-slot-res.cancelled { background:#f5f5f5; border-left-color:#8e8e93; }
+.day-slot-res.no_show   { background:#fff0f0; border-left-color:#ff3b30; }
+.day-slot-res-name { font-size:14px; font-weight:600; }
+.day-slot-res-info { font-size:12px; color:#555; margin-top:1px; }
+
+/* ── 移動モード ── */
+.move-banner { position:sticky; top:0; z-index:20; background:#ff9500; color:#fff; padding:10px 16px; display:flex; align-items:center; justify-content:space-between; font-size:14px; font-weight:600; }
+.move-banner-cancel { background:rgba(255,255,255,0.25); border:none; color:#fff; padding:6px 14px; border-radius:20px; font-size:13px; cursor:pointer; }
+.month-cell.move-target { outline:2px solid #ff9500; }
+.week-tg-col.move-col-hover { background:rgba(255,149,0,0.08); }
+/* 時間選択ブロック */
+.time-select-block { position:absolute; left:2px; right:2px; background:rgba(52,199,89,0.4); border:2px solid #34c759; border-radius:8px; pointer-events:none; z-index:4; display:flex; align-items:flex-start; padding:4px 6px; }
+.time-select-label { font-size:11px; font-weight:700; color:#1a7a30; background:rgba(255,255,255,0.85); border-radius:4px; padding:1px 5px; white-space:nowrap; }
+/* 高速移動モード */
+.fmove-banner { position:fixed; top:0; left:0; right:0; z-index:200; background:#007aff; color:#fff; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; font-size:14px; font-weight:600; padding-top:calc(12px + env(safe-area-inset-top)); }
+.fmove-banner-cancel { background:rgba(255,255,255,0.25); border:none; color:#fff; padding:6px 14px; border-radius:20px; font-size:13px; cursor:pointer; }
+.fmove-highlight { outline:3px solid #007aff !important; }
+.week-tg-block.fmove-source { opacity:0.5; outline:2px dashed #007aff; }
+.undo-toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:#1c1c1e; color:#fff; padding:12px 16px; border-radius:20px; font-size:14px; z-index:300; display:flex; align-items:center; gap:10px; white-space:nowrap; }
+.undo-btn { background:rgba(255,255,255,0.2); border:none; color:#fff; padding:6px 14px; border-radius:14px; font-size:13px; font-weight:600; cursor:pointer; }
+/* ドラッグ */
+.week-nav-zone { position:fixed; top:0; bottom:0; width:52px; z-index:999; display:flex; align-items:center; justify-content:center; pointer-events:none; transition:background 0.2s; }
+.week-nav-zone.left  { left:0; }
+.week-nav-zone.right { right:0; }
+.week-nav-zone.active { background:rgba(0,122,255,0.18); }
+.week-nav-zone-arrow { font-size:28px; color:#007aff; opacity:0; transition:opacity 0.2s; }
+.week-nav-zone.active .week-nav-zone-arrow { opacity:1; }
+.drag-ghost { position:fixed; z-index:1000; pointer-events:none; border-radius:10px; padding:8px 12px; color:#fff; font-size:13px; font-weight:700; box-shadow:0 10px 28px rgba(0,0,0,0.45); transform:scale(1.06); white-space:nowrap; max-width:160px; overflow:hidden; will-change:left,top; }
+.drag-ghost-time { font-size:18px; font-weight:800; letter-spacing:0.5px; }
+.drag-ghost-name { font-size:12px; opacity:0.9; margin-top:1px; }
+.drag-dim   { opacity:0.2 !important; transition:opacity 0.15s; }
+.drag-drop-indicator { position:absolute; left:2px; right:2px; border-radius:6px; border:2px dashed rgba(255,255,255,0.8); pointer-events:none; z-index:5; display:flex; align-items:flex-start; padding:4px 6px; }
+.drag-drop-indicator-time { font-size:11px; font-weight:700; color:#fff; background:rgba(0,0,0,0.35); border-radius:4px; padding:1px 5px; }
+.drag-time-label { position:fixed; z-index:1001; pointer-events:none; background:#1c1c1e; color:#fff; font-size:14px; font-weight:700; padding:6px 14px; border-radius:20px; white-space:nowrap; box-shadow:0 4px 12px rgba(0,0,0,0.3); }
+
+/* ── 売上集計 ── */
+.summary-card       { background:#fff; border-radius:14px; padding:16px; margin-bottom:12px; border:1px solid #e5e5ea; }
+.summary-date       { font-size:13px; color:#888; margin-bottom:6px; }
+.summary-total      { font-size:26px; font-weight:700; margin-bottom:12px; }
+.summary-grid       { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:12px; }
+.summary-cell       { background:#f5f5f7; border-radius:10px; padding:8px; text-align:center; }
+.summary-cell-label { font-size:11px; color:#888; margin-bottom:2px; }
+.summary-cell-val   { font-size:14px; font-weight:600; }
+.summary-items      { border-top:1px solid #f0f0f5; padding-top:10px; }
+.summary-item       { display:flex; justify-content:space-between; font-size:13px; padding:4px 0; color:#555; }
+
+/* ── セクション ── */
+.section-header { display:flex; align-items:center; justify-content:space-between; margin:20px 0 10px; }
+.section-title  { font-size:16px; font-weight:700; }
+
+/* ── その他 ── */
+.empty     { text-align:center; color:#aaa; padding:40px 20px; font-size:15px; }
+.error-msg { color:#e33; font-size:14px; padding:10px; background:#fff0f0; border-radius:8px; margin:8px 0; display:none; }
+.loading   { text-align:center; color:#aaa; padding:30px; }
+.toast     { position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:#1c1c1e; color:#fff; padding:12px 24px; border-radius:20px; font-size:15px; z-index:200; display:none; white-space:nowrap; }
+.toast.show { display:block; }
+.date-label { font-size:13px; font-weight:600; color:#8e8e93; margin:12px 0 6px; }
+
+/* ── お会計 ── */
+.checkout-overlay { display:none; position:fixed; inset:0; background:#f7f3ee; z-index:200; overflow-y:auto; padding-bottom:40px; }
+.checkout-overlay.show { display:block; }
+.checkout-header { display:flex; align-items:center; background:transparent; padding:14px 16px; position:sticky; top:0; z-index:10; }
+.checkout-header-title { flex:1; text-align:center; font-size:15px; font-weight:600; color:#888; letter-spacing:2px; }
+.checkout-close { width:36px; height:36px; border-radius:18px; background:rgba(0,0,0,0.08); border:none; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#555; }
+.checkout-body { padding:0 16px 20px; max-width:440px; margin:0 auto; }
+.checkout-receipt { background:#fff; border-radius:20px; padding:28px 24px; box-shadow:0 4px 24px rgba(0,0,0,0.08); margin-bottom:20px; }
+.checkout-salon { text-align:center; font-size:11px; letter-spacing:6px; color:#aaa; margin-bottom:16px; }
+.checkout-customer { text-align:center; font-size:22px; font-weight:800; color:#1c1c1e; margin-bottom:4px; }
+.checkout-date { text-align:center; font-size:13px; color:#aaa; margin-bottom:20px; }
+.checkout-divider { border:none; border-top:1px dashed #ddd; margin:16px 0; }
+.checkout-section-title { text-align:center; font-size:11px; font-weight:700; letter-spacing:5px; color:#bbb; margin:0 0 14px; }
+.checkout-item { display:flex; align-items:center; justify-content:space-between; padding:9px 0; border-bottom:1px solid #f5f5f5; gap:8px; }
+.checkout-item-name { font-size:15px; flex:1; color:#333; }
+.checkout-item-price { font-size:15px; font-weight:700; color:#1c1c1e; white-space:nowrap; }
+.checkout-item-btns { display:flex; gap:4px; flex-shrink:0; }
+.checkout-edit-btn { width:28px; height:28px; border-radius:8px; border:none; background:#f0f0f5; color:#888; font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+.checkout-del-btn  { width:28px; height:28px; border-radius:8px; border:none; background:#fff0f0; color:#e33; font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+.checkout-add-btn { display:block; width:100%; text-align:center; background:none; border:1.5px dashed #ddd; border-radius:10px; color:#aaa; font-size:14px; cursor:pointer; padding:10px 0; margin-top:10px; }
+.checkout-total-area { margin-top:16px; padding-top:14px; border-top:2px solid #1c1c1e; display:flex; justify-content:space-between; align-items:baseline; }
+.checkout-total-label { font-size:13px; font-weight:700; letter-spacing:3px; color:#555; }
+.checkout-total-amount { font-size:30px; font-weight:900; color:#1c1c1e; letter-spacing:1px; }
+.checkout-pay-title { text-align:center; font-size:11px; font-weight:700; letter-spacing:5px; color:#888; margin:0 0 12px; }
+.checkout-pay-group { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:20px; }
+.checkout-pay-btn { padding:14px; border-radius:14px; border:2px solid #e5e5ea; background:#fff; font-size:15px; cursor:pointer; color:#888; font-weight:600; transition:all 0.15s; }
+.checkout-pay-btn.active { border-color:#1c1c1e; background:#1c1c1e; color:#fff; }
+.checkout-confirm-btn { width:100%; padding:18px; border-radius:30px; background:#1c1c1e; color:#fff; font-size:18px; font-weight:800; border:none; cursor:pointer; letter-spacing:3px; box-shadow:0 4px 20px rgba(0,0,0,0.2); }
+
+/* ── イベント ── */
+.event-chip { font-size:10px; border-radius:4px; padding:1px 5px; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer; display:block; }
+.event-holiday { background:#ff3b30; color:#fff; }
+.event-other   { background:#8b5cf6; color:#fff; }
+.week-allday   { display:grid; grid-template-columns:44px repeat(7,1fr); border-bottom:1px solid #e5e5ea; background:#fafafa; flex-shrink:0; }
+.week-allday-label { display:flex; align-items:center; justify-content:flex-end; padding-right:5px; font-size:9px; color:#aaa; min-height:18px; }
+.week-allday-cell  { padding:2px 1px; border-left:1px solid #f0f0f5; min-height:18px; }
+
+/* ── 顧客ピッカー ── */
+.cust-drop { background:#fff; border:1.5px solid #e5e5ea; border-radius:10px; margin-top:6px; max-height:220px; overflow-y:auto; box-shadow:0 4px 16px rgba(0,0,0,0.10); }
+.cust-drop-item { padding:12px 14px; font-size:15px; cursor:pointer; border-bottom:1px solid #f0f0f5; display:flex; align-items:center; gap:10px; }
+.cust-drop-item:last-child { border-bottom:none; }
+.cust-drop-item:active { background:#f0f0f5; }
+.cust-drop-item.selected { background:#f0f5ff; }
+.cust-drop-name { font-weight:600; }
+.cust-drop-kana { font-size:12px; color:#888; margin-top:1px; }
+.cust-drop-phone { font-size:12px; color:#aaa; margin-left:auto; white-space:nowrap; }
+.cust-input-selected { background:#f0f5ff !important; border-color:#007aff !important; color:#007aff; font-weight:600; }
+.cust-row-btns { display:flex; flex-wrap:wrap; gap:5px; margin-top:7px; }
+.cust-row-btn { padding:5px 9px; border-radius:8px; border:1.5px solid #e5e5ea; background:#fafafa; font-size:13px; cursor:pointer; color:#555; line-height:1; }
+.cust-row-btn.active { border-color:#007aff; background:#007aff; color:#fff; font-weight:700; }
+
+/* ── ボトムナビ ── */
+.bottom-nav { position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid #e5e5ea; display:flex; z-index:50; padding-bottom:env(safe-area-inset-bottom,0); }
+.nav-btn { flex:1; display:flex; flex-direction:column; align-items:center; padding:10px 0 10px; background:none; border:none; font-size:10px; color:#b0b0b0; cursor:pointer; gap:4px; }
+.nav-btn svg { width:24px; height:24px; stroke:#b0b0b0; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; transition:stroke 0.2s; }
+.nav-btn.active { color:#2ec4b6; }
+.nav-btn.active svg { stroke:#2ec4b6; }
+.nav-badge { position:absolute; top:-4px; right:-6px; background:#ff3b30; color:#fff; font-size:10px; border-radius:10px; padding:1px 5px; min-width:18px; text-align:center; font-weight:700; }
+.nav-btn-wrap { position:relative; display:flex; align-items:center; justify-content:center; }
+</style>
+</head>
+<body oncontextmenu="return false">
+
+<!-- ═══════════════ ホーム画面 ═══════════════ -->
+<div id="screen-home" style="display:none">
+  <div class="header">
+    <div class="header-row">
+      <h1>美容室カルテ</h1>
+      <button class="btn-add" onclick="openAddReservation(null)">＋</button>
+    </div>
+  </div>
+  <div class="list">
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-label">本日の予約</div><div class="stat-value" id="home-today-count">—</div></div>
+      <div class="stat-card"><div class="stat-label">今週の予約</div><div class="stat-value" id="home-week-count">—</div></div>
+    </div>
+    <div id="home-next-res"></div>
+    <div id="home-birthday"></div>
+    <div class="section-header"><div class="section-title">本日の予約</div></div>
+    <div id="home-today-list"><div class="loading">読み込み中...</div></div>
+  </div>
+</div>
+
+<!-- ═══════════════ 予約一覧画面 ═══════════════ -->
+<div id="screen-reservations" style="display:none">
+  <div class="header">
+    <div class="header-row">
+      <h1>予約一覧</h1>
+      <button class="btn-add" onclick="openAddReservation(null)">＋</button>
+    </div>
+    <input class="search" type="search" placeholder="顧客名・メニューで検索" oninput="filterReservations(this.value)" />
+    <div style="display:flex;gap:6px;padding:8px 0 2px;">
+      <button id="rf-all"   onclick="setResFilter('all')"   style="padding:5px 12px;border-radius:20px;border:1.5px solid #007aff;background:#007aff;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">すべて</button>
+      <button id="rf-today" onclick="setResFilter('today')" style="padding:5px 12px;border-radius:20px;border:1.5px solid #e5e5ea;background:#fff;color:#555;font-size:13px;cursor:pointer;">今日</button>
+      <button id="rf-tomorrow" onclick="setResFilter('tomorrow')" style="padding:5px 12px;border-radius:20px;border:1.5px solid #e5e5ea;background:#fff;color:#555;font-size:13px;cursor:pointer;">明日</button>
+      <button id="rf-week"  onclick="setResFilter('week')"  style="padding:5px 12px;border-radius:20px;border:1.5px solid #e5e5ea;background:#fff;color:#555;font-size:13px;cursor:pointer;">今週</button>
+    </div>
+  </div>
+  <div class="list" id="res-list"><div class="loading">読み込み中...</div></div>
+</div>
+
+<!-- ═══════════════ カレンダー画面 ═══════════════ -->
+<div id="screen-calendar" style="display:none" ontouchstart="calSwipeStart(event)" ontouchend="calSwipeEnd(event)">
+  <div style="background:#fff; border-bottom:1px solid #e5e5ea; position:sticky; top:0; z-index:10;">
+    <div class="cal-nav">
+      <button class="cal-nav-btn" onclick="calPrev()">‹</button>
+      <div class="cal-nav-title" id="cal-title"></div>
+      <button class="cal-nav-btn" onclick="calNext()">›</button>
+      <div class="cal-view-toggle">
+        <button class="cal-view-btn active" id="cal-btn-month" onclick="setCalView('month')">月</button>
+        <button class="cal-view-btn"        id="cal-btn-week"  onclick="setCalView('week')">週</button>
+        <button class="cal-view-btn"        id="cal-btn-day"   onclick="setCalView('day')">日</button>
+      </div>
+      <div style="display:flex;gap:6px;margin-left:4px;">
+        <button class="btn-icon" onclick="openAddEvent()" style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:18px;background:#f0f0f5;border:none;cursor:pointer;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1c1c1e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h4v4H8z"/></svg>
+        </button>
+        <button onclick="openAddReservation(null)" style="width:36px;height:36px;border-radius:18px;background:#1c1c1e;color:#fff;border:none;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;">＋</button>
+      </div>
+    </div>
+  </div>
+  <div id="cal-month-view"><div class="month-grid" id="month-grid"></div></div>
+  <div id="cal-week-view" style="display:none">
+    <div class="week-tg-wrap">
+      <div class="week-tg-header">
+        <div></div>
+        <div class="week-tg-hcell" id="wh0"></div>
+        <div class="week-tg-hcell" id="wh1"></div>
+        <div class="week-tg-hcell" id="wh2"></div>
+        <div class="week-tg-hcell" id="wh3"></div>
+        <div class="week-tg-hcell" id="wh4"></div>
+        <div class="week-tg-hcell" id="wh5"></div>
+        <div class="week-tg-hcell" id="wh6"></div>
+      </div>
+      <div class="week-allday" id="week-allday-row">
+        <div class="week-allday-label">終日</div>
+        <div class="week-allday-cell" id="wad0"></div>
+        <div class="week-allday-cell" id="wad1"></div>
+        <div class="week-allday-cell" id="wad2"></div>
+        <div class="week-allday-cell" id="wad3"></div>
+        <div class="week-allday-cell" id="wad4"></div>
+        <div class="week-allday-cell" id="wad5"></div>
+        <div class="week-allday-cell" id="wad6"></div>
+      </div>
+      <div class="week-tg-scroll" id="week-tg-scroll">
+        <div class="week-tg-body" id="week-tg-body"></div>
+      </div>
+    </div>
+  </div>
+  <div id="cal-day-view"  style="display:none"></div>
+  <div class="list" id="cal-day-list" style="padding-top:0"></div>
+</div>
+
+<!-- ═══════════════ 顧客一覧画面 ═══════════════ -->
+<div id="screen-list" style="display:none">
+  <div class="header">
+    <div class="header-row">
+      <h1>顧客一覧</h1>
+      <div class="header-btns">
+        <button class="btn-icon" onclick="goSales()">¥</button>
+        <button class="btn-add" onclick="openAddCustomer()">＋</button>
+      </div>
+    </div>
+    <input class="search" type="search" placeholder="名前・フリガナで検索" oninput="filterCustomers(this.value)" />
+  </div>
+  <div class="list" id="customer-list"><div class="loading">読み込み中...</div></div>
+</div>
+
+<!-- ═══════════════ 顧客詳細画面 ═══════════════ -->
+<div id="screen-detail" style="display:none">
+  <div class="header">
+    <div class="header-row">
+      <button class="btn-small" onclick="backFromDetail()">← 戻る</button>
+      <h1 id="detail-name">詳細</h1>
+      <button class="btn-small" onclick="openEditCustomer()">編集</button>
+    </div>
+  </div>
+  <div class="list">
+    <div id="detail-info"></div>
+    <div class="section-header">
+      <div class="section-title">予約</div>
+      <button class="btn-blue" onclick="openAddReservation(currentCustomer.id)">＋予約</button>
+    </div>
+    <div id="detail-res-list"><div class="loading">読み込み中...</div></div>
+    <div class="section-header">
+      <div class="section-title">来店カルテ</div>
+      <button class="btn-blue" onclick="openAddVisit()">＋カルテ追加</button>
+    </div>
+    <div id="visit-list"><div class="loading">読み込み中...</div></div>
+  </div>
+</div>
+
+<!-- ═══════════════ 売上集計画面 ═══════════════ -->
+<div id="screen-sales" style="display:none">
+  <div class="header">
+    <div class="header-row">
+      <button class="btn-small" onclick="backFromSales()">← 戻る</button>
+      <h1>売上集計</h1>
+      <div style="width:60px"></div>
+    </div>
+    <div class="cal-view-toggle" style="margin:8px 16px 0;">
+      <button class="cal-view-btn active" id="sales-btn-month" onclick="setSalesView('month')">月別</button>
+      <button class="cal-view-btn" id="sales-btn-day" onclick="setSalesView('day')">日別</button>
+    </div>
+  </div>
+  <div class="list" id="sales-summary-list"><div class="loading">読み込み中...</div></div>
+</div>
+
+<!-- ═══════════════ ボトムナビ ═══════════════ -->
+<nav class="bottom-nav">
+  <button class="nav-btn active" id="nav-res" onclick="showReservations()">
+    <div class="nav-btn-wrap">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg>
+      <span id="res-badge" class="nav-badge" style="display:none"></span>
+    </div>
+    <span>予約</span>
+  </button>
+  <button class="nav-btn" id="nav-cal" onclick="showCalendar()">
+    <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+    <span>カレンダー</span>
+  </button>
+  <button class="nav-btn" id="nav-cust" onclick="showList()">
+    <svg viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><path d="M16 3.13a4 4 0 010 7.75M21 21v-2a4 4 0 00-3-3.87"/></svg>
+    <span>顧客</span>
+  </button>
+</nav>
+
+<!-- ═══════════════ モーダル：顧客登録 ═══════════════ -->
+<div class="overlay" id="modal-add-customer" onclick="closeModal('modal-add-customer')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title">顧客登録</div>
+    <div class="field"><label class="label">氏名 *</label><input class="input" id="add-name" placeholder="山田 花子" /></div>
+    <div class="field"><label class="label">フリガナ</label><input class="input" id="add-kana" placeholder="やまだ はなこ" oninput="this.value=toHiragana(this.value)" /></div>
+    <div class="field"><label class="label">電話番号</label><input class="input" id="add-phone" type="tel" placeholder="090-0000-0000" /></div>
+    <div class="field"><label class="label">生年月日</label><input class="input" id="add-birthday" type="date" /></div>
+    <div class="field"><label class="label">初回来店日</label><input class="input" id="add-first-visit" type="date" /></div>
+    <div class="field"><label class="label">常用薬剤</label><textarea class="input" id="add-regular-medicine" placeholder="いつも使っている薬剤など"></textarea></div>
+    <div class="field"><label class="label">LINE URL</label><input class="input" id="add-line-url" placeholder="LINEトークのURLを貼り付け" /></div>
+    <div class="field"><label class="label">メモ</label><textarea class="input" id="add-memo" placeholder="アレルギー・好みなど"></textarea></div>
+    <div id="add-error" class="error-msg"></div>
+    <button class="btn-primary" onclick="submitAddCustomer()">登録する</button>
+    <button class="btn-secondary" onclick="closeModal('modal-add-customer')">キャンセル</button>
+  </div>
+</div>
+
+<!-- ═══════════════ モーダル：顧客編集 ═══════════════ -->
+<div class="overlay" id="modal-edit-customer" onclick="closeModal('modal-edit-customer')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title">顧客情報を編集</div>
+    <div class="field"><label class="label">氏名 *</label><input class="input" id="edit-name" /></div>
+    <div class="field"><label class="label">フリガナ</label><input class="input" id="edit-kana" placeholder="やまだ はなこ" oninput="this.value=toHiragana(this.value)" /></div>
+    <div class="field"><label class="label">電話番号</label><input class="input" id="edit-phone" type="tel" /></div>
+    <div class="field"><label class="label">生年月日</label><input class="input" id="edit-birthday" type="date" /></div>
+    <div class="field"><label class="label">初回来店日</label><input class="input" id="edit-first-visit" type="date" /></div>
+    <div class="field"><label class="label">常用薬剤</label><textarea class="input" id="edit-regular-medicine" placeholder="いつも使っている薬剤など"></textarea></div>
+    <div class="field"><label class="label">LINE URL</label><input class="input" id="edit-line-url" placeholder="LINEトークのURLを貼り付け" /></div>
+    <div class="field"><label class="label">メモ</label><textarea class="input" id="edit-memo"></textarea></div>
+    <div id="edit-error" class="error-msg"></div>
+    <button class="btn-primary" onclick="submitEditCustomer()">更新する</button>
+    <button class="btn-danger" onclick="doDeleteCustomer()">この顧客を削除する</button>
+    <button class="btn-secondary" onclick="closeModal('modal-edit-customer')">キャンセル</button>
+  </div>
+</div>
+
+<!-- ═══════════════ モーダル：カルテ追加 ═══════════════ -->
+<div class="overlay" id="modal-add-visit" onclick="closeModal('modal-add-visit')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title">カルテ入力</div>
+    <div class="field"><label class="label">来店日 *</label><input class="input" id="visit-date" type="date" /></div>
+    <div class="field"><label class="label">施術メニュー</label><input class="input" id="visit-menu" placeholder="カット・カラー・パーマ など" /></div>
+    <div class="field"><label class="label">使用薬剤</label><textarea class="input" id="visit-medicine" placeholder="薬剤名・配合など"></textarea></div>
+    <div class="field"><label class="label">料金（円）</label><input class="input" id="visit-price" type="number" placeholder="15000" /></div>
+    <div class="field">
+      <label class="label">支払方法</label>
+      <div class="payment-group">
+        <button type="button" class="payment-btn active" id="add-pay-cash" onclick="selectAddPayment('cash')">現金</button>
+        <button type="button" class="payment-btn"        id="add-pay-card" onclick="selectAddPayment('card')">カード</button>
+        <button type="button" class="payment-btn"        id="add-pay-qr"   onclick="selectAddPayment('qr')">QR決済</button>
+      </div>
+    </div>
+    <div class="field"><label class="label">メモ</label><textarea class="input" id="visit-memo" placeholder="仕上がり・次回提案など"></textarea></div>
+    <div id="visit-error" class="error-msg"></div>
+    <button class="btn-primary" onclick="submitAddVisit()">保存する</button>
+    <button class="btn-secondary" onclick="closeModal('modal-add-visit')">キャンセル</button>
+  </div>
+</div>
+
+<!-- ═══════════════ モーダル：カルテ編集 ═══════════════ -->
+<div class="overlay" id="modal-edit-visit" onclick="closeModal('modal-edit-visit')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title">カルテを編集</div>
+    <div class="field"><label class="label">来店日</label><input class="input" id="edit-visit-date" type="date" /></div>
+    <div class="field"><label class="label">施術メニュー</label><input class="input" id="edit-visit-menu" /></div>
+    <div class="field"><label class="label">使用薬剤</label><textarea class="input" id="edit-visit-medicine"></textarea></div>
+    <div class="field"><label class="label">料金（円）</label><input class="input" id="edit-visit-price" type="number" /></div>
+    <div class="field">
+      <label class="label">支払方法</label>
+      <div class="payment-group">
+        <button type="button" class="payment-btn active" id="edit-pay-cash" onclick="selectEditPayment('cash')">現金</button>
+        <button type="button" class="payment-btn"        id="edit-pay-card" onclick="selectEditPayment('card')">カード</button>
+        <button type="button" class="payment-btn"        id="edit-pay-qr"   onclick="selectEditPayment('qr')">QR決済</button>
+      </div>
+    </div>
+    <div class="field"><label class="label">メモ</label><textarea class="input" id="edit-visit-memo"></textarea></div>
+    <button class="btn-primary" onclick="submitEditVisit()">更新する</button>
+    <button class="btn-danger" onclick="doDeleteVisit()">このカルテを削除する</button>
+    <button class="btn-secondary" onclick="closeModal('modal-edit-visit')">キャンセル</button>
+  </div>
+</div>
+
+<!-- ═══════════════ モーダル：予約追加 ═══════════════ -->
+<div class="overlay" id="modal-add-res" onclick="closeModal('modal-add-res')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title">予約登録</div>
+    <div class="field">
+      <label class="label">顧客 *</label>
+      <input class="input" id="res-cust-search" placeholder="名前・フリガナで検索…" oninput="custPickerInput('add')" onfocus="custPickerFocus('add')" autocomplete="off" />
+      <input type="hidden" id="res-customer-id" />
+      <div id="res-cust-rows" class="cust-row-btns" style="display:none"></div>
+      <div id="res-cust-drop" class="cust-drop" style="display:none"></div>
+    </div>
+    <div class="field"><label class="label">予約日 *</label><input class="input" id="res-date" type="date" /></div>
+    <div class="row2">
+      <div class="field"><label class="label">時</label><select class="input" id="res-time-h"></select></div>
+      <div class="field"><label class="label">分</label><select class="input" id="res-time-m"><option value="00">00分</option><option value="30">30分</option></select></div>
+    </div>
+    <div class="field">
+      <label class="label" style="display:flex;justify-content:space-between;align-items:center;">
+        施術メニュー
+        <button type="button" onclick="openMenuPicker('add')" style="background:#007aff;color:#fff;border:none;border-radius:8px;padding:3px 10px;font-size:12px;cursor:pointer;">メニュー選択</button>
+      </label>
+      <input class="input" id="res-menu" placeholder="カット・カラーなど" />
+    </div>
+    <div class="row2">
+      <div class="field"><label class="label">施術時間（時間）</label><input class="input" id="res-duration" type="number" step="0.5" placeholder="1" /></div>
+      <div class="field"><label class="label">料金（円）</label><input class="input" id="res-price" type="number" placeholder="15000" /></div>
+    </div>
+    <div class="field"><label class="label">メモ</label><textarea class="input" id="res-memo" placeholder="備考など"></textarea></div>
+    <div id="res-add-error" class="error-msg"></div>
+    <button class="btn-primary" onclick="submitAddReservation()">登録する</button>
+    <button class="btn-secondary" onclick="closeModal('modal-add-res')">キャンセル</button>
+  </div>
+</div>
+
+<!-- ═══════════════ モーダル：予約編集 ═══════════════ -->
+<div class="overlay" id="modal-edit-res" onclick="closeModal('modal-edit-res')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title">予約を編集</div>
+    <div class="field">
+      <label class="label">顧客</label>
+      <div style="display:flex;gap:8px;align-items:flex-start">
+        <div style="flex:1">
+          <input class="input" id="edit-res-cust-search" placeholder="名前・フリガナで検索…" oninput="custPickerInput('edit')" onfocus="custPickerFocus('edit')" autocomplete="off" />
+          <input type="hidden" id="edit-res-customer-id" />
+          <div id="edit-res-cust-rows" class="cust-row-btns" style="display:none"></div>
+          <div id="edit-res-cust-drop" class="cust-drop" style="display:none"></div>
+        </div>
+        <button type="button" onclick="openKarteFromRes()" style="flex-shrink:0;padding:13px 12px;border-radius:10px;background:#f0f0f5;border:none;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">カルテ</button>
+      </div>
+    </div>
+    <div class="field"><label class="label">予約日</label><input class="input" id="edit-res-date" type="date" /></div>
+    <div class="row2">
+      <div class="field"><label class="label">時</label><select class="input" id="edit-res-time-h"></select></div>
+      <div class="field"><label class="label">分</label><select class="input" id="edit-res-time-m"><option value="00">00分</option><option value="30">30分</option></select></div>
+    </div>
+    <div class="field">
+      <label class="label" style="display:flex;justify-content:space-between;align-items:center;">
+        施術メニュー
+        <button type="button" onclick="openMenuPicker('edit')" style="background:#007aff;color:#fff;border:none;border-radius:8px;padding:3px 10px;font-size:12px;cursor:pointer;">メニュー選択</button>
+      </label>
+      <input class="input" id="edit-res-menu" />
+    </div>
+    <div class="row2">
+      <div class="field"><label class="label">施術時間（時間）</label><input class="input" id="edit-res-duration" type="number" step="0.5" /></div>
+      <div class="field"><label class="label">料金（円）</label><input class="input" id="edit-res-price" type="number" /></div>
+    </div>
+    <div class="field"><label class="label">メモ</label><textarea class="input" id="edit-res-memo"></textarea></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+      <button class="btn-primary" style="margin:0" onclick="submitEditReservation()">更新する</button>
+      <button class="btn-secondary" style="margin:0;font-weight:700;" onclick="openCheckout()">お会計</button>
+      <button class="btn-secondary" style="margin:0;font-size:14px;" onclick="openNextReservation()">次回予約を登録</button>
+      <button class="btn-secondary" style="margin:0;font-size:14px;" onclick="startMoveMode()">予約を移動する</button>
+      <button class="btn-danger" style="margin:0;font-size:14px;" onclick="doDeleteReservation()">削除する</button>
+      <button class="btn-secondary" style="margin:0;font-size:14px;" onclick="closeModal('modal-edit-res')">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ モーダル：メニュー選択 ═══════════════ -->
+<div class="overlay" id="modal-menu-picker" onclick="closeModal('modal-menu-picker')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div class="modal-title" style="margin:0">メニューを選択</div>
+      <button onclick="openMenuManage()" style="background:#f0f0f5;border:none;border-radius:10px;padding:7px 12px;font-size:13px;cursor:pointer;">＋ 管理</button>
+    </div>
+    <div id="menu-picker-list"></div>
+    <button id="menu-picker-confirm" class="btn-primary" style="margin-top:12px" onclick="confirmMenuSelection()" disabled>選択してください</button>
+    <button class="btn-secondary" style="margin-top:8px" onclick="_selectedMenuIds.clear();closeModal('modal-menu-picker');openModal(menuPickerTarget==='edit'?'modal-edit-res':'modal-add-res')">キャンセル</button>
+  </div>
+</div>
+
+<!-- ═══════════════ モーダル：メニュー管理 ═══════════════ -->
+<div class="overlay" id="modal-menu-manage" onclick="closeModal('modal-menu-manage')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div class="modal-title" style="margin:0">メニュー管理</div>
+    </div>
+    <div id="menu-manage-list"></div>
+    <!-- 編集フォーム（編集ボタン押下時に表示） -->
+    <div id="menu-edit-form" style="display:none;border:2px solid #007aff;border-radius:12px;padding:14px;margin-top:12px;">
+      <div style="font-size:13px;font-weight:600;color:#007aff;margin-bottom:10px;">メニューを編集</div>
+      <input class="input" id="edit-menu-name" placeholder="メニュー名" style="margin-bottom:8px"/>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+        <input class="input" id="edit-menu-dur" type="number" step="0.5" placeholder="時間"/>
+        <input class="input" id="edit-menu-price" type="number" placeholder="料金"/>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button class="btn-primary" onclick="submitEditMenuMaster()" style="margin-top:0">更新する</button>
+        <button class="btn-secondary" onclick="cancelEditMenu()" style="margin-top:0">キャンセル</button>
+      </div>
+    </div>
+
+    <div style="border-top:1px solid #f0f0f5;margin-top:16px;padding-top:16px;">
+      <div style="font-size:13px;font-weight:600;color:#555;margin-bottom:10px;">新規追加</div>
+      <input class="input" id="new-menu-name" placeholder="メニュー名（例：カット）" style="margin-bottom:8px"/>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+        <input class="input" id="new-menu-dur" type="number" step="0.5" placeholder="時間（例：1.5）"/>
+        <input class="input" id="new-menu-price" type="number" placeholder="料金（例：8000）"/>
+      </div>
+      <button class="btn-primary" onclick="submitAddMenuMaster()" style="margin-top:0">追加する</button>
+    </div>
+    <button class="btn-secondary" onclick="closeModal('modal-menu-manage')">閉じる</button>
+  </div>
+</div>
+
+<!-- ═══════════════ モーダル：移動先時間選択 ═══════════════ -->
+<div class="overlay" id="modal-move-time" onclick="closeMoveTimeModal()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title">移動先の時間を選択</div>
+    <div id="move-time-date-label" style="font-size:15px;color:#555;margin-bottom:16px;"></div>
+    <div class="field">
+      <label class="label">時間 *</label>
+      <input class="input" id="move-time-input" type="time" />
+    </div>
+    <button class="btn-primary" onclick="confirmMoveFromTimePicker()">確認画面へ</button>
+    <button class="btn-secondary" onclick="closeMoveTimeModal()">キャンセル</button>
+  </div>
+</div>
+
+<!-- ═══════════════ モーダル：移動確認 ═══════════════ -->
+<div class="overlay" id="modal-move-confirm" onclick="event.stopPropagation()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title">予約を移動しますか？</div>
+    <div style="background:#f5f5f7;border-radius:12px;padding:16px;margin-bottom:20px;">
+      <div style="font-size:13px;color:#8e8e93;margin-bottom:6px;">移動前</div>
+      <div id="move-confirm-before" style="font-size:17px;font-weight:600;color:#1c1c1e;margin-bottom:12px;"></div>
+      <div style="text-align:center;font-size:20px;color:#8e8e93;margin-bottom:12px;">↓</div>
+      <div style="font-size:13px;color:#8e8e93;margin-bottom:6px;">移動後</div>
+      <div id="move-confirm-after" style="font-size:17px;font-weight:600;color:#ff9500;"></div>
+    </div>
+    <div id="move-conflict-warning" style="display:none;color:#e33;font-size:13px;background:#fff0f0;border-radius:8px;padding:10px;margin-bottom:12px;">⚠️ この日時にすでに予約があります</div>
+    <button class="btn-primary" id="move-confirm-btn" onclick="executeMove()">はい、移動する</button>
+    <button class="btn-secondary" onclick="cancelMoveConfirm()">キャンセル</button>
+  </div>
+</div>
+
+<!-- ═══════════════ モーダル：イベント追加 ═══════════════ -->
+<div class="overlay" id="modal-add-event" onclick="closeModal('modal-add-event')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title">予定・定休日を追加</div>
+    <div class="field">
+      <label class="label">種類</label>
+      <div class="payment-group">
+        <button type="button" class="payment-btn active" id="ev-type-holiday" onclick="selectEventType('holiday')">定休日</button>
+        <button type="button" class="payment-btn"        id="ev-type-other"   onclick="selectEventType('other')">その他</button>
+      </div>
+    </div>
+    <div class="field"><label class="label">日付 *</label><input class="input" id="ev-date" type="date" /></div>
+    <div class="field"><label class="label">タイトル</label><input class="input" id="ev-title" placeholder="定休日・研修・棚卸しなど" /></div>
+    <button class="btn-primary" onclick="submitAddEvent()">追加する</button>
+    <button class="btn-secondary" onclick="closeModal('modal-add-event')">キャンセル</button>
+    <div style="border-top:1px solid #f0f0f5;margin-top:20px;padding-top:16px;">
+      <div class="section-title" style="margin-bottom:10px">登録済みの予定</div>
+      <div id="ev-list"><div style="color:#aaa;font-size:14px">なし</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ お会計画面 ═══════════════ -->
+<div class="checkout-overlay" id="checkout-overlay">
+  <div class="checkout-header">
+    <button class="checkout-close" onclick="closeCheckout()">✕</button>
+    <div class="checkout-header-title">RECEIPT</div>
+    <div style="width:36px"></div>
+  </div>
+  <div class="checkout-body">
+
+    <!-- レシートカード -->
+    <div class="checkout-receipt">
+      <div class="checkout-salon">BEAUTY SALON</div>
+      <div class="checkout-customer" id="co-customer"></div>
+      <div class="checkout-date" id="co-date"></div>
+      <hr class="checkout-divider">
+      <div class="checkout-section-title">M E N U</div>
+      <div id="co-menu-list"></div>
+      <button class="checkout-add-btn" onclick="addCoItem('menu')">＋ メニューを追加</button>
+      <div class="checkout-total-area">
+        <span class="checkout-total-label">TOTAL</span>
+        <span class="checkout-total-amount" id="co-total"></span>
+      </div>
+    </div>
+
+    <div class="checkout-pay-title">お支払い方法</div>
+    <div class="checkout-pay-group">
+      <button class="checkout-pay-btn" id="co-pay-cash" onclick="selectCoPayment('cash')">現金</button>
+      <button class="checkout-pay-btn" id="co-pay-card" onclick="selectCoPayment('card')">カード</button>
+      <button class="checkout-pay-btn" id="co-pay-qr"   onclick="selectCoPayment('qr')">QR決済</button>
+    </div>
+
+    <!-- 現金お預かり -->
+    <div id="co-cash-box" style="display:none;background:#fff;border-radius:16px;padding:16px 20px;margin-bottom:20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <span style="font-size:14px;color:#888;">お預かり金額</span>
+        <div style="display:flex;align-items:center;gap:4px;">
+          <span style="font-size:16px;color:#555;">¥</span>
+          <input id="co-cash-input" type="number" inputmode="numeric" placeholder="0"
+            style="width:140px;font-size:22px;font-weight:700;border:none;border-bottom:2px solid #1c1c1e;padding:4px 8px;text-align:right;outline:none;background:transparent;"
+            oninput="calcChange()" />
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding-top:12px;border-top:1px solid #f0f0f5;">
+        <span style="font-size:14px;color:#888;">お釣り</span>
+        <span id="co-change" style="font-size:22px;font-weight:800;color:#1c1c1e;">—</span>
+      </div>
+    </div>
+
+    <button class="checkout-confirm-btn" onclick="confirmCheckout()">お会計を確定する</button>
+
+  </div>
+
+  <!-- お会計用メニュー選択パネル -->
+  <div id="co-menu-picker-panel" style="display:none;position:fixed;inset:0;background:#fff;z-index:210;overflow-y:auto;padding-bottom:80px;">
+    <div style="display:flex;align-items:center;background:#fff;padding:14px 16px;border-bottom:1px solid #e5e5ea;position:sticky;top:0;z-index:1;">
+      <button onclick="closeCoMenuPicker()" style="background:none;border:none;font-size:16px;color:#007aff;cursor:pointer;margin-right:12px;">← 戻る</button>
+      <div style="font-size:17px;font-weight:700;flex:1">メニューを選択</div>
+    </div>
+    <div id="co-picker-list" style="padding:12px 16px"></div>
+    <div style="position:fixed;bottom:0;left:0;right:0;background:#fff;padding:12px 16px;border-top:1px solid #e5e5ea;">
+      <button id="co-picker-confirm" onclick="confirmCoMenuSelection()"
+        style="width:100%;padding:15px;border-radius:12px;background:#2ec4b6;color:#fff;border:none;font-size:17px;font-weight:600;cursor:pointer;opacity:0.5" disabled>選択してください</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div id="offline-banner" style="display:none;position:fixed;top:0;left:0;right:0;background:#ff9500;color:#fff;padding:10px 16px;text-align:center;font-size:14px;font-weight:600;z-index:500;letter-spacing:0.5px;">
+  📵 オフライン中 — キャッシュデータを表示しています
+</div>
+
+<!-- お会計完了画面 -->
+<div id="checkout-complete" style="display:none;position:fixed;inset:0;background:#1c1c1e;z-index:300;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px;">
+  <div style="font-size:64px;margin-bottom:24px;">✓</div>
+  <div style="font-size:13px;letter-spacing:6px;color:#aaa;margin-bottom:12px;">THANK YOU</div>
+  <div id="co-complete-name" style="font-size:26px;font-weight:800;color:#fff;margin-bottom:8px;"></div>
+  <div style="font-size:15px;color:#888;margin-bottom:24px;">ありがとうございました</div>
+  <div id="co-complete-total" style="font-size:42px;font-weight:900;color:#fff;letter-spacing:2px;margin-bottom:48px;"></div>
+  <button onclick="completeToNextReservation()" style="width:100%;max-width:320px;padding:18px;border-radius:30px;background:#fff;color:#1c1c1e;border:none;font-size:17px;font-weight:800;cursor:pointer;margin-bottom:12px;letter-spacing:1px;">次回予約を取る</button>
+  <button onclick="completeToHome()" style="width:100%;max-width:320px;padding:16px;border-radius:30px;background:transparent;color:#888;border:1.5px solid #444;font-size:16px;cursor:pointer;">予約一覧へ戻る</button>
+</div>
+
+<script>
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
+
+// ── 状態 ──
+let allCustomers     = []
+let allReservations  = []
+let allMenuMaster    = []
+let allEvents        = []
+let addEventType     = 'holiday'
+let editResPayment   = ''
+let menuPickerTarget = 'add' // 'add' or 'edit'
+let currentCustomer  = null
+let editingVisitId   = null
+let _lastVisits      = []
+let editingResId     = null
+let addPayment       = 'cash'
+let editPayment      = 'cash'
+let editResStatus    = 'reserved'
+let calDate          = new Date()
+let calView          = 'month'
+let moveMode         = false
+let movingRes        = null
+let moveTargetDate   = ''
+let moveTargetTime   = ''
+// 高速移動
+let fastMoveMode     = false
+let fastMovingRes    = null
+// ドラッグ定数（週ビュー用）
+const DH_START = 8, DH_END = 20
+let DH_PX = 50  // 動的に再計算される
+// ドラッグ状態
+let drag = null   // { res, ghost, srcEl, startX, startY, active, timer }
+let fastMoveUndo     = null   // { id, date, time }
+let fastMoveUndoTimer = null
+let lpTimer          = null   // long press timer
+let calSelectedDate  = ''
+let detailFrom       = 'list'  // 'list' or 'reservations'
+
+// 時刻セレクト初期化・取得・設定
+function buildHourOptions(selId) {
+  const el = document.getElementById(selId)
+  if (!el || el.options.length) return
+  for (let h = 8; h <= 21; h++) {
+    const o = document.createElement('option')
+    o.value = String(h).padStart(2,'0')
+    o.textContent = String(h).padStart(2,'0') + '時'
+    el.appendChild(o)
+  }
+}
+function getTimeVal(hId, mId) {
+  return document.getElementById(hId).value + ':' + document.getElementById(mId).value
+}
+function setTimeVal(hId, mId, time) {
+  const parts = (time || '10:00').split(':')
+  const h = parts[0] || '10'
+  const m = parseInt(parts[1]||0) >= 30 ? '30' : '00'
+  document.getElementById(hId).value = h
+  document.getElementById(mId).value = m
+}
+
+// ローカル日付文字列（タイムゾーンずれ防止）
+function localDate(d) {
+  return d.getFullYear() + '-' +
+    String(d.getMonth()+1).padStart(2,'0') + '-' +
+    String(d.getDate()).padStart(2,'0')
+}
+function todayStr() { return localDate(new Date()) }
+
+const PAY_LABEL = { cash:'現金', card:'カード', qr:'QR決済' }
+
+// カタカナ→ひらがな変換
+function toHiragana(str) {
+  return (str || '').replace(/[ァ-ヶ]/g, ch =>
+    String.fromCharCode(ch.charCodeAt(0) - 0x60))
+}
+function fmtDur(min) {
+  if (!min) return ''
+  const h = min / 60
+  return (h % 1 === 0 ? h : h.toFixed(1)) + '時間'
+}
+
+function fmtResDatetime(date, time) {
+  if (!date) return '—'
+  const d = new Date(date)
+  if (isNaN(d)) return date
+  const DOW = ['日','月','火','水','木','金','土']
+  const y = d.getFullYear(), m = d.getMonth()+1, day = d.getDate(), w = DOW[d.getDay()]
+  const t = (time||'').slice(0,5)
+  return `${y}年${m}月${day}日（${w}）${t ? ' ' + t : ''}`
+}
+function copyLineMsg(r, btn) {
+  const dt = fmtResDatetime(r.date, r.time)
+  const menu = r.menu ? `【${r.menu}】` : ''
+  const text = `${r.customer_name}様\n\n明日${dt}に\n${menu}のご予約をいただいております。\n\nご来店をお待ちしております✨\n（確認ですので返信不要です）`
+  navigator.clipboard.writeText(text).then(() => {
+    toast('LINEメッセージをコピーしました')
+    if (btn) {
+      btn.style.background = '#06c755'
+      btn.style.color = '#fff'
+      btn.style.borderColor = '#06c755'
+      btn.textContent = '✓ コピー済'
+    }
+  })
+}
+
+const PAY_CLASS = { cash:'pay-cash', card:'pay-card', qr:'pay-qr' }
+const STATUS_LABEL = { reserved:'予約済', visited:'来店済', cancelled:'キャンセル', no_show:'無断キャンセル' }
+const STATUS_BADGE = { reserved:'badge-reserved', visited:'badge-visited', cancelled:'badge-cancelled', no_show:'badge-no_show' }
+const DAY_JP = ['日','月','火','水','木','金','土']
+
+window.onload = () => {
+  const today = todayStr()
+  document.getElementById('add-first-visit').value = today
+  document.getElementById('visit-date').value = today
+  document.getElementById('res-date').value = today
+  document.getElementById('res-duration').value = '1'
+  buildHourOptions('res-time-h')
+  buildHourOptions('edit-res-time-h')
+  setTimeVal('res-time-h','res-time-m','10:00')
+  calSelectedDate = today
+  loadAll()
+}
+
+// ── ローカルキャッシュ ──
+function _cacheKey(params) {
+  return 'apicache_' + params.action + (params.customerId||'') + (params.filter||'')
+}
+function _saveLocalCache(params, data) {
+  try { localStorage.setItem(_cacheKey(params), JSON.stringify(data)) } catch(e) {}
+}
+function _loadLocalCache(params) {
+  try {
+    const v = localStorage.getItem(_cacheKey(params))
+    return v ? JSON.parse(v) : null
+  } catch(e) { return null }
+}
+
+// ── オフラインバナー ──
+function _showOfflineBanner() { document.getElementById('offline-banner').style.display = 'block' }
+function _hideOfflineBanner() { document.getElementById('offline-banner').style.display = 'none' }
+window.addEventListener('offline', _showOfflineBanner)
+window.addEventListener('online',  _hideOfflineBanner)
+
+// ── API ──
+async function api(params) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 20000)
+  try {
+    let r
+    if (params.action.startsWith('get')) {
+      const q = new URLSearchParams({ action: params.action, ...params })
+      r = await fetch(`${GAS_URL}?${q}`, { signal: controller.signal })
+    } else {
+      r = await fetch(GAS_URL, { method:'POST', body:JSON.stringify(params), headers:{'Content-Type':'text/plain'}, signal: controller.signal })
+    }
+    clearTimeout(timer)
+    const result = await r.json()
+    // 成功したGETレスポンスをキャッシュ保存
+    if (params.action.startsWith('get') && Array.isArray(result)) {
+      _saveLocalCache(params, result)
+    }
+    return result
+  } catch(e) {
+    clearTimeout(timer)
+    if (e.name === 'AbortError') {
+      // タイムアウトもキャッシュで代替
+      if (params.action.startsWith('get')) {
+        const cached = _loadLocalCache(params)
+        if (cached) { _showOfflineBanner(); return cached }
+      }
+      return { error: 'タイムアウトしました。再度お試しください。' }
+    }
+    // オフライン：GETはキャッシュ、書き込みはキュー
+    _showOfflineBanner()
+    if (params.action.startsWith('get')) {
+      return _loadLocalCache(params) || []
+    }
+    saveOffline(params)
+    return { offline: true }
+  }
+}
+
+function saveOffline(data) {
+  const q = JSON.parse(localStorage.getItem('offlineQueue')||'[]')
+  q.push({ ...data, timestamp: Date.now() })
+  localStorage.setItem('offlineQueue', JSON.stringify(q))
+}
+
+window.addEventListener('online', async () => {
+  _hideOfflineBanner()
+  const q = JSON.parse(localStorage.getItem('offlineQueue')||'[]')
+  if (!q.length) { loadAll(); return }
+  toast('オフラインデータを同期中...')
+  for (const item of q) await api(item)
+  localStorage.removeItem('offlineQueue')
+  toast('同期完了しました')
+  loadAll()
+})
+
+// ── トースト ──
+function toast(msg) {
+  const el = document.getElementById('toast')
+  el.textContent = msg
+  el.classList.add('show')
+  setTimeout(() => el.classList.remove('show'), 2500)
+}
+
+// ── モーダル ──
+function openModal(id)  { document.getElementById(id).classList.add('show') }
+function closeModal(id) { document.getElementById(id).classList.remove('show') }
+function showError(id, msg) {
+  const el = document.getElementById(id)
+  el.textContent = msg; el.style.display = 'block'
+}
+function hideError(id) { document.getElementById(id).style.display = 'none' }
+
+// ── ナビ管理 ──
+const allScreens = ['screen-home','screen-reservations','screen-calendar','screen-list','screen-detail','screen-sales']
+function showScreen(id) {
+  allScreens.forEach(s => document.getElementById(s).style.display = s===id ? 'block' : 'none')
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
+  const navMap = { 'screen-home':'nav-res','screen-reservations':'nav-res','screen-calendar':'nav-cal','screen-list':'nav-cust','screen-detail':'nav-cust','screen-sales':null }
+  if (navMap[id]) document.getElementById(navMap[id]).classList.add('active')
+}
+
+function showHome() { showScreen('screen-home'); loadHome() }
+function showReservations() { showScreen('screen-reservations'); loadReservationList() }
+function showCalendar() {
+  showScreen('screen-calendar')
+  setCalView('week')
+}
+function showList() { showScreen('screen-list'); loadCustomers() }
+function goSales()  { showScreen('screen-sales'); loadSalesSummary() }
+function backFromDetail() {
+  if (detailFrom === 'reservations') showReservations()
+  else if (detailFrom === 'home') showReservations()
+  else showList()
+}
+function backFromSales() { showReservations() }
+
+// ── 一括読み込み ──
+function _applyAllData(custs, ress, menus, evts) {
+  allCustomers    = Array.isArray(custs)  ? custs  : allCustomers
+  allReservations = Array.isArray(ress)   ? ress   : allReservations
+  allMenuMaster   = Array.isArray(menus)  ? menus  : allMenuMaster
+  allEvents       = Array.isArray(evts)   ? evts   : allEvents
+}
+
+async function loadAll() {
+  // キャッシュがあれば即表示
+  const cachedC = _loadLocalCache({ action:'getCustomers' })
+  const cachedR = _loadLocalCache({ action:'getReservations', filter:'' })
+  const cachedM = _loadLocalCache({ action:'getMenuMaster' })
+  const cachedE = _loadLocalCache({ action:'getEvents' })
+  const hasCache = cachedC && cachedR && cachedM && cachedE
+  if (hasCache) {
+    _applyAllData(cachedC, cachedR, cachedM, cachedE)
+    updateResBadge()
+    showReservations()
+    if (document.getElementById('screen-calendar').style.display !== 'none') renderCalendar()
+  }
+  // バックグラウンドで最新データ取得
+  const [custs, ress, menus, evts] = await Promise.all([
+    api({ action:'getCustomers' }),
+    api({ action:'getReservations', filter:'' }),
+    api({ action:'getMenuMaster' }),
+    api({ action:'getEvents' })
+  ])
+  _applyAllData(custs, ress, menus, evts)
+  updateResBadge()
+  if (!hasCache) showReservations()
+  // 表示中の画面も更新
+  if (document.getElementById('screen-calendar').style.display !== 'none') renderCalendar()
+}
+
+function updateResBadge() {
+  const today = todayStr()
+  const cnt = allReservations.filter(r => r.date === today && r.status === 'reserved').length
+  const badge = document.getElementById('res-badge')
+  badge.style.display = cnt > 0 ? 'block' : 'none'
+  badge.textContent = cnt
+}
+
+// ═══════════════ ホーム ═══════════════
+function loadHome() {
+  const today = todayStr()
+  const weekEnd = new Date(); weekEnd.setDate(weekEnd.getDate() + 6)
+  const weekEndStr = localDate(weekEnd)
+
+  const todayRes = allReservations.filter(r => r.date === today)
+  const weekRes  = allReservations.filter(r => r.date >= today && r.date <= weekEndStr)
+
+  document.getElementById('home-today-count').textContent = todayRes.length + '件'
+  document.getElementById('home-week-count').textContent  = weekRes.length + '件'
+
+  // 次の予約
+  const nextRes = allReservations.find(r => (r.date > today || (r.date === today)) && r.status === 'reserved'
+    && !(r.date === today && r.time < new Date().toTimeString().slice(0,5)))
+  const nextEl = document.getElementById('home-next-res')
+  if (nextRes) {
+    nextEl.innerHTML = `
+      <div class="next-res-card" onclick="openCheckoutFromCard(${JSON.stringify(nextRes).replace(/"/g,'&quot;')})">
+        <div class="next-res-label">次の予約</div>
+        <div class="next-res-time">${fmtResDatetime(nextRes.date, nextRes.time)}</div>
+        <div class="next-res-name">${nextRes.customer_name}</div>
+        <div class="next-res-menu">${nextRes.menu||'メニュー未設定'}${nextRes.price ? ' ¥'+nextRes.price.toLocaleString() : ''}</div>
+      </div>`
+  } else {
+    nextEl.innerHTML = ''
+  }
+
+  // 誕生日が近い顧客（7日以内）
+  const birthdayEl = document.getElementById('home-birthday')
+  const todayMD = today.slice(5)
+  const upcoming = allCustomers.filter(c => {
+    if (!c.birthday) return false
+    const bd = c.birthday.slice(5)
+    // 年をまたぐ場合も考慮
+    const thisYear = today.slice(0,4) + '-' + bd
+    const nextYear = String(Number(today.slice(0,4))+1) + '-' + bd
+    const diff1 = (new Date(thisYear) - new Date(today)) / 86400000
+    const diff2 = (new Date(nextYear) - new Date(today)) / 86400000
+    const diff = diff1 >= 0 ? diff1 : diff2
+    return diff <= 7
+  }).map(c => {
+    const bd = c.birthday.slice(5)
+    const thisYear = today.slice(0,4) + '-' + bd
+    const nextYear = String(Number(today.slice(0,4))+1) + '-' + bd
+    const diff1 = (new Date(thisYear) - new Date(today)) / 86400000
+    const diff = diff1 >= 0 ? diff1 : (new Date(nextYear) - new Date(today)) / 86400000
+    return { ...c, bdDiff: Math.round(diff) }
+  }).sort((a,b) => a.bdDiff - b.bdDiff)
+  if (upcoming.length) {
+    birthdayEl.innerHTML = `<div class="section-header"><div class="section-title">🎂 もうすぐ誕生日</div></div>` +
+      upcoming.map(c => `
+        <div class="next-res-card" onclick="showDetail(allCustomers.find(x=>x.id==='${c.id}'),'list')" style="display:flex;align-items:center;gap:12px;padding:12px 16px">
+          <div style="font-size:24px">🎂</div>
+          <div style="flex:1">
+            <div style="font-weight:600">${c.name}</div>
+            <div style="font-size:12px;color:#8e8e93">${c.birthday.slice(5).replace('-','月')}日 &nbsp;${c.bdDiff===0?'今日！': c.bdDiff+'日後'}</div>
+          </div>
+        </div>`).join('')
+  } else {
+    birthdayEl.innerHTML = ''
+  }
+
+  // 本日の予約リスト
+  const list = document.getElementById('home-today-list')
+  if (!todayRes.length) {
+    list.innerHTML = '<div class="empty">本日の予約はありません</div>'
+    return
+  }
+  list.innerHTML = todayRes.map(r => resCardCheckout(r)).join('')
+}
+
+// ═══════════════ 予約一覧 ═══════════════
+let _resFilter = 'all'
+
+function setResFilter(f) {
+  _resFilter = f
+  ;['all','today','tomorrow','week'].forEach(k => {
+    const btn = document.getElementById('rf-'+k)
+    if (!btn) return
+    const active = k === f
+    btn.style.background = active ? '#007aff' : '#fff'
+    btn.style.color = active ? '#fff' : '#555'
+    btn.style.borderColor = active ? '#007aff' : '#e5e5ea'
+    btn.style.fontWeight = active ? '600' : 'normal'
+  })
+  loadReservationList()
+}
+
+function loadReservationList() {
+  const today = todayStr()
+  const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate()+1)
+  const tomorrowStr = localDate(tomorrow)
+  const weekEnd = new Date(); weekEnd.setDate(weekEnd.getDate()+6)
+  const weekEndStr = localDate(weekEnd)
+  let list = allReservations
+  if (_resFilter === 'today')    list = allReservations.filter(r => r.date === today)
+  else if (_resFilter === 'tomorrow') list = allReservations.filter(r => r.date === tomorrowStr)
+  else if (_resFilter === 'week') list = allReservations.filter(r => r.date >= today && r.date <= weekEndStr)
+  renderReservationList(list)
+}
+
+function filterReservations(q) {
+  _resFilter = 'all'
+  ;['all','today','tomorrow','week'].forEach(k => {
+    const btn = document.getElementById('rf-'+k)
+    if (!btn) return
+    btn.style.background = k==='all' ? '#007aff' : '#fff'
+    btn.style.color = k==='all' ? '#fff' : '#555'
+    btn.style.borderColor = k==='all' ? '#007aff' : '#e5e5ea'
+  })
+  if (!q) { renderReservationList(allReservations); return }
+  renderReservationList(allReservations.filter(r =>
+    r.customer_name.includes(q) || (r.menu||'').includes(q)
+  ))
+}
+
+function renderReservationList(list) {
+  const el = document.getElementById('res-list')
+  if (!list.length) { el.innerHTML = '<div class="empty">予約がありません</div>'; return }
+  const today = todayStr()
+  const todayList    = list.filter(r => r.date === today)
+  const upcomingList = list.filter(r => r.date > today)
+  const pastList     = list.filter(r => r.date < today)
+  let html = ''
+  if (todayList.length) {
+    html += '<div class="date-label">📌 本日</div>' + todayList.map(r => resCard(r)).join('')
+  }
+  if (upcomingList.length) {
+    html += '<div class="date-label">今後の予約</div>' + upcomingList.map(r => resCard(r)).join('')
+  }
+  if (pastList.length) {
+    html += '<div class="date-label">過去の予約</div>' + [...pastList].reverse().map(r => resCard(r)).join('')
+  }
+  el.innerHTML = html
+}
+
+function resCard(r, hideCheckout) {
+  const rj = JSON.stringify(r).replace(/"/g,'&quot;')
+  const cust = allCustomers.find(c => c.id === r.customer_id)
+  const cj = cust ? JSON.stringify(cust).replace(/"/g,'&quot;') : null
+  return `<div class="res-card" onclick="openEditReservation(${rj})">
+    <div class="res-time-row">
+      <span class="res-time">${r.date} ${r.time}</span>
+    </div>
+    <div class="res-name" ${cj ? `onclick="event.stopPropagation();showDetail(${cj},'reservations')"` : ''} style="${cj ? 'text-decoration:underline;text-underline-offset:3px;text-decoration-color:#c7c7cc;cursor:pointer;' : ''}">${r.customer_name}</div>
+    <div class="res-menu">${r.menu||'—'}${r.duration ? ' · '+fmtDur(r.duration) : ''}</div>
+    ${r.price ? `<div class="res-price">¥${r.price.toLocaleString()}</div>` : ''}
+    ${hideCheckout ? '' : `<div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <button id="line-copy-${r.id}" onclick="event.stopPropagation();copyLineMsg(${rj},this)" style="padding:8px;border-radius:10px;font-size:13px;font-weight:500;cursor:pointer;border:1.5px solid #06c755;background:#f0fff4;color:#06c755;">LINEコピー</button>
+      <button onclick="event.stopPropagation();openCheckoutFromCard(${rj})" style="padding:8px;border-radius:10px;font-size:13px;font-weight:500;cursor:pointer;border:1.5px solid ${r.status==='visited'?'#e5e5ea':'#ff9500'};background:${r.status==='visited'?'transparent':'#fff8f0'};color:${r.status==='visited'?'#c7c7cc':'#ff9500'};">お会計</button>
+    </div>`}
+  </div>`
+}
+
+// ═══════════════ カレンダー ═══════════════
+function setCalView(v) {
+  calView = v
+  document.getElementById('cal-btn-month').classList.toggle('active', v==='month')
+  document.getElementById('cal-btn-week').classList.toggle('active', v==='week')
+  document.getElementById('cal-btn-day').classList.toggle('active', v==='day')
+  document.getElementById('cal-month-view').style.display = v==='month' ? 'block' : 'none'
+  document.getElementById('cal-week-view').style.display  = v==='week'  ? 'block' : 'none'
+  document.getElementById('cal-day-view').style.display   = v==='day'   ? 'block' : 'none'
+  renderCalendar()
+}
+
+// ─── カレンダースワイプ ───────────────────────────────────────
+let _calSwipe = null
+
+function calSwipeStart(e) {
+  if (drag?.active) return  // ドラッグ中は無視
+  const t = e.touches[0]
+  _calSwipe = { x: t.clientX, y: t.clientY }
+}
+
+function calSwipeEnd(e) {
+  if (!_calSwipe) return
+  const t = e.changedTouches[0]
+  const dx = t.clientX - _calSwipe.x
+  const dy = t.clientY - _calSwipe.y
+  _calSwipe = null
+  // 横移動が縦移動より大きく、50px以上のときだけ反応
+  if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy)) return
+  if (dx < 0) calNext()
+  else calPrev()
+}
+
+function calPrev() {
+  if (calView === 'month') { calDate.setMonth(calDate.getMonth() - 1); calDate.setDate(1) }
+  else if (calView === 'week') { calDate.setDate(calDate.getDate() - 7) }
+  else { calDate.setDate(calDate.getDate() - 1) }
+  renderCalendar()
+}
+function calNext() {
+  if (calView === 'month') { calDate.setMonth(calDate.getMonth() + 1); calDate.setDate(1) }
+  else if (calView === 'week') { calDate.setDate(calDate.getDate() + 7) }
+  else { calDate.setDate(calDate.getDate() + 1) }
+  renderCalendar()
+}
+
+function renderCalendar() {
+  if (calView === 'month') renderMonthCalendar()
+  else if (calView === 'week') renderWeekCalendar()
+  else renderDayCalendar()
+}
+
+function renderMonthCalendar() {
+  const today = todayStr()
+  const y = calDate.getFullYear(), m = calDate.getMonth()
+  document.getElementById('cal-title').textContent = y + '年' + (m + 1) + '月'
+
+  const firstDow    = new Date(y, m, 1).getDay()
+  const daysInMonth = new Date(y, m + 1, 0).getDate()
+  const pad = n => String(n).padStart(2, '0')
+  const ds  = d => `${y}-${pad(m + 1)}-${pad(d)}`
+
+  const resDots = {}
+  allReservations.forEach(r => {
+    if (r.status !== 'cancelled' && r.status !== 'no_show') {
+      if (!resDots[r.date]) resDots[r.date] = 0
+      resDots[r.date]++
+    }
+  })
+
+  // 月曜始まり: 日=0→6, 月=1→0, ..., 土=6→5
+  const firstDowMon = (firstDow + 6) % 7
+  const cells = [...Array(firstDowMon).fill(null), ...Array.from({length: daysInMonth}, (_,i) => i+1)]
+  while (cells.length % 7 !== 0) cells.push(null)
+
+  const DOW_LABELS = ['月','火','水','木','金','土','日']
+  const DOW_CLASS  = ['','','','','','sat','sun']
+
+  let html = DOW_LABELS.map((d,i) =>
+    `<div class="month-dow ${DOW_CLASS[i]}">${d}</div>`
+  ).join('')
+
+  html += cells.map((d, i) => {
+    if (!d) return `<div class="month-cell"></div>`
+    const s     = ds(d)
+    const col   = i % 7  // 0=月 … 5=土 6=日
+    const cls   = [
+      'month-cell',
+      s === today ? 'today' : '',
+      s === calSelectedDate ? 'selected' : '',
+      col === 6 ? 'sun' : col === 5 ? 'sat' : ''
+    ].filter(Boolean).join(' ')
+    const cnt = resDots[s] || 0
+    const dots = cnt > 0 ? `<div class="month-dot">${'<span></span>'.repeat(Math.min(cnt, 3))}</div>` : ''
+    const dayEvts = allEvents.filter(ev => ev.date === s)
+    const evHtml = dayEvts.map(ev =>
+      `<span class="event-chip ${ev.type==='holiday'?'event-holiday':'event-other'}" onclick="event.stopPropagation();openAddEvent('${s}')">${ev.title||'定休日'}</span>`
+    ).join('')
+    return `<div class="${cls}" data-mdate="${s}" onclick="selectMonthDay('${s}')">
+      <div class="month-num">${d}</div>${dots}${evHtml}
+    </div>`
+  }).join('')
+
+  document.getElementById('month-grid').innerHTML = html
+  renderCalDayList(calSelectedDate)
+}
+
+function selectMonthDay(ds) {
+  if (fastMoveMode) { executeFastMove(ds, fastMovingRes.time || '09:00'); return }
+  if (moveMode) { openMoveTimePicker(ds); return }
+  calSelectedDate = ds
+  calDate = new Date(ds)
+  setCalView('week')
+}
+
+// ═══════════════ メニューマスタ ═══════════════
+function openMenuPicker(target) {
+  menuPickerTarget = target
+  renderMenuPickerList()
+  closeModal('modal-add-res'); closeModal('modal-edit-res')
+  openModal('modal-menu-picker')
+}
+
+function renderMenuPickerList() {
+  const list = document.getElementById('menu-picker-list')
+  if (!allMenuMaster.length) {
+    list.innerHTML = '<div style="color:#aaa;text-align:center;padding:24px 0;font-size:14px;">メニューがありません<br>「＋ 管理」から追加してください</div>'
+    document.getElementById('menu-picker-confirm').style.display = 'none'
+    return
+  }
+  list.innerHTML = allMenuMaster.map(m => `
+    <div id="mpick-${m.id}" onclick="toggleMenuSelect('${m.id}')"
+      style="background:#fff;border:2px solid #e5e5ea;border-radius:12px;padding:14px 16px;margin-bottom:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:all 0.15s;">
+      <div>
+        <div style="font-size:16px;font-weight:600">${m.name}</div>
+        <div style="font-size:13px;color:#888;margin-top:2px">${fmtDur(m.duration)}　${m.price ? '¥'+m.price.toLocaleString() : ''}</div>
+      </div>
+      <div id="mpick-chk-${m.id}" style="width:24px;height:24px;border-radius:12px;border:2px solid #ddd;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;"></div>
+    </div>`).join('')
+  document.getElementById('menu-picker-confirm').style.display = 'block'
+  updateMenuPickerSummary()
+}
+
+const _selectedMenuIds = new Set()
+
+function toggleMenuSelect(id) {
+  if (_selectedMenuIds.has(id)) {
+    _selectedMenuIds.delete(id)
+  } else {
+    _selectedMenuIds.add(id)
+  }
+  const card = document.getElementById('mpick-' + id)
+  const chk  = document.getElementById('mpick-chk-' + id)
+  const sel   = _selectedMenuIds.has(id)
+  card.style.borderColor  = sel ? '#007aff' : '#e5e5ea'
+  card.style.background   = sel ? '#f0f5ff' : '#fff'
+  chk.style.background    = sel ? '#007aff' : '#fff'
+  chk.style.borderColor   = sel ? '#007aff' : '#ddd'
+  chk.textContent         = sel ? '✓' : ''
+  chk.style.color         = '#fff'
+  updateMenuPickerSummary()
+}
+
+function updateMenuPickerSummary() {
+  const selected = allMenuMaster.filter(m => _selectedMenuIds.has(m.id))
+  const btn = document.getElementById('menu-picker-confirm')
+  if (!selected.length) {
+    btn.textContent = '選択してください'
+    btn.disabled = true
+    btn.style.opacity = '0.5'
+  } else {
+    const totalDur   = selected.reduce((s, m) => s + m.duration, 0)
+    const totalPrice = selected.reduce((s, m) => s + m.price, 0)
+    btn.textContent = `${selected.length}件選択　¥${totalPrice.toLocaleString()}　→ 決定`
+    btn.disabled = false
+    btn.style.opacity = '1'
+  }
+}
+
+function confirmMenuSelection() {
+  const selected = allMenuMaster.filter(m => _selectedMenuIds.has(m.id))
+  if (!selected.length) return
+  const name     = selected.map(m => m.name).join('・')
+  const totalDur = selected.reduce((s, m) => s + m.duration, 0)
+  const totalPrice = selected.reduce((s, m) => s + m.price, 0)
+  const prefix   = menuPickerTarget === 'edit' ? 'edit-' : ''
+  document.getElementById(prefix + 'res-menu').value  = name
+  if (menuPickerTarget !== 'edit') {
+    document.getElementById(prefix + 'res-duration').value = totalDur / 60
+  }
+  document.getElementById(prefix + 'res-price').value = totalPrice || ''
+  _selectedMenuIds.clear()
+  closeModal('modal-menu-picker')
+  openModal(menuPickerTarget === 'edit' ? 'modal-edit-res' : 'modal-add-res')
+}
+
+function openMenuManage() {
+  renderMenuManageList()
+  closeModal('modal-menu-picker')
+  openModal('modal-menu-manage')
+  ;['new-menu-name','new-menu-dur','new-menu-price'].forEach(id => document.getElementById(id).value='')
+}
+
+function renderMenuManageList() {
+  const el = document.getElementById('menu-manage-list')
+  if (!allMenuMaster.length) { el.innerHTML = '<div style="color:#aaa;font-size:14px;padding:8px 0">まだメニューがありません</div>'; return }
+  el.innerHTML = allMenuMaster.map((m, i) => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f0f0f5;gap:6px;">
+      <div style="display:flex;flex-direction:column;gap:2px;margin-right:2px;">
+        <button onclick="moveMenu(${i},-1)" ${i===0?'disabled':''} style="background:#f0f0f5;border:none;border-radius:6px;padding:2px 8px;font-size:14px;cursor:pointer;opacity:${i===0?'0.3':'1'}">↑</button>
+        <button onclick="moveMenu(${i}, 1)" ${i===allMenuMaster.length-1?'disabled':''} style="background:#f0f0f5;border:none;border-radius:6px;padding:2px 8px;font-size:14px;cursor:pointer;opacity:${i===allMenuMaster.length-1?'0.3':'1'}">↓</button>
+      </div>
+      <div style="flex:1;">
+        <div style="font-size:15px;font-weight:600">${m.name}</div>
+        <div style="font-size:12px;color:#888">${fmtDur(m.duration)}　${m.price ? '¥'+m.price.toLocaleString() : ''}</div>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button onclick="openEditMenu('${m.id}')"
+          style="background:#e8f0fe;color:#007aff;border:1px solid #c0d4fb;border-radius:8px;padding:5px 12px;font-size:13px;cursor:pointer">編集</button>
+        <button onclick="deleteMenuMasterItem('${m.id}')"
+          style="background:#fff0f0;color:#e33;border:1px solid #fcc;border-radius:8px;padding:5px 12px;font-size:13px;cursor:pointer">削除</button>
+      </div>
+    </div>`).join('')
+}
+
+async function submitAddMenuMaster() {
+  const name  = document.getElementById('new-menu-name').value.trim()
+  const durVal = document.getElementById('new-menu-dur').value
+  const dur   = durVal === '' ? 1 : parseFloat(durVal)
+  const price = Number(document.getElementById('new-menu-price').value) || 0
+  if (!name) { toast('メニュー名を入力してください'); return }
+  const res = await api({ action:'addMenuMaster', name, duration: Math.round(dur*60), price })
+  if (res.error) { toast('エラー: '+res.error); return }
+  allMenuMaster = await api({ action:'getMenuMaster' }).then(d => Array.isArray(d) ? d : allMenuMaster)
+  ;['new-menu-name','new-menu-dur','new-menu-price'].forEach(id => document.getElementById(id).value='')
+  renderMenuManageList()
+  toast('追加しました')
+}
+
+let editingMenuId = null
+
+function openEditMenu(id) {
+  const m = allMenuMaster.find(m => m.id === id)
+  if (!m) return
+  editingMenuId = id
+  document.getElementById('edit-menu-name').value  = m.name
+  document.getElementById('edit-menu-dur').value   = m.duration / 60
+  document.getElementById('edit-menu-price').value = m.price
+  document.getElementById('menu-edit-form').style.display = 'block'
+  document.getElementById('menu-edit-form').scrollIntoView({ behavior:'smooth' })
+}
+
+function cancelEditMenu() {
+  editingMenuId = null
+  document.getElementById('menu-edit-form').style.display = 'none'
+}
+
+async function submitEditMenuMaster() {
+  const name  = document.getElementById('edit-menu-name').value.trim()
+  const durVal2 = document.getElementById('edit-menu-dur').value
+  const dur   = durVal2 === '' ? 1 : parseFloat(durVal2)
+  const price = Number(document.getElementById('edit-menu-price').value) || 0
+  if (!name) { toast('メニュー名を入力してください'); return }
+  const btn = event.target; btn.disabled=true; btn.textContent='更新中...'
+  const res = await api({ action:'updateMenuMaster', id:editingMenuId, name, duration:Math.round(dur*60), price })
+  btn.disabled=false; btn.textContent='更新する'
+  if (res.error) { toast('エラー: '+res.error); return }
+  allMenuMaster = await api({ action:'getMenuMaster' }).then(d => Array.isArray(d)?d:allMenuMaster)
+  cancelEditMenu()
+  renderMenuManageList()
+  toast('更新しました')
+}
+
+async function moveMenu(index, dir) {
+  const newIndex = index + dir
+  if (newIndex < 0 || newIndex >= allMenuMaster.length) return
+  // 配列を入れ替え
+  const arr = [...allMenuMaster]
+  ;[arr[index], arr[newIndex]] = [arr[newIndex], arr[index]]
+  // sort値を更新
+  arr.forEach((m, i) => m.sort = i)
+  allMenuMaster = arr
+  renderMenuManageList()
+  // 2件分をAPIで保存
+  await Promise.all([
+    api({ action:'updateMenuMaster', id:arr[index].id,    name:arr[index].name,    duration:arr[index].duration,    price:arr[index].price,    sort:index }),
+    api({ action:'updateMenuMaster', id:arr[newIndex].id, name:arr[newIndex].name, duration:arr[newIndex].duration, price:arr[newIndex].price, sort:newIndex })
+  ])
+}
+
+async function deleteMenuMasterItem(id) {
+  if (!confirm('このメニューを削除しますか？')) return
+  await api({ action:'deleteMenuMaster', id })
+  allMenuMaster = allMenuMaster.filter(m => m.id !== id)
+  renderMenuManageList()
+  toast('削除しました')
+}
+
+// ═══════════════ 高速移動機能（長押し）═══════════════
+// ── ドラッグエンジン ──────────────────────────────────────
+const STATUS_COLOR = { reserved:'#ff6b9d', visited:'#ff9500', cancelled:'#8e8e93', no_show:'#ff3b30' }
+
+function lpStart(e, r) {
+  if (fastMoveMode || moveMode) return
+  const t = e.touches[0]
+  drag = { res:r, ghost:null, srcEl:e.currentTarget, startX:t.clientX, startY:t.clientY, active:false, timer:null }
+  drag.timer = setTimeout(() => {
+    if (!drag) return
+    drag.timer = null
+    if (navigator.vibrate) navigator.vibrate(40)
+    _dragActivate(t.clientX, t.clientY)
+  }, 480)
+}
+function lpEnd(e)  { if (drag && !drag.active) { clearTimeout(drag.timer); drag = null } }
+function lpMove(e) {
+  if (!drag) return
+  const t = e.touches[0]
+  if (!drag.active) {
+    const dx = t.clientX - drag.startX, dy = t.clientY - drag.startY
+    if (dx*dx + dy*dy > 64) { clearTimeout(drag.timer); drag = null }
+    return
+  }
+  e.preventDefault()
+  _ghostMove(t.clientX, t.clientY)
+  _highlightTarget(t.clientX, t.clientY)
+  _autoScroll(t.clientY)
+  _checkWeekNavZone(t.clientX)
+}
+
+function _dragActivate(x, y) {
+  drag.active = true
+  drag.weekNavTimer = null
+  drag.srcEl.classList.add('drag-dim')
+  // ゴースト（指に追従）
+  const g = document.createElement('div')
+  g.className = 'drag-ghost'
+  g.style.background = STATUS_COLOR[drag.res.status] || '#ff6b9d'
+  g.innerHTML = `<div class="drag-ghost-time">${(drag.res.time||'--:--').slice(0,5)}</div><div class="drag-ghost-name">${drag.res.customer_name}</div>`
+  document.body.appendChild(g)
+  drag.ghost = g
+  // 時刻ラベル（画面上固定）
+  const tl = document.createElement('div')
+  tl.className = 'drag-time-label'
+  tl.id = 'drag-time-label'
+  document.body.appendChild(tl)
+  drag.timeLabel = tl
+  // 週切り替えゾーン
+  const zl = document.createElement('div')
+  zl.className = 'week-nav-zone left'
+  zl.innerHTML = '<span class="week-nav-zone-arrow">‹</span>'
+  zl.id = 'wnz-left'
+  document.body.appendChild(zl)
+  const zr = document.createElement('div')
+  zr.className = 'week-nav-zone right'
+  zr.innerHTML = '<span class="week-nav-zone-arrow">›</span>'
+  zr.id = 'wnz-right'
+  document.body.appendChild(zr)
+  drag.zoneL = zl
+  drag.zoneR = zr
+  _ghostMove(x, y)
+}
+
+function _ghostMove(x, y) {
+  if (!drag?.ghost) return
+  drag.ghost.style.left = (x - 12) + 'px'
+  drag.ghost.style.top  = (y - 50) + 'px'
+}
+
+function _highlightTarget(x, y) {
+  // 既存インジケータ除去
+  document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'))
+  const prev = document.getElementById('drag-drop-ind')
+  if (prev) prev.remove()
+
+  if (drag?.ghost) drag.ghost.style.visibility = 'hidden'
+  const el = document.elementFromPoint(x, y)
+  if (drag?.ghost) drag.ghost.style.visibility = ''
+  if (!el) return
+
+  // 週ビュー列
+  const col = el.closest('[data-ddate]')
+  if (col) {
+    const sc = document.getElementById('week-tg-scroll')
+    if (!sc) return
+    const scRect = sc.getBoundingClientRect()
+    const relY   = y - scRect.top + sc.scrollTop
+    const totalMin = Math.floor((relY / DH_PX) * 60) + DH_START * 60
+    const h = Math.max(DH_START, Math.min(DH_END - 1, Math.floor(totalMin / 60)))
+    const m = Math.floor((totalMin % 60) / 30) * 30
+    const timeStr  = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0')
+    const topPx    = ((h * 60 + m - DH_START * 60) / 60) * DH_PX
+    const heightPx = Math.max((drag.res.duration||60) / 60 * DH_PX, 24)
+    const color    = STATUS_COLOR[drag.res.status] || '#ff6b9d'
+
+    // ドロップインジケータ（枠つきブロック）
+    const ind = document.createElement('div')
+    ind.id = 'drag-drop-ind'
+    ind.className = 'drag-drop-indicator'
+    ind.style.cssText = `top:${topPx}px;height:${heightPx}px;background:${color}99;`
+    ind.innerHTML = `<span class="drag-drop-indicator-time">${timeStr}</span>`
+    col.appendChild(ind)
+
+    // ゴーストの時刻を更新
+    if (drag.ghost) {
+      drag.ghost.querySelector('.drag-ghost-time').textContent = timeStr
+    }
+    // 画面上部の時刻ラベル更新
+    if (drag.timeLabel) {
+      const DAY_JP2 = ['日','月','火','水','木','金','土']
+      const d = new Date(col.dataset.ddate)
+      drag.timeLabel.textContent = `${DAY_JP2[d.getDay()]} ${timeStr}`
+      drag.lastTarget = { date: col.dataset.ddate, time: timeStr }  // キャッシュ
+      drag.timeLabel.style.left = (x - drag.timeLabel.offsetWidth / 2) + 'px'
+      drag.timeLabel.style.top  = (scRect.top - 44) + 'px'
+    }
+    return
+  }
+
+  // 月ビューセル
+  const cell = el.closest('[data-mdate]')
+  if (cell) {
+    cell.classList.add('drag-over')
+    if (drag.timeLabel) {
+      const d = new Date(cell.dataset.mdate)
+      const DAY_JP2 = ['日','月','火','水','木','金','土']
+      const t = (drag.res.time||'09:00').slice(0,5)
+      drag.timeLabel.textContent = `${d.getMonth()+1}/${d.getDate()}(${DAY_JP2[d.getDay()]}) ${t}`
+      drag.timeLabel.style.left = (x - 60) + 'px'
+      drag.timeLabel.style.top  = (y - 60) + 'px'
+    }
+  }
+}
+
+function _checkWeekNavZone(x) {
+  if (!drag || calView !== 'week') return
+  const W = window.innerWidth
+  const ZONE = 52
+  const inLeft  = x < ZONE
+  const inRight = x > W - ZONE
+
+  if (drag.zoneL) drag.zoneL.classList.toggle('active', inLeft)
+  if (drag.zoneR) drag.zoneR.classList.toggle('active', inRight)
+
+  if (inLeft || inRight) {
+    if (!drag.weekNavTimer) {
+      drag.weekNavTimer = setTimeout(() => {
+        drag.weekNavTimer = null
+        if (inLeft) { calDate.setDate(calDate.getDate() - 7) }
+        else        { calDate.setDate(calDate.getDate() + 7) }
+        // 週を切り替えてグリッドを再描画（drag状態は維持）
+        renderWeekCalendar()
+        if (navigator.vibrate) navigator.vibrate(20)
+      }, 700)
+    }
+  } else {
+    if (drag.weekNavTimer) { clearTimeout(drag.weekNavTimer); drag.weekNavTimer = null }
+  }
+}
+
+function _autoScroll(y) {
+  const sc = document.getElementById('week-tg-scroll')
+  if (!sc) return
+  const r = sc.getBoundingClientRect()
+  if (y < r.top + 55)    sc.scrollTop -= 10
+  else if (y > r.bottom - 55) sc.scrollTop += 10
+}
+
+function _calcWeekTime(colEl, y) {
+  const sc = document.getElementById('week-tg-scroll')
+  if (!sc) return null
+  const sr = sc.getBoundingClientRect()
+  const relY = y - sr.top + sc.scrollTop
+  const totalMin = Math.floor((relY / DH_PX) * 60) + DH_START * 60
+  const h = Math.max(DH_START, Math.min(DH_END - 1, Math.floor(totalMin / 60)))
+  const m = Math.floor((totalMin % 60) / 30) * 30
+  return { date: colEl.dataset.ddate, time: String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') }
+}
+
+function _getDropTarget(x, y) {
+  // まずキャッシュ済みターゲットを候補に
+  const cached = drag?.lastTarget || null
+  if (drag?.ghost) drag.ghost.style.visibility = 'hidden'
+  const el = document.elementFromPoint(x, y)
+  if (drag?.ghost) drag.ghost.style.visibility = ''
+  // 週ビュー列（elementFromPoint）
+  if (el) {
+    const col = el.closest('[data-ddate]')
+    if (col) return _calcWeekTime(col, y)
+    const cell = el.closest('[data-mdate]')
+    if (cell) return { date: cell.dataset.mdate, time: drag?.res?.time || '09:00' }
+  }
+  // フォールバック①：X座標で列を探す
+  if (calView === 'week') {
+    const cols = document.querySelectorAll('[data-ddate]')
+    for (const col of cols) {
+      const r = col.getBoundingClientRect()
+      if (x >= r.left && x <= r.right) return _calcWeekTime(col, y)
+    }
+  }
+  // フォールバック②：最後に有効だったターゲット
+  return cached
+}
+
+function _dragCleanup() {
+  if (!drag) return
+  if (drag.ghost) drag.ghost.remove()
+  if (drag.timeLabel) drag.timeLabel.remove()
+  if (drag.zoneL) drag.zoneL.remove()
+  if (drag.zoneR) drag.zoneR.remove()
+  if (drag.weekNavTimer) { clearTimeout(drag.weekNavTimer); drag.weekNavTimer = null }
+  if (drag.srcEl) drag.srcEl.classList.remove('drag-dim')
+  const ind = document.getElementById('drag-drop-ind')
+  if (ind) ind.remove()
+  document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'))
+  drag = null
+}
+
+document.addEventListener('touchend', e => {
+  if (!drag?.active) return
+  e.preventDefault()
+  const t = e.changedTouches[0]
+  const target = _getDropTarget(t.clientX, t.clientY)
+  const res = drag.res
+  _dragCleanup()
+  if (target && (target.date !== res.date || target.time.slice(0,5) !== (res.time||'').slice(0,5))) {
+    _doFastMove(res, target.date, target.time)
+  }
+}, { passive: false })
+
+document.addEventListener('touchcancel', () => { if (drag) _dragCleanup() })
+document.addEventListener('contextmenu', e => { if (drag) e.preventDefault() })
+
+function startFastMoveMode(r) {
+  fastMovingRes = r
+  fastMoveMode  = true
+  closeModal('modal-edit-res')
+  // バナー表示
+  let b = document.getElementById('fmove-banner')
+  if (!b) {
+    b = document.createElement('div')
+    b.id = 'fmove-banner'
+    b.className = 'fmove-banner'
+    document.body.appendChild(b)
+  }
+  b.innerHTML = `<span>⚡ ${r.customer_name} を移動先へタップ</span><button class="fmove-banner-cancel" onclick="cancelFastMoveMode()">✕</button>`
+  b.style.display = 'flex'
+  showScreen('screen-calendar')
+  renderCalendar()
+}
+
+function cancelFastMoveMode() {
+  fastMoveMode = false; fastMovingRes = null
+  const b = document.getElementById('fmove-banner')
+  if (b) b.style.display = 'none'
+  renderCalendar()
+}
+
+async function executeFastMove(targetDate, targetTime) {
+  if (!fastMovingRes) return
+  _doFastMove(fastMovingRes, targetDate, targetTime)
+  cancelFastMoveMode()
+}
+
+function _doFastMove(res, targetDate, targetTime) {
+  // 重複チェック
+  const conflict = allReservations.some(r =>
+    r.id !== res.id &&
+    r.date === targetDate &&
+    r.time.slice(0,5) === targetTime.slice(0,5) &&
+    r.status !== 'cancelled' && r.status !== 'no_show'
+  )
+  if (conflict) {
+    showUndoToast('⚠️ その日時はすでに予約があります', null)
+    return
+  }
+  fastMoveUndo = { id: res.id, date: res.date, time: res.time }
+  // 楽観的更新
+  allReservations = allReservations.map(r =>
+    r.id === res.id ? { ...r, date: targetDate, time: targetTime } : r
+  )
+  updateResBadge(); renderCalendar(); loadHome()
+  // API保存
+  api({ action:'updateReservation', id: res.id, date: targetDate, time: targetTime })
+    .then(r => { if (r.error) toast('保存エラー: ' + r.error) })
+  showUndoToast(`✅ ${targetDate.slice(5).replace('-','/')} ${targetTime.slice(0,5)} に移動`, fastMoveUndo)
+}
+
+function showUndoToast(msg, undoData) {
+  if (fastMoveUndoTimer) { clearTimeout(fastMoveUndoTimer); fastMoveUndoTimer = null }
+  let el = document.getElementById('undo-toast-el')
+  if (!el) {
+    el = document.createElement('div')
+    el.id = 'undo-toast-el'
+    el.className = 'undo-toast'
+    document.body.appendChild(el)
+  }
+  el.innerHTML = undoData
+    ? `<span>${msg}</span><button class="undo-btn" onclick="doFastMoveUndo()">元に戻す</button>`
+    : `<span>${msg}</span>`
+  el.style.display = 'flex'
+  fastMoveUndoTimer = setTimeout(() => { el.style.display = 'none' }, 5000)
+}
+
+async function doFastMoveUndo() {
+  if (!fastMoveUndo) return
+  const { id, date, time } = fastMoveUndo
+  fastMoveUndo = null
+  const el = document.getElementById('undo-toast-el')
+  if (el) el.style.display = 'none'
+  allReservations = allReservations.map(r =>
+    r.id === id ? { ...r, date, time } : r
+  )
+  updateResBadge(); renderCalendar(); loadHome()
+  api({ action:'updateReservation', id, date, time })
+  toast('元に戻しました')
+}
+
+// ═══════════════ 予約移動機能 ═══════════════
+function startMoveMode() {
+  if (!movingRes) { toast('予約情報が取得できませんでした'); return }
+  closeModal('modal-edit-res')
+  moveMode = true
+  showScreen('screen-calendar')
+  renderMoveBanner()
+  renderCalendar()
+}
+
+function renderMoveBanner() {
+  const screen = document.getElementById('screen-calendar')
+  let banner = document.getElementById('move-mode-banner')
+  if (!banner) {
+    banner = document.createElement('div')
+    banner.id = 'move-mode-banner'
+    banner.className = 'move-banner'
+    screen.insertBefore(banner, screen.firstChild)
+  }
+  banner.innerHTML = `<span>📅 移動先の日付をタップ</span><button class="move-banner-cancel" onclick="cancelMoveMode()">キャンセル</button>`
+  banner.style.display = 'flex'
+}
+
+function cancelMoveMode() {
+  moveMode = false; movingRes = null; moveTargetDate = ''; moveTargetTime = ''
+  const b = document.getElementById('move-mode-banner')
+  if (b) b.style.display = 'none'
+  renderCalendar()
+}
+
+function handleWeekColMoveClick(e, ds, hourStart, hourH) {
+  if (e.target.closest('.week-tg-block')) return
+  const rect = e.currentTarget.getBoundingClientRect()
+  const y    = (e.changedTouches ? e.changedTouches[0].clientY : e.clientY) - rect.top
+  const totalMinutes = Math.floor((y / hourH) * 60) + hourStart * 60
+  const h = Math.floor(totalMinutes / 60)
+  const m = Math.floor((totalMinutes % 60) / 30) * 30
+  const time = String(Math.min(h, 22)).padStart(2,'0') + ':' + String(m).padStart(2,'0')
+  if (fastMoveMode) { executeFastMove(ds, time); return }
+  moveTargetDate = ds
+  moveTargetTime = time
+  showMoveConfirm()
+}
+
+function openMoveTimePicker(ds) {
+  moveTargetDate = ds
+  const fmt = ds.replace(/-/g, '/')
+  document.getElementById('move-time-date-label').textContent = fmt + ' に移動'
+  document.getElementById('move-time-input').value = movingRes.time || '10:00'
+  openModal('modal-move-time')
+}
+
+function closeMoveTimeModal() {
+  closeModal('modal-move-time')
+}
+
+function confirmMoveFromTimePicker() {
+  moveTargetTime = document.getElementById('move-time-input').value
+  if (!moveTargetTime) { toast('時間を入力してください'); return }
+  closeModal('modal-move-time')
+  showMoveConfirm()
+}
+
+function showMoveConfirm() {
+  const fmtBefore = movingRes.date.replace(/-/g,'/') + ' ' + (movingRes.time||'').slice(0,5)
+  const fmtAfter  = moveTargetDate.replace(/-/g,'/') + ' ' + moveTargetTime.slice(0,5)
+  document.getElementById('move-confirm-before').textContent = fmtBefore
+  document.getElementById('move-confirm-after').textContent  = fmtAfter
+
+  // 重複チェック
+  const conflict = allReservations.some(r =>
+    r.id !== movingRes.id &&
+    r.date === moveTargetDate &&
+    r.time.slice(0,5) === moveTargetTime.slice(0,5) &&
+    r.status !== 'cancelled' && r.status !== 'no_show'
+  )
+  const warn = document.getElementById('move-conflict-warning')
+  const btn  = document.getElementById('move-confirm-btn')
+  warn.style.display = conflict ? 'block' : 'none'
+  btn.disabled = conflict
+  btn.style.opacity = conflict ? '0.4' : '1'
+
+  openModal('modal-move-confirm')
+}
+
+function cancelMoveConfirm() {
+  closeModal('modal-move-confirm')
+}
+
+async function executeMove() {
+  const btn = document.getElementById('move-confirm-btn')
+  btn.textContent = '移動中...'; btn.disabled = true
+
+  const result = await api({
+    action: 'updateReservation',
+    id:   movingRes.id,
+    date: moveTargetDate,
+    time: moveTargetTime
+  })
+
+  if (result.error) {
+    toast('エラー: ' + result.error)
+    btn.textContent = 'はい、移動する'; btn.disabled = false
+    return
+  }
+
+  closeModal('modal-move-confirm')
+  cancelMoveMode()
+  toast('予約を移動しました')
+
+  // 全ビューを更新
+  const [custs, ress] = await Promise.all([
+    api({ action:'getCustomers' }),
+    api({ action:'getReservations', filter:'' })
+  ])
+  allCustomers    = Array.isArray(custs) ? custs : allCustomers
+  allReservations = Array.isArray(ress)  ? ress  : allReservations
+  updateResBadge()
+  renderCalendar()
+  loadHome()
+}
+
+function renderWeekCalendar() {
+  const today = todayStr()
+  const d = new Date(calDate)
+  const dow = d.getDay()
+  const mon = new Date(d); mon.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1))
+
+  const days = Array.from({length:7}, (_,i) => {
+    const dd = new Date(mon); dd.setDate(mon.getDate() + i)
+    return dd
+  })
+
+  const y = mon.getFullYear(), m = mon.getMonth()+1
+  document.getElementById('cal-title').textContent =
+    y + '年' + m + '月' + mon.getDate() + '日 〜 ' + days[6].getDate() + '日'
+
+  // ヘッダー更新
+  const DAY_CLASS = ['sun','','','','','','sat']
+  days.forEach((dd, i) => {
+    const ds = localDate(dd)
+    const isToday = ds === today
+    const col = dd.getDay() // 0=日,6=土
+    const numCls = ['week-tg-hnum', isToday ? 'today-num' : col===0 ? 'sun-num' : col===6 ? 'sat-num' : ''].filter(Boolean).join(' ')
+    document.getElementById('wh'+i).innerHTML =
+      `<div class="week-tg-hday">${DAY_JP[dd.getDay()]}</div><div class="${numCls}">${dd.getDate()}</div>`
+  })
+
+  // タイムグリッド本体
+  const HOUR_START = DH_START, HOUR_END = DH_END
+  const sc0 = document.getElementById('week-tg-scroll')
+  DH_PX = sc0 ? Math.max(Math.floor(sc0.clientHeight / (HOUR_END - HOUR_START)), 38) : 38
+  const HOUR_H = DH_PX
+  const totalH = (HOUR_END - HOUR_START) * HOUR_H
+
+  // 時刻列（横線と同じ位置に絶対配置）
+  let timesHtml = `<div style="position:relative;height:${totalH}px">`
+  for (let h = HOUR_START; h <= HOUR_END; h++) {
+    const topPx = (h - HOUR_START) * HOUR_H
+    timesHtml += `<div class="week-tg-time" style="top:${topPx}px">${String(h).padStart(2,'0')}:00</div>`
+  }
+  timesHtml += '</div>'
+
+  // 横線（hour lines）
+  let linesHtml = ''
+  for (let h = 0; h < (HOUR_END - HOUR_START); h++) {
+    linesHtml += `<div class="week-tg-hline" style="top:${h * HOUR_H}px"></div>`
+    linesHtml += `<div class="week-tg-hline half" style="top:${h * HOUR_H + HOUR_H/2}px"></div>`
+  }
+
+  // 各日列
+  const RES_COLORS = ['status-reserved','status-visited','status-cancelled','status-no_show']
+  const colsHtml = days.map((dd, i) => {
+    const ds = localDate(dd)
+    const col = dd.getDay()
+    const isToday = ds === today
+    const colCls = ['week-tg-col', isToday ? 'today-col' : (col===0||col===6) ? 'weekend-col' : ''].filter(Boolean).join(' ')
+
+    const dayRes = allReservations
+      .filter(r => r.date === ds)
+      .sort((a,b) => a.time.localeCompare(b.time))
+
+    const blocks = dayRes.map(r => {
+      const [rh, rm] = r.time.split(':').map(Number)
+      const startMin = rh * 60 + rm
+      const dur = r.duration || 60
+      const topPx = ((startMin - HOUR_START * 60) / 60) * HOUR_H
+      const hPx   = Math.max((dur / 60) * HOUR_H, 22)
+      if (topPx < 0 || topPx >= totalH) return ''
+      const isOrange = /リタ|フル/.test(r.menu || '')
+      const statusCls = 'week-tg-block status-' + (r.status || 'reserved') + (fastMoveMode && fastMovingRes && fastMovingRes.id === r.id ? ' fmove-source' : '')
+      const rj = JSON.stringify(r).replace(/"/g,'&quot;')
+      const cust = allCustomers.find(c => c.id === r.customer_id)
+      const cj = cust ? JSON.stringify(cust).replace(/"/g,'&quot;') : null
+      return `<div class="${statusCls}" style="top:${topPx}px;height:${hPx}px${isOrange ? ';background:#ff9500' : ''}"
+        ontouchstart="lpStart(event,${rj})" ontouchend="lpEnd(event)" ontouchmove="lpMove(event)"
+        onclick="openEditReservation(${rj})">
+        <div class="week-tg-bname" ${cj ? `onclick="event.stopPropagation();showDetail(${cj},'reservations')"` : ''} style="${cj ? 'text-decoration:underline;text-underline-offset:2px;text-decoration-color:rgba(255,255,255,0.6);cursor:pointer;' : ''}">${r.customer_name}</div>
+        ${hPx > 30 && r.menu ? `<div class="week-tg-bmenu">${r.menu}</div>` : ''}
+      </div>`
+    }).join('')
+
+    const colClick = (moveMode || fastMoveMode)
+      ? `onclick="handleWeekColMoveClick(event,'${ds}',${HOUR_START},${HOUR_H})"`
+      : `ontouchstart="colTouchStart(event,'${ds}')" ontouchmove="colTouchMove(event,'${ds}')" ontouchend="colTouchEnd(event,'${ds}')" onclick="colClick(event,'${ds}')"`
+    return `<div class="${colCls}" data-ddate="${ds}" style="height:${totalH}px" ${colClick}>${linesHtml}${blocks}</div>`
+  }).join('')
+
+  document.getElementById('week-tg-body').innerHTML =
+    `<div class="week-tg-times" style="height:${totalH}px">${timesHtml}</div>${colsHtml}`
+
+  // allday行にイベント表示（イベントがない週は非表示）
+  let hasWeekEvent = false
+  days.forEach((dd, i) => {
+    const ds = localDate(dd)
+    const dayEvts = allEvents.filter(ev => ev.date === ds)
+    if (dayEvts.length) hasWeekEvent = true
+    document.getElementById('wad'+i).innerHTML = dayEvts.map(ev =>
+      `<span class="event-chip ${ev.type==='holiday'?'event-holiday':'event-other'}" onclick="openAddEvent('${ds}')">${ev.title||'定休日'}</span>`
+    ).join('')
+  })
+  document.getElementById('week-allday-row').style.display = hasWeekEvent ? 'grid' : 'none'
+
+  // 9時を先頭に表示
+  const scroll = document.getElementById('week-tg-scroll')
+  if (scroll && scroll.scrollTop === 0) {
+    scroll.scrollTop = (9 - DH_START) * DH_PX
+  }
+}
+
+function selectCalDay(ds) {
+  calSelectedDate = ds
+  renderWeekCalendar()
+}
+
+function renderDayCalendar() {
+  const ds = localDate(calDate)
+  calSelectedDate = ds
+  document.getElementById('cal-title').textContent = ds.replace(/-/g,'/') + ' (' + DAY_JP[calDate.getDay()] + ')'
+  renderCalDayList(ds)
+
+  const dayEl = document.getElementById('cal-day-view')
+  const dayEvts = allEvents.filter(ev => ev.date === ds)
+  const evBanner = dayEvts.length ? `<div style="padding:6px 16px 0">${dayEvts.map(ev =>
+    `<span class="event-chip ${ev.type==='holiday'?'event-holiday':'event-other'}" style="display:inline-block;margin-right:4px" onclick="openAddEvent('${ds}')">${ev.title||'定休日'}</span>`
+  ).join('')}</div>` : ''
+  const dayRes = allReservations
+    .filter(r => r.date === ds && r.status !== 'cancelled' && r.status !== 'no_show')
+    .sort((a,b) => a.time.localeCompare(b.time))
+
+  const hours = Array.from({length:12}, (_,i) => i + 9) // 9〜20時
+  dayEl.innerHTML = evBanner + '<div class="day-slots">' + hours.map(h => {
+    const hStr = String(h).padStart(2,'0') + ':00'
+    const hRes = dayRes.filter(r => r.time >= hStr && r.time < String(h+1).padStart(2,'0')+':00')
+    return `<div class="day-slot">
+      <div class="day-slot-time">${hStr}</div>
+      <div class="day-slot-line">${hRes.map(r => `
+        <div class="day-slot-res ${r.status}" ontouchstart="lpStart(event,${JSON.stringify(r).replace(/"/g,'&quot;')})" ontouchend="lpEnd(event)" ontouchmove="lpMove(event)" onclick="openEditReservation(${JSON.stringify(r).replace(/"/g,'&quot;')})">
+          <div class="day-slot-res-name">${r.time} ${r.customer_name}</div>
+          <div class="day-slot-res-info">${r.menu||'—'}${r.duration ? ' · '+fmtDur(r.duration) : ''}</div>
+        </div>`).join('')}</div>
+    </div>`
+  }).join('') + '</div>'
+}
+
+function renderCalDayList(ds) {
+  const list = document.getElementById('cal-day-list')
+  const dayRes = allReservations
+    .filter(r => r.date === ds)
+    .sort((a,b) => a.time.localeCompare(b.time))
+  if (!dayRes.length) {
+    list.innerHTML = ''; return
+  }
+  list.innerHTML = '<div class="date-label">' + ds + 'の予約</div>' + dayRes.map(r => resCard(r)).join('')
+}
+
+// ═══════════════ 顧客一覧 ═══════════════
+function loadCustomers() {
+  renderCustomerList(allCustomers)
+  api({ action:'getCustomers' }).then(d => {
+    if (Array.isArray(d)) { allCustomers = d; renderCustomerList(allCustomers) }
+  })
+}
+
+function renderCustomerList(customers) {
+  const list = document.getElementById('customer-list')
+  if (!customers.length) {
+    list.innerHTML = '<div class="empty">顧客が登録されていません</div>'; return
+  }
+  const sorted = [...customers].sort((a,b) => (a.name_kana||a.name).localeCompare(b.name_kana||b.name,'ja'))
+  // 来店回数・最終来店日を予約から計算
+  const visitMap = {}
+  allReservations.filter(r => r.status === 'visited').forEach(r => {
+    if (!visitMap[r.customer_id]) visitMap[r.customer_id] = []
+    visitMap[r.customer_id].push(r.date)
+  })
+  list.innerHTML = sorted.map(c => {
+    const visits = visitMap[c.id] || []
+    const lastVisit = visits.length ? visits.sort().reverse()[0] : null
+    return `<div class="card" onclick='showDetail(${JSON.stringify(c)},"list")'>
+      <div>
+        <div class="card-name">${c.name}</div>
+        <div class="card-sub">${[c.name_kana, c.phone].filter(Boolean).join('　')}</div>
+        ${lastVisit ? `<div class="card-sub">最終来店: ${lastVisit} / 来店${visits.length}回</div>` : ''}
+      </div>
+      <span class="chevron">›</span>
+    </div>`
+  }).join('')
+}
+
+function filterCustomers(q) {
+  const f = allCustomers.filter(c => (c.name||'').includes(q)||(c.name_kana||'').includes(q))
+  renderCustomerList(f)
+}
+
+// ═══════════════ 顧客詳細 ═══════════════
+async function showDetail(customer, from) {
+  currentCustomer = customer
+  detailFrom = from || 'list'
+  showScreen('screen-detail')
+  document.getElementById('detail-name').textContent = customer.name
+  renderDetailInfo(customer)
+  loadDetailReservations(customer.id)
+  loadVisits(customer.id)
+}
+
+function renderDetailInfo(c) {
+  const rows = [
+    {label:'フリガナ',value:c.name_kana},{label:'電話番号',value:c.phone},
+    {label:'生年月日',value:c.birthday},{label:'常用薬剤',value:c.regular_medicine},{label:'メモ',value:c.memo}
+  ].filter(r => r.value)
+  // 予約から来店回数・最終来店日を集計
+  const visits = allReservations.filter(r => r.customer_id === c.id && r.status === 'visited')
+  const lastVisit = visits.length ? visits.map(r=>r.date).sort().reverse()[0] : null
+  let statsHtml = ''
+  if (lastVisit) statsHtml = `<div class="detail-row"><div class="detail-label">来店実績</div><div class="detail-value">${visits.length}回 / 最終: ${lastVisit}</div></div>`
+  document.getElementById('detail-info').innerHTML = statsHtml + rows.map(r => `
+    <div class="detail-row"><div class="detail-label">${r.label}</div><div class="detail-value">${r.value}</div></div>
+  `).join('')
+}
+
+async function loadDetailReservations(customerId) {
+  const el = document.getElementById('detail-res-list')
+  el.innerHTML = '<div class="loading">読み込み中...</div>'
+  const data = await api({ action:'getResByCustomer', customerId })
+  if (!Array.isArray(data) || !data.length) { el.innerHTML = '<div class="empty">予約履歴がありません</div>'; return }
+  el.innerHTML = data.map(r => resCard(r, true)).join('')
+}
+
+// ═══════════════ 顧客 CRUD ═══════════════
+function openAddCustomer() {
+  ['add-name','add-kana','add-phone','add-regular-medicine','add-memo','add-line-url'].forEach(id => document.getElementById(id).value='')
+  document.getElementById('add-birthday').value=''
+  document.getElementById('add-first-visit').value = todayStr()
+  hideError('add-error')
+  openModal('modal-add-customer')
+}
+
+async function submitAddCustomer() {
+  const name = document.getElementById('add-name').value.trim()
+  if (!name) { showError('add-error','氏名を入力してください'); return }
+  const btn = event.target; btn.disabled=true; btn.textContent='登録中...'
+  const res = await api({ action:'addCustomer', name,
+    name_kana: document.getElementById('add-kana').value,
+    phone: document.getElementById('add-phone').value,
+    birthday: document.getElementById('add-birthday').value,
+    first_visit: document.getElementById('add-first-visit').value,
+    memo: document.getElementById('add-memo').value,
+    regular_medicine: document.getElementById('add-regular-medicine').value,
+    line_url: document.getElementById('add-line-url').value,
+  })
+  btn.disabled=false; btn.textContent='登録する'
+  if (res.error) { showError('add-error', res.error); return }
+  closeModal('modal-add-customer'); toast('顧客を登録しました')
+  allCustomers = await api({ action:'getCustomers' }).then(d => Array.isArray(d)?d:allCustomers)
+  loadCustomers()
+}
+
+function openEditCustomer() {
+  const c = currentCustomer
+  document.getElementById('edit-name').value=c.name||''
+  document.getElementById('edit-kana').value=toHiragana(c.name_kana||'')
+  document.getElementById('edit-phone').value=c.phone||''
+  document.getElementById('edit-birthday').value=c.birthday||''
+  document.getElementById('edit-first-visit').value=c.first_visit||''
+  document.getElementById('edit-memo').value=c.memo||''
+  document.getElementById('edit-regular-medicine').value=c.regular_medicine||''
+  document.getElementById('edit-line-url').value=c.line_url||''
+  hideError('edit-error'); openModal('modal-edit-customer')
+}
+
+async function submitEditCustomer() {
+  const name = document.getElementById('edit-name').value.trim()
+  if (!name) { showError('edit-error','氏名を入力してください'); return }
+  const btn = event.target; btn.disabled=true; btn.textContent='更新中...'
+  const res = await api({ action:'updateCustomer', id:currentCustomer.id, name,
+    name_kana: document.getElementById('edit-kana').value,
+    phone: document.getElementById('edit-phone').value,
+    birthday: document.getElementById('edit-birthday').value,
+    first_visit: document.getElementById('edit-first-visit').value,
+    memo: document.getElementById('edit-memo').value,
+    regular_medicine: document.getElementById('edit-regular-medicine').value,
+    line_url: document.getElementById('edit-line-url').value,
+  })
+  btn.disabled=false; btn.textContent='更新する'
+  if (res.error) { showError('edit-error', res.error); return }
+  currentCustomer = { ...currentCustomer, name, name_kana: document.getElementById('edit-kana').value, regular_medicine: document.getElementById('edit-regular-medicine').value, line_url: document.getElementById('edit-line-url').value }
+  closeModal('modal-edit-customer'); toast('更新しました')
+  allCustomers = await api({ action:'getCustomers' }).then(d => Array.isArray(d)?d:allCustomers)
+  showDetail(currentCustomer, detailFrom)
+}
+
+async function doDeleteCustomer() {
+  if (!confirm(`${currentCustomer.name} を削除しますか？\nカルテも全て削除されます。`)) return
+  await api({ action:'deleteCustomer', id:currentCustomer.id })
+  closeModal('modal-edit-customer'); toast('削除しました')
+  allCustomers = allCustomers.filter(c => c.id !== currentCustomer.id)
+  showList()
+}
+
+// ═══════════════ カルテ ═══════════════
+async function loadVisits(customerId) {
+  const list = document.getElementById('visit-list')
+  list.innerHTML = '<div class="loading">読み込み中...</div>'
+  const data = await api({ action:'getVisits', customerId })
+  _lastVisits = Array.isArray(data) ? data : []
+  if (!Array.isArray(data)||!data.length) { list.innerHTML='<div class="empty">カルテがありません</div>'; return }
+  list.innerHTML = data.map(v => `
+    <div class="visit-card">
+      <div class="visit-date">${v.visit_date}</div>
+      <div class="visit-menu">${v.menu||'—'}</div>
+      ${v.price ? `<div class="visit-price">¥${Number(v.price).toLocaleString()}</div>` : ''}
+      ${v.price ? `<span class="pay-badge ${PAY_CLASS[v.payment]||'pay-cash'}">${PAY_LABEL[v.payment]||'現金'}</span>` : ''}
+      ${v.medicine ? `<div class="card-sub">薬剤: ${v.medicine}</div>` : ''}
+      ${v.memo ? `<div class="card-sub">${v.memo}</div>` : ''}
+      <div class="visit-actions">
+        <button class="btn-small" onclick="openEditVisit(${JSON.stringify(v).replace(/"/g,'&quot;')})">編集</button>
+      </div>
+    </div>
+  `).join('')
+}
+
+function selectAddPayment(m) {
+  addPayment = m
+  ;['cash','card','qr'].forEach(x => document.getElementById('add-pay-'+x).classList.toggle('active',x===m))
+}
+function selectEditPayment(m) {
+  editPayment = m
+  ;['cash','card','qr'].forEach(x => document.getElementById('edit-pay-'+x).classList.toggle('active',x===m))
+}
+
+function openAddVisit() {
+  const today = todayStr()
+  // 該当顧客の予約から来店日・メニュー・料金を自動入力
+  const res = allReservations
+    .filter(r => r.customer_id === currentCustomer.id)
+    .sort((a,b) => b.date.localeCompare(a.date))  // 直近順
+    .find(r => r.date <= today)  // 今日以前で最新
+  document.getElementById('visit-date').value  = res ? res.date  : today
+  document.getElementById('visit-menu').value  = res ? res.menu  : ''
+  document.getElementById('visit-price').value = res ? res.price : ''
+  const lastMedicine = _lastVisits.map(v => v.medicine).find(m => m)
+  document.getElementById('visit-medicine').value = lastMedicine || ''
+  document.getElementById('visit-memo').value = ''
+  selectAddPayment('cash'); hideError('visit-error'); openModal('modal-add-visit')
+}
+
+async function submitAddVisit() {
+  const date = document.getElementById('visit-date').value
+  if (!date) { showError('visit-error','来店日を入力してください'); return }
+  const btn = event.target; btn.disabled=true; btn.textContent='保存中...'
+  const res = await api({ action:'addVisit', customer_id:currentCustomer.id,
+    visit_date:date, menu:document.getElementById('visit-menu').value,
+    medicine:document.getElementById('visit-medicine').value,
+    price:document.getElementById('visit-price').value,
+    memo:document.getElementById('visit-memo').value, payment:addPayment
+  })
+  btn.disabled=false; btn.textContent='保存する'
+  if (res.error) { showError('visit-error',res.error); return }
+  closeModal('modal-add-visit'); toast('カルテを保存しました'); loadVisits(currentCustomer.id)
+}
+
+function openEditVisit(visit) {
+  editingVisitId = visit.id
+  document.getElementById('edit-visit-date').value=visit.visit_date||''
+  document.getElementById('edit-visit-menu').value=visit.menu||''
+  document.getElementById('edit-visit-medicine').value=visit.medicine||''
+  document.getElementById('edit-visit-price').value=visit.price||''
+  document.getElementById('edit-visit-memo').value=visit.memo||''
+  selectEditPayment(visit.payment||'cash'); openModal('modal-edit-visit')
+}
+
+async function submitEditVisit() {
+  const btn = event.target; btn.disabled=true; btn.textContent='更新中...'
+  const res = await api({ action:'updateVisit', id:editingVisitId,
+    visit_date:document.getElementById('edit-visit-date').value,
+    menu:document.getElementById('edit-visit-menu').value,
+    medicine:document.getElementById('edit-visit-medicine').value,
+    price:document.getElementById('edit-visit-price').value,
+    memo:document.getElementById('edit-visit-memo').value, payment:editPayment
+  })
+  btn.disabled=false; btn.textContent='更新する'
+  if (res.error) { alert(res.error); return }
+  closeModal('modal-edit-visit'); toast('更新しました'); loadVisits(currentCustomer.id)
+}
+
+async function doDeleteVisit() {
+  if (!confirm('このカルテを削除しますか？')) return
+  await api({ action:'deleteVisit', id:editingVisitId })
+  closeModal('modal-edit-visit'); toast('削除しました'); loadVisits(currentCustomer.id)
+}
+
+// ═══════════════ 予約 CRUD ═══════════════
+// ─── 顧客ピッカー ────────────────────────────────────────────
+const GOJUON_ROWS = [
+  { label:'あ行', chars:'あいうえおアイウエオ' },
+  { label:'か行', chars:'かきくけこカキクケコ' },
+  { label:'さ行', chars:'さしすせそサシスセソ' },
+  { label:'た行', chars:'たちつてとタチツテト' },
+  { label:'な行', chars:'なにぬねのナニヌネノ' },
+  { label:'は行', chars:'はひふへほハヒフヘホ' },
+  { label:'ま行', chars:'まみむめもマミムメモ' },
+  { label:'や行', chars:'やゆよヤユヨ' },
+  { label:'ら行', chars:'らりるれろラリルレロ' },
+  { label:'わ行', chars:'わをんワヲン' },
+]
+
+function _cpIds(target) {
+  const p = target === 'edit' ? 'edit-' : ''
+  return {
+    search: p+'res-cust-search',
+    hidden: p+'res-customer-id',
+    rows:   p+'res-cust-rows',
+    drop:   p+'res-cust-drop',
+  }
+}
+
+// 各ピッカーの行フィルター状態
+const _cpRowFilter = { add: null, edit: null }
+
+function custPickerSet(target, customerId) {
+  const ids = _cpIds(target)
+  const hidden = document.getElementById(ids.hidden)
+  const search = document.getElementById(ids.search)
+  const rows   = document.getElementById(ids.rows)
+  const drop   = document.getElementById(ids.drop)
+  _cpRowFilter[target] = null
+  hidden.value = customerId || ''
+  if (customerId) {
+    const c = allCustomers.find(c => c.id === customerId)
+    search.value = c ? c.name : ''
+    search.classList.add('cust-input-selected')
+  } else {
+    search.value = ''
+    search.classList.remove('cust-input-selected')
+  }
+  rows.style.display = 'none'
+  drop.style.display = 'none'
+}
+
+function custPickerFocus(target) {
+  const ids = _cpIds(target)
+  _renderRowBtns(target)
+  document.getElementById(ids.rows).style.display = 'flex'
+  renderCustDrop(target, document.getElementById(ids.search).value)
+}
+
+function custPickerInput(target) {
+  const ids = _cpIds(target)
+  document.getElementById(ids.hidden).value = ''
+  document.getElementById(ids.search).classList.remove('cust-input-selected')
+  _cpRowFilter[target] = null
+  _renderRowBtns(target)
+  document.getElementById(ids.rows).style.display = 'flex'
+  renderCustDrop(target, document.getElementById(ids.search).value)
+}
+
+function _renderRowBtns(target) {
+  const ids    = _cpIds(target)
+  const active = _cpRowFilter[target]
+  // 実際にいる行だけ表示
+  const existRows = GOJUON_ROWS.filter(row =>
+    allCustomers.some(c => {
+      const kana = (c.name_kana || c.name || '')
+      return [...row.chars].some(ch => kana.startsWith(ch))
+    })
+  )
+  const allBtn = `<button class="cust-row-btn${active===null?' active':''}" onmousedown="event.preventDefault()" onclick="custRowFilter('${target}',null)">全</button>`
+  const rowBtns = existRows.map(row =>
+    `<button class="cust-row-btn${active===row.label?' active':''}" onmousedown="event.preventDefault()" onclick="custRowFilter('${target}','${row.label}')">${row.label}</button>`
+  ).join('')
+  document.getElementById(ids.rows).innerHTML = allBtn + rowBtns
+}
+
+function custRowFilter(target, rowLabel) {
+  _cpRowFilter[target] = rowLabel
+  _renderRowBtns(target)
+  // 行フィルター時はテキスト検索をクリア
+  const ids = _cpIds(target)
+  document.getElementById(ids.search).value = ''
+  document.getElementById(ids.hidden).value = ''
+  document.getElementById(ids.search).classList.remove('cust-input-selected')
+  renderCustDrop(target, '')
+}
+
+function renderCustDrop(target, q) {
+  const ids    = _cpIds(target)
+  const drop   = document.getElementById(ids.drop)
+  const selId  = document.getElementById(ids.hidden).value
+  const rowLabel = _cpRowFilter[target]
+  const sorted = [...allCustomers].sort((a,b) => (a.name_kana||a.name).localeCompare(b.name_kana||b.name,'ja'))
+
+  let filtered = sorted
+  // 行フィルター
+  if (rowLabel) {
+    const row = GOJUON_ROWS.find(r => r.label === rowLabel)
+    if (row) filtered = filtered.filter(c => {
+      const kana = (c.name_kana || c.name || '')
+      return [...row.chars].some(ch => kana.startsWith(ch))
+    })
+  }
+  // テキスト検索
+  if (q) {
+    filtered = filtered.filter(c =>
+      c.name.includes(q) || (c.name_kana||'').includes(q) || (c.phone||'').includes(q))
+  }
+
+  if (!filtered.length) {
+    drop.innerHTML = '<div style="padding:14px;color:#aaa;font-size:14px;text-align:center">該当するお客様がいません</div>'
+  } else {
+    drop.innerHTML = filtered.map(c => `
+      <div class="cust-drop-item${c.id===selId?' selected':''}" onmousedown="event.preventDefault()" onclick="custPickerSelect('${target}','${c.id}')">
+        <div>
+          <div class="cust-drop-name">${c.name}</div>
+          ${c.name_kana ? `<div class="cust-drop-kana">${c.name_kana}</div>` : ''}
+        </div>
+        ${c.phone ? `<div class="cust-drop-phone">${c.phone}</div>` : ''}
+      </div>`).join('')
+  }
+  drop.style.display = 'block'
+}
+
+function custPickerSelect(target, id) {
+  const c = allCustomers.find(c => c.id === id)
+  if (!c) return
+  const ids = _cpIds(target)
+  document.getElementById(ids.hidden).value = id
+  document.getElementById(ids.search).value = c.name
+  document.getElementById(ids.search).classList.add('cust-input-selected')
+  document.getElementById(ids.drop).style.display = 'none'
+  document.getElementById(ids.rows).style.display = 'none'
+}
+
+// フォーカスが外れたらドロップダウンを閉じる
+document.addEventListener('focusin', e => {
+  ;['add','edit'].forEach(target => {
+    const ids = _cpIds(target)
+    const search = document.getElementById(ids.search)
+    const drop   = document.getElementById(ids.drop)
+    const rows   = document.getElementById(ids.rows)
+    if (!search || !drop) return
+    const inside = [search, drop, rows].some(el => el && el.contains(e.target))
+    if (!inside) {
+      drop.style.display = 'none'
+      rows.style.display = 'none'
+      if (!document.getElementById(ids.hidden).value) {
+        search.value = ''
+        search.classList.remove('cust-input-selected')
+      }
+    }
+  })
+})
+
+function buildCustomerSelect() {} // 旧関数（互換のため残す）
+
+function openAddReservation(customerId, date, time, durationMin) {
+  custPickerSet('add', customerId || null)
+  document.getElementById('res-date').value = date || todayStr()
+  setTimeVal('res-time-h','res-time-m', time || '10:00')
+  ;['res-menu','res-memo'].forEach(id => document.getElementById(id).value='')
+  document.getElementById('res-duration').value = durationMin ? (durationMin / 60) : '1'
+  document.getElementById('res-price').value = ''
+  hideError('res-add-error'); openModal('modal-add-res')
+}
+
+// 週コマタップ用の軽量タッチ状態
+let _colTap = null
+
+let _colSel = null  // 長押し後のドラッグ選択状態
+
+function _colRelY(clientY) {
+  const sc = document.getElementById('week-tg-scroll')
+  if (!sc) return 0
+  return clientY - sc.getBoundingClientRect().top + sc.scrollTop
+}
+
+function _relYToTime(relY) {
+  const totalMin = Math.round(((relY / DH_PX) * 60 + DH_START * 60) / 30) * 30
+  const h = Math.max(DH_START, Math.min(DH_END, Math.floor(totalMin / 60)))
+  const m = totalMin % 60
+  return String(h).padStart(2,'0') + ':' + String(m < 60 ? m : 0).padStart(2,'0')
+}
+
+function _timeToRelY(timeStr) {
+  const [h, m] = timeStr.split(':').map(Number)
+  return ((h * 60 + m - DH_START * 60) / 60) * DH_PX
+}
+
+function colTouchStart(e, ds) {
+  if (drag || fastMoveMode || moveMode) return
+  if (e.target.closest('.week-tg-block')) return
+  const t = e.touches[0]
+  const colEl = e.currentTarget  // setTimeout前にキャプチャ
+  _colTap = { ds, x: t.clientX, y: t.clientY, ts: Date.now() }
+  // 長押しで緑ブロック選択モード開始
+  _colTap.timer = setTimeout(() => {
+    if (!_colTap) return
+    if (navigator.vibrate) navigator.vibrate(40)
+    const startTime = _relYToTime(_colRelY(_colTap.y))
+    _colSel = { ds, colEl, startTime, startRelY: _timeToRelY(startTime), endTime: startTime, dur: 60 }
+    _colTap = null
+    _renderSelBlock(_colSel.startRelY, DH_PX, startTime, startTime, colEl)
+  }, 500)
+}
+
+function _renderSelBlock(topPx, heightPx, dispStart, dispEnd, colEl) {
+  let ind = colEl.querySelector('.time-select-block')
+  if (!ind) { ind = document.createElement('div'); ind.className = 'time-select-block'; colEl.appendChild(ind) }
+  ind.style.top    = topPx + 'px'
+  ind.style.height = Math.max(heightPx, 20) + 'px'
+  ind.innerHTML    = `<span class="time-select-label">${dispStart}〜${dispEnd}</span>`
+}
+
+function colTouchMove(e, ds) {
+  // 長押し前の移動 → タイマーキャンセル
+  if (_colTap && _colTap.ds === ds) {
+    const t = e.touches[0]
+    const dx = t.clientX - _colTap.x, dy = t.clientY - _colTap.y
+    if (dx*dx + dy*dy > 100) { clearTimeout(_colTap.timer); _colTap = null }
+    return
+  }
+  // 長押し後のドラッグ → ブロック更新
+  if (!_colSel || _colSel.ds !== ds) return
+  e.preventDefault()
+  const t = e.touches[0]
+  const endRelY   = _colRelY(t.clientY)
+  const endTime   = _relYToTime(endRelY)
+  const topPx     = Math.min(_colSel.startRelY, endRelY)
+  const heightPx  = Math.abs(endRelY - _colSel.startRelY)
+  const dispStart = _colSel.startRelY <= endRelY ? _colSel.startTime : endTime
+  const dispEnd   = _colSel.startRelY <= endRelY ? endTime : _colSel.startTime
+  _colSel.endTime = dispStart
+  _colSel.dur     = Math.max(Math.round(heightPx / DH_PX * 60), 30)
+  _renderSelBlock(topPx, heightPx, dispStart, dispEnd, _colSel.colEl)
+}
+
+let _colTouchHandled = false  // タッチ操作後のclickを無視するフラグ
+
+function colTouchEnd(e, ds) {
+  _colTouchHandled = true
+  setTimeout(() => { _colTouchHandled = false }, 400)
+  // 長押し後のドラッグ終了 → 予約登録
+  if (_colSel && _colSel.ds === ds) {
+    const ind = _colSel.colEl.querySelector('.time-select-block')
+    if (ind) ind.remove()
+    const startTime = _colSel.endTime || _colSel.startTime
+    const dur = _colSel.dur || 60
+    _colSel = null; _colTap = null
+    openAddReservation(null, ds, startTime)
+    return
+  }
+  if (!_colTap || _colTap.ds !== ds) { _colTap = null; return }
+  clearTimeout(_colTap.timer)
+  _colTap = null
+}
+
+// PC用：列クリックで予約登録
+function colClick(e, ds) {
+  if (_colTouchHandled) return  // タッチ操作後は無視
+  if (drag?.active) return       // ドラッグ中は無視
+  if (e.target.closest('.week-tg-block')) return  // 予約ブロックのクリックは無視
+  if (moveMode || fastMoveMode) { handleWeekColMoveClick(e, ds, DH_START, DH_PX); return }
+  const sc = document.getElementById('week-tg-scroll')
+  if (!sc) return
+  const rect = sc.getBoundingClientRect()
+  const relY = e.clientY - rect.top + sc.scrollTop
+  const totalMin = Math.round(((relY / DH_PX) * 60 + DH_START * 60) / 30) * 30
+  const h = Math.max(DH_START, Math.min(DH_END - 1, Math.floor(totalMin / 60)))
+  const m = totalMin % 60 < 60 ? totalMin % 60 : 0
+  const time = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0')
+  openAddReservation(null, ds, time)
+}
+
+async function submitAddReservation() {
+  const date = document.getElementById('res-date').value
+  const time = getTimeVal('res-time-h','res-time-m')
+  if (!date||!time) { showError('res-add-error','予約日と時刻を入力してください'); return }
+  const cid = document.getElementById('res-customer-id').value
+  if (!cid) { showError('res-add-error','顧客を選択してください'); return }
+  const btn = event.target; btn.disabled=true; btn.textContent='登録中...'
+  const res = await api({ action:'addReservation', customer_id:cid, date, time,
+    menu:document.getElementById('res-menu').value,
+    duration: Math.round((parseFloat(document.getElementById('res-duration').value)||1) * 60),
+    price:document.getElementById('res-price').value||0,
+    memo:document.getElementById('res-memo').value, status:'reserved'
+  })
+  btn.disabled=false; btn.textContent='登録する'
+  if (res.error) { showError('res-add-error',res.error); return }
+  closeModal('modal-add-res'); toast('予約を登録しました')
+  // 楽観的更新：即座に画面に反映
+  const cust = allCustomers.find(c => c.id === cid)
+  const newRes = {
+    id: res.id || ('tmp-' + Date.now()),
+    customer_id: cid,
+    customer_name: cust?.name || '',
+    date, time,
+    menu: document.getElementById('res-menu').value,
+    duration: Math.round((parseFloat(document.getElementById('res-duration').value)||1) * 60),
+    price: Number(document.getElementById('res-price').value)||0,
+    memo: document.getElementById('res-memo').value,
+    status: 'reserved'
+  }
+  allReservations = [...allReservations, newRes].sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time))
+  updateResBadge(); renderCalendar(); loadHome()
+  // バックグラウンドで正確なデータに更新
+  api({ action:'getReservations', filter:'' }).then(d => {
+    if (Array.isArray(d)) { allReservations = d; updateResBadge(); renderCalendar(); loadHome() }
+  })
+}
+
+function selectStatus(s) {
+  editResStatus = s
+  ;['reserved','visited','cancelled','no_show'].forEach(x => {
+    const el = document.getElementById('st-'+x)
+    el.className = 'status-btn' + (x===s ? ' active-'+x : '')
+  })
+}
+
+function openEditReservation(r) {
+  editingResId = r.id
+  movingRes = r  // 移動機能用に保持
+  custPickerSet('edit', r.customer_id)
+  document.getElementById('edit-res-date').value = r.date||''
+  setTimeVal('edit-res-time-h','edit-res-time-m', r.time||'10:00')
+  document.getElementById('edit-res-menu').value = r.menu||''
+  document.getElementById('edit-res-duration').value = ((r.duration||60) / 60)
+  document.getElementById('edit-res-price').value = r.price||''
+  document.getElementById('edit-res-memo').value = r.memo||''
+  editResStatus = r.status||'reserved'
+  selectResPayment(r.payment||'')
+  openModal('modal-edit-res')
+}
+
+function copyLineMsgFromEdit() {
+  const r = movingRes
+  if (!r) return
+  const btn = document.getElementById('cal-line-copy-btn')
+  copyLineMsg(r, btn)
+}
+
+async function submitEditReservation() {
+  const btn = event.target; btn.disabled=true; btn.textContent='更新中...'
+  const res = await api({ action:'updateReservation', id:editingResId,
+    customer_id: document.getElementById('edit-res-customer-id').value,
+    date: document.getElementById('edit-res-date').value,
+    time: getTimeVal('edit-res-time-h','edit-res-time-m'),
+    menu: document.getElementById('edit-res-menu').value,
+    duration: Math.round((parseFloat(document.getElementById('edit-res-duration').value)||1) * 60),
+    price: document.getElementById('edit-res-price').value||0,
+    memo: document.getElementById('edit-res-memo').value,
+    status: null,
+    payment: editResPayment
+  })
+  btn.disabled=false; btn.textContent='更新する'
+  if (res.error) { alert(res.error); return }
+  closeModal('modal-edit-res'); toast('更新しました')
+  allReservations = await api({ action:'getReservations', filter:'' }).then(d => Array.isArray(d)?d:allReservations)
+  updateResBadge(); loadHome()
+  renderCalendar()
+  loadReservationList()
+}
+
+async function doDeleteReservation() {
+  if (!confirm('この予約を削除しますか？')) return
+  await api({ action:'deleteReservation', id:editingResId })
+  closeModal('modal-edit-res'); toast('削除しました')
+  allReservations = allReservations.filter(r => r.id !== editingResId)
+  updateResBadge(); loadHome(); renderCalendar(); loadReservationList()
+}
+
+function selectResPayment(m) {
+  editResPayment = m
+}
+
+function openKarteFromRes() {
+  const res = allReservations.find(r => r.id === editingResId)
+  if (!res) { toast('顧客情報が見つかりません'); return }
+  const customer = allCustomers.find(c => c.id === res.customer_id)
+  if (!customer) { toast('顧客情報が見つかりません'); return }
+  closeModal('modal-edit-res')
+  showDetail(customer, 'reservations')
+}
+
+function openNextReservation() {
+  // 現在編集中の予約情報を元に次回予約を開く
+  closeModal('modal-edit-res')
+  const cur = allReservations.find(r => r.id === editingResId)
+  custPickerSet('add', cur ? cur.customer_id : null)
+  // 次回日付 (4週間後)
+  const nextDate = new Date()
+  if (cur) { const d = new Date(cur.date); d.setDate(d.getDate()+28); nextDate.setTime(d.getTime()) }
+  document.getElementById('res-date').value = localDate(nextDate)
+  setTimeVal('res-time-h','res-time-m', cur ? cur.time : '10:00')
+  document.getElementById('res-menu').value = cur ? cur.menu||'' : ''
+  document.getElementById('res-duration').value = cur ? (cur.duration||60)/60 : 1
+  document.getElementById('res-price').value = cur ? cur.price||'' : ''
+  document.getElementById('res-memo').value = ''
+  hideError('res-add-error'); openModal('modal-add-res')
+}
+
+// ═══════════════ お会計 ═══════════════
+let coItems      = []  // [{id, name, price, type:'menu'|'shop'}]
+let coPayment    = 'cash'
+let coRes        = null
+let coEditItemId = null
+
+function resCardCheckout(r) {
+  const rj = JSON.stringify(r).replace(/"/g,'&quot;')
+  const cust = allCustomers.find(c => c.id === r.customer_id)
+  const cj = cust ? JSON.stringify(cust).replace(/"/g,'&quot;') : null
+  return `<div class="res-card">
+    <div class="res-time-row">
+      <span class="res-time">${r.date} ${r.time}</span>
+    </div>
+    <div class="res-name">${r.customer_name}</div>
+    <div class="res-menu">${r.menu||'—'}${r.duration ? ' · '+fmtDur(r.duration) : ''}</div>
+    ${r.price ? `<div class="res-price">¥${r.price.toLocaleString()}</div>` : ''}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">
+      ${cj ? `<button onclick="showDetail(${cj},'home')" style="padding:10px;border-radius:10px;background:#f0f0f5;color:#1c1c1e;border:none;font-size:14px;font-weight:600;cursor:pointer;">カルテ</button>` : '<div></div>'}
+      <button onclick="openCheckoutFromCard(${rj})" style="padding:10px;border-radius:10px;background:#1c1c1e;color:#fff;border:none;font-size:14px;font-weight:600;cursor:pointer;">お会計</button>
+    </div>
+  </div>`
+}
+
+function openCheckoutFromCard(r) {
+  editingResId = r.id
+  movingRes = r
+  openCheckout()
+}
+
+function openCheckout() {
+  const res = allReservations.find(r => r.id === editingResId)
+  if (!res) { toast('予約情報が取得できませんでした'); return }
+  coRes = res
+  coItems = []
+  // 既存メニューを初期アイテムに
+  if (res.menu) {
+    coItems.push({ id: Date.now(), name: res.menu, price: res.price || 0, type: 'menu' })
+  }
+  coPayment = res.payment || 'cash'
+  closeModal('modal-edit-res')
+
+  // 画面描画
+  const d = new Date(res.date)
+  document.getElementById('co-date').textContent =
+    d.getFullYear() + '年 ' + (d.getMonth()+1) + '月 ' + String(d.getDate()).padStart(2,'0') + '日'
+  document.getElementById('co-customer').textContent = res.customer_name + ' 様'
+  selectCoPayment(coPayment)
+  renderCoItems()
+  document.getElementById('checkout-overlay').classList.add('show')
+  window.scrollTo(0,0)
+}
+
+function closeCheckout() {
+  document.getElementById('checkout-overlay').classList.remove('show')
+}
+
+function showCheckoutComplete(customerName) {
+  const total = coItems.reduce((s,i) => s+Number(i.price), 0)
+  document.getElementById('co-complete-name').textContent = customerName + ' 様'
+  document.getElementById('co-complete-total').textContent = '¥ ' + total.toLocaleString()
+  document.getElementById('checkout-complete').style.display = 'flex'
+}
+
+function completeToHome() {
+  document.getElementById('checkout-complete').style.display = 'none'
+  showReservations()
+}
+
+function completeToNextReservation() {
+  document.getElementById('checkout-complete').style.display = 'none'
+  showCalendar()
+}
+
+function renderCoItems() {
+  document.getElementById('co-menu-list').innerHTML = coItems.map(item => `
+    <div class="checkout-item">
+      <span class="checkout-item-name">${item.name}</span>
+      <span class="checkout-item-price">¥ ${Number(item.price).toLocaleString()}</span>
+      <div class="checkout-item-btns">
+        <button class="checkout-edit-btn" onclick="editCoItem(${item.id})" title="編集">✎</button>
+        <button class="checkout-del-btn"  onclick="delCoItem(${item.id})"  title="削除">✕</button>
+      </div>
+    </div>`).join('')
+  calcCoTotals()
+}
+
+function calcCoTotals() {
+  const total = coItems.reduce((s,i) => s+Number(i.price), 0)
+  document.getElementById('co-total').textContent = '¥ ' + total.toLocaleString()
+}
+
+function addCoItem(type) {
+  coEditItemId = null
+  openCoMenuPicker()
+}
+
+function editCoItem(id) {
+  coEditItemId = id
+  openCoMenuPicker()
+}
+
+const _coSelectedIds = new Set()
+
+function openCoMenuPicker() {
+  _coSelectedIds.clear()
+  const el = document.getElementById('co-picker-list')
+  if (!allMenuMaster.length) {
+    el.innerHTML = '<div style="color:#aaa;text-align:center;padding:40px 0">メニューがありません<br>メニュー管理から追加してください</div>'
+  } else {
+    el.innerHTML = allMenuMaster.map(m => `
+      <div id="copick-${m.id}" onclick="toggleCoMenuSelect('${m.id}')"
+        style="background:#fff;border:2px solid #e5e5ea;border-radius:12px;padding:14px 16px;margin-bottom:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-size:16px;font-weight:600">${m.name}</div>
+          <div style="font-size:13px;color:#888;margin-top:2px">${fmtDur(m.duration)}　${m.price ? '¥'+m.price.toLocaleString() : ''}</div>
+        </div>
+        <div id="copick-chk-${m.id}" style="width:24px;height:24px;border-radius:12px;border:2px solid #ddd;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;"></div>
+      </div>`).join('')
+  }
+  updateCoPickerBtn()
+  document.getElementById('co-menu-picker-panel').style.display = 'block'
+}
+
+function closeCoMenuPicker() {
+  document.getElementById('co-menu-picker-panel').style.display = 'none'
+  _coSelectedIds.clear()
+  coEditItemId = null
+}
+
+function toggleCoMenuSelect(id) {
+  if (_coSelectedIds.has(id)) _coSelectedIds.delete(id)
+  else _coSelectedIds.add(id)
+  const card = document.getElementById('copick-' + id)
+  const chk  = document.getElementById('copick-chk-' + id)
+  const sel  = _coSelectedIds.has(id)
+  card.style.borderColor = sel ? '#2ec4b6' : '#e5e5ea'
+  card.style.background  = sel ? '#e8faf8' : '#fff'
+  chk.style.background   = sel ? '#2ec4b6' : '#fff'
+  chk.style.borderColor  = sel ? '#2ec4b6' : '#ddd'
+  chk.textContent        = sel ? '✓' : ''
+  updateCoPickerBtn()
+}
+
+function updateCoPickerBtn() {
+  const selected = allMenuMaster.filter(m => _coSelectedIds.has(m.id))
+  const btn = document.getElementById('co-picker-confirm')
+  if (!selected.length) {
+    btn.textContent = '選択してください'; btn.disabled = true; btn.style.opacity = '0.5'
+  } else {
+    const total = selected.reduce((s, m) => s + m.price, 0)
+    btn.textContent = `${selected.length}件　¥${total.toLocaleString()}　→ 決定`
+    btn.disabled = false; btn.style.opacity = '1'
+  }
+}
+
+function confirmCoMenuSelection() {
+  const selected = allMenuMaster.filter(m => _coSelectedIds.has(m.id))
+  if (!selected.length) return
+  const name  = selected.map(m => m.name).join('・')
+  const price = selected.reduce((s, m) => s + m.price, 0)
+  if (coEditItemId !== null) {
+    const item = coItems.find(i => i.id === coEditItemId)
+    if (item) { item.name = name; item.price = price }
+  } else {
+    coItems.push({ id: Date.now(), name, price, type: 'menu' })
+  }
+  closeCoMenuPicker()
+  renderCoItems()
+}
+
+function delCoItem(id) {
+  coItems = coItems.filter(i => i.id !== id)
+  renderCoItems()
+}
+
+function selectCoPayment(m) {
+  coPayment = m
+  ;['cash','card','qr'].forEach(x =>
+    document.getElementById('co-pay-'+x).classList.toggle('active', x===m))
+  const cashBox = document.getElementById('co-cash-box')
+  cashBox.style.display = m === 'cash' ? 'block' : 'none'
+  if (m === 'cash') {
+    document.getElementById('co-cash-input').value = ''
+    document.getElementById('co-change').textContent = '—'
+    setTimeout(() => document.getElementById('co-cash-input').focus(), 100)
+  }
+}
+
+function calcChange() {
+  const total    = coItems.reduce((s,i) => s+Number(i.price), 0)
+  const received = Number(document.getElementById('co-cash-input').value) || 0
+  const change   = received - total
+  const el = document.getElementById('co-change')
+  if (received === 0) { el.textContent = '—'; el.style.color = '#1c1c1e'; return }
+  el.textContent = change >= 0 ? '¥ ' + change.toLocaleString() : '不足 ¥ ' + Math.abs(change).toLocaleString()
+  el.style.color = change >= 0 ? '#1c1c1e' : '#e33'
+}
+
+async function confirmCheckout() {
+  if (!coRes) return
+  const total = coItems.reduce((s,i) => s+Number(i.price), 0)
+  const menuText = coItems.map(i => i.name).join('・')
+  const btn = document.querySelector('.checkout-confirm-btn')
+  btn.textContent = '処理中...'; btn.disabled = true
+
+  // 同日のカルテが既にあれば更新、なければ新規作成
+  const existingVisits = await api({ action:'getVisits', customerId: coRes.customer_id })
+  const existing = Array.isArray(existingVisits)
+    ? existingVisits.find(v => v.visit_date === coRes.date)
+    : null
+  if (existing) {
+    await api({ action:'updateVisit',
+      id:          existing.id,
+      visit_date:  coRes.date,
+      menu:        menuText,
+      medicine:    existing.medicine || '',
+      price:       total,
+      memo:        existing.memo || '',
+      payment:     coPayment
+    })
+  } else {
+    await api({ action:'addVisit',
+      customer_id: coRes.customer_id,
+      visit_date:  coRes.date,
+      menu:        menuText,
+      medicine:    '',
+      price:       total,
+      memo:        '',
+      payment:     coPayment
+    })
+  }
+
+  // 予約の支払方法を更新
+  await api({ action:'updateReservation', id: coRes.id, payment: coPayment })
+  allReservations = allReservations.map(r =>
+    r.id === coRes.id ? { ...r, payment: coPayment } : r)
+
+  btn.textContent = 'お会計'; btn.disabled = false
+  closeCheckout()
+  showCheckoutComplete(coRes.customer_name)
+  loadAll()
+}
+
+// ═══════════════ イベント ═══════════════
+function selectEventType(t) {
+  addEventType = t
+  ;['holiday','other'].forEach(x => document.getElementById('ev-type-'+x).classList.toggle('active', x===t))
+}
+
+function openAddEvent(date) {
+  const d = date || calSelectedDate || todayStr()
+  document.getElementById('ev-date').value = d
+  document.getElementById('ev-title').value = ''
+  selectEventType('holiday')
+  renderEvList()
+  openModal('modal-add-event')
+}
+
+function renderEvList() {
+  const el = document.getElementById('ev-list')
+  if (!allEvents.length) { el.innerHTML = '<div style="color:#aaa;font-size:14px">なし</div>'; return }
+  const sorted = [...allEvents].sort((a,b) => a.date.localeCompare(b.date))
+  el.innerHTML = sorted.map(ev => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f0f5">
+      <div>
+        <span class="event-chip ${ev.type==='holiday'?'event-holiday':'event-other'}" style="display:inline-block;margin-right:6px">${ev.type==='holiday'?'定休日':'その他'}</span>
+        <span style="font-size:14px;font-weight:600">${ev.date}　${ev.title||'定休日'}</span>
+      </div>
+      <button onclick="deleteEventItem('${ev.id}')" style="background:#fff0f0;color:#e33;border:1px solid #fcc;border-radius:8px;padding:4px 10px;font-size:13px;cursor:pointer">削除</button>
+    </div>`).join('')
+}
+
+async function submitAddEvent() {
+  const date = document.getElementById('ev-date').value
+  if (!date) { toast('日付を入力してください'); return }
+  const title = document.getElementById('ev-title').value.trim() || (addEventType==='holiday' ? '定休日' : 'その他')
+  const btn = event.target; btn.disabled=true; btn.textContent='追加中...'
+  const res = await api({ action:'addEvent', date, title, type: addEventType })
+  btn.disabled=false; btn.textContent='追加する'
+  if (res.error) { toast('エラー: '+res.error); return }
+  allEvents = await api({ action:'getEvents' }).then(d => Array.isArray(d)?d:allEvents)
+  renderEvList()
+  renderCalendar()
+  toast('追加しました')
+}
+
+async function deleteEventItem(id) {
+  if (!confirm('この予定を削除しますか？')) return
+  await api({ action:'deleteEvent', id })
+  allEvents = allEvents.filter(ev => ev.id !== id)
+  renderEvList()
+  renderCalendar()
+  toast('削除しました')
+}
+
+// ═══════════════ 売上集計 ═══════════════
+let salesView = 'month'
+let _salesData = []
+
+function setSalesView(v) {
+  salesView = v
+  document.getElementById('sales-btn-month').classList.toggle('active', v==='month')
+  document.getElementById('sales-btn-day').classList.toggle('active', v==='day')
+  renderSalesSummary(_salesData)
+}
+
+async function loadSalesSummary() {
+  const list = document.getElementById('sales-summary-list')
+  list.innerHTML = '<div class="loading">読み込み中...</div>'
+  const data = await api({ action:'getSalesSummary' })
+  if (!Array.isArray(data)) { list.innerHTML = `<div class="empty">エラー: ${JSON.stringify(data)}</div>`; return }
+  if (data.length && data[0]._error) { list.innerHTML = `<div class="empty">エラー: ${data[0]._error}</div>`; return }
+  if (!data.length) { list.innerHTML = '<div class="empty">売上データがありません</div>'; return }
+  _salesData = data
+  renderSalesSummary(data)
+}
+
+function renderSalesSummary(data) {
+  const list = document.getElementById('sales-summary-list')
+  if (!data.length) { list.innerHTML = '<div class="empty">売上データがありません</div>'; return }
+
+  if (salesView === 'day') {
+    list.innerHTML = data.map(d => `
+      <div class="summary-card">
+        <div class="summary-date">${d.date}</div>
+        <div class="summary-total">¥${Number(d.total).toLocaleString()}</div>
+        <div class="summary-grid">
+          <div class="summary-cell"><div class="summary-cell-label">現金</div><div class="summary-cell-val">¥${Number(d.cash).toLocaleString()}</div></div>
+          <div class="summary-cell"><div class="summary-cell-label">カード</div><div class="summary-cell-val">¥${Number(d.card).toLocaleString()}</div></div>
+          <div class="summary-cell"><div class="summary-cell-label">QR決済</div><div class="summary-cell-val">¥${Number(d.qr).toLocaleString()}</div></div>
+        </div>
+        <div class="summary-items">
+          ${d.items.map(item => `
+            <div class="summary-item">
+              <span style="flex:1">${item.customer_name}</span>
+              <span style="color:#aaa;margin-right:8px">${PAY_LABEL[item.payment]||item.payment}</span>
+              <span style="font-weight:600">¥${Number(item.amount).toLocaleString()}</span>
+            </div>`).join('')}
+        </div>
+      </div>`).join('')
+    return
+  }
+
+  // 月ごとに集計
+  const monthMap = {}
+  data.forEach(d => {
+    const ym = d.date.slice(0, 7) // "YYYY-MM"
+    if (!monthMap[ym]) monthMap[ym] = { total:0, cash:0, card:0, qr:0, visits:0, menuCount:{} }
+    const m = monthMap[ym]
+    m.total  += d.total
+    m.cash   += d.cash
+    m.card   += d.card
+    m.qr     += d.qr
+    m.visits += d.items.length
+    // メニュー別カウント
+    d.items.forEach(item => {
+      const menus = (item.menu || '').split(/[・、,]/).map(s => s.trim()).filter(Boolean)
+      menus.forEach(mn => { m.menuCount[mn] = (m.menuCount[mn] || 0) + 1 })
+    })
+  })
+
+  const months = Object.keys(monthMap).sort().reverse()
+  list.innerHTML = months.map(ym => {
+    const m = monthMap[ym]
+    const [y, mo] = ym.split('-')
+    const menuItems = Object.entries(m.menuCount).sort((a,b) => b[1]-a[1])
+    return `
+    <div class="summary-card">
+      <div class="summary-date">${y}年${Number(mo)}月</div>
+      <div class="summary-total">¥${m.total.toLocaleString()}</div>
+      <div class="summary-grid">
+        <div class="summary-cell"><div class="summary-cell-label">来店人数</div><div class="summary-cell-val">${m.visits}人</div></div>
+        <div class="summary-cell"><div class="summary-cell-label">現金</div><div class="summary-cell-val">¥${m.cash.toLocaleString()}</div></div>
+        <div class="summary-cell"><div class="summary-cell-label">カード</div><div class="summary-cell-val">¥${m.card.toLocaleString()}</div></div>
+        <div class="summary-cell"><div class="summary-cell-label">QR決済</div><div class="summary-cell-val">¥${m.qr.toLocaleString()}</div></div>
+      </div>
+      ${menuItems.length ? `
+      <div class="summary-items" style="margin-top:8px;border-top:1px solid #f0f0f5;padding-top:10px;">
+        <div style="font-size:12px;color:#8e8e93;font-weight:600;margin-bottom:6px;">メニュー別</div>
+        ${menuItems.map(([name, cnt]) => `
+          <div class="summary-item">
+            <span style="flex:1">${name}</span>
+            <span style="font-weight:600">${cnt}人</span>
+          </div>`).join('')}
+      </div>` : ''}
+    </div>`
+  }).join('')
+}
+
+
+</script>
+</body>
+</html>
