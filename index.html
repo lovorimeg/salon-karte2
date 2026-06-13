@@ -381,11 +381,6 @@ select.input { appearance:none; }
   <div class="list">
     <div id="detail-info"></div>
     <div class="section-header">
-      <div class="section-title">予約</div>
-      <button class="btn-blue" onclick="openAddReservation(currentCustomer.id)">＋予約</button>
-    </div>
-    <div id="detail-res-list"><div class="loading">読み込み中...</div></div>
-    <div class="section-header">
       <div class="section-title">来店カルテ</div>
       <button class="btn-blue" onclick="openAddVisit()">＋カルテ追加</button>
     </div>
@@ -2246,7 +2241,6 @@ async function showDetail(customer, from) {
   showScreen('screen-detail')
   document.getElementById('detail-name').textContent = customer.name
   renderDetailInfo(customer)
-  loadDetailReservations(customer.id)
   loadVisits(customer.id)
 }
 
