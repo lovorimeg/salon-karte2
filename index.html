@@ -785,6 +785,18 @@ select.input { appearance:none; }
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- 予約アクションポップアップ -->
+<div id="res-action-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:300;" onclick="closeResActionPopup()"></div>
+<div id="res-action-popup" style="display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:480px;background:#fff;border-radius:20px 20px 0 0;z-index:301;padding:20px 16px 40px;">
+  <div id="res-action-name" style="text-align:center;font-size:17px;font-weight:700;margin-bottom:16px;color:#1c1c1e;"></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+    <button onclick="resActionCheckout()" style="padding:18px;border-radius:14px;border:none;background:#f0f0f5;font-size:15px;font-weight:600;cursor:pointer;color:#1c1c1e;">💳 お会計</button>
+    <button onclick="resActionKarte()" style="padding:18px;border-radius:14px;border:none;background:#f0f0f5;font-size:15px;font-weight:600;cursor:pointer;color:#1c1c1e;">📋 カルテ詳細</button>
+    <button onclick="resActionEdit()" style="padding:18px;border-radius:14px;border:none;background:#f0f0f5;font-size:15px;font-weight:600;cursor:pointer;color:#1c1c1e;">✏️ 予約編集</button>
+    <button onclick="resActionDelete()" style="padding:18px;border-radius:14px;border:none;background:#fff0f0;font-size:15px;font-weight:600;cursor:pointer;color:#e33;">🗑️ 削除する</button>
+  </div>
+</div>
 <div id="offline-banner" style="display:none;position:fixed;top:0;left:0;right:0;background:#ff9500;color:#fff;padding:10px 16px;text-align:center;font-size:14px;font-weight:600;z-index:500;letter-spacing:0.5px;">
   📵 オフライン中 — キャッシュデータを表示しています
 </div>
@@ -1225,7 +1237,7 @@ function resCard(r, hideCheckout) {
   const rj = JSON.stringify(r).replace(/"/g,'&quot;')
   const cust = allCustomers.find(c => c.id === r.customer_id)
   const cj = cust ? JSON.stringify(cust).replace(/"/g,'&quot;') : null
-  return `<div class="res-card" onclick="openEditReservation(${rj})">
+  return `<div class="res-card" onclick="openResActionMenu(${rj})">
     <div class="res-time-row">
       <span class="res-time">${r.date} ${r.time}</span>
     </div>
@@ -1237,6 +1249,52 @@ function resCard(r, hideCheckout) {
       <button onclick="event.stopPropagation();openCheckoutFromCard(${rj})" style="padding:8px;border-radius:10px;font-size:13px;font-weight:500;cursor:pointer;border:1.5px solid ${r.status==='visited'?'#e5e5ea':'#ff9500'};background:${r.status==='visited'?'transparent':'#fff8f0'};color:${r.status==='visited'?'#c7c7cc':'#ff9500'};">お会計</button>
     </div>`}
   </div>`
+}
+
+// ═══════════════ 予約アクションポップアップ ═══════════════
+let _resActionTarget = null
+
+function openResActionMenu(r) {
+  _resActionTarget = r
+  document.getElementById('res-action-name').textContent = r.customer_name + '様　' + (r.date||'') + ' ' + (r.time||'')
+  document.getElementById('res-action-overlay').style.display = 'block'
+  document.getElementById('res-action-popup').style.display = 'block'
+}
+
+function closeResActionPopup() {
+  document.getElementById('res-action-overlay').style.display = 'none'
+  document.getElementById('res-action-popup').style.display = 'none'
+  _resActionTarget = null
+}
+
+function resActionCheckout() {
+  const r = _resActionTarget
+  closeResActionPopup()
+  if (r) openCheckoutFromCard(r)
+}
+
+function resActionKarte() {
+  const r = _resActionTarget
+  closeResActionPopup()
+  if (!r) return
+  const cust = allCustomers.find(c => c.id === r.customer_id)
+  if (cust) showDetail(cust, 'reservations')
+}
+
+function resActionEdit() {
+  const r = _resActionTarget
+  closeResActionPopup()
+  if (r) openEditReservation(r)
+}
+
+async function resActionDelete() {
+  const r = _resActionTarget
+  closeResActionPopup()
+  if (!r) return
+  if (!confirm(`${r.customer_name}様の予約（${r.date} ${r.time}）を削除しますか？`)) return
+  await apiCall({ action: 'deleteReservation', id: r.id })
+  toast('予約を削除しました')
+  await loadAll()
 }
 
 // ═══════════════ カレンダー ═══════════════
@@ -2052,7 +2110,7 @@ function renderWeekCalendar() {
       const cj = cust ? JSON.stringify(cust).replace(/"/g,'&quot;') : null
       return `<div class="${statusCls}" style="top:${topPx}px;height:${hPx}px${isOrange ? ';background:#ff9500' : ''}"
         ontouchstart="lpStart(event,${rj})" ontouchend="lpEnd(event)" ontouchmove="lpMove(event)"
-        onclick="openEditReservation(${rj})">
+        onclick="openResActionMenu(${rj})">
         <div class="week-tg-bname" ${cj ? `onclick="event.stopPropagation();showDetail(${cj},'reservations')"` : ''} style="${cj ? 'text-decoration:underline;text-underline-offset:2px;text-decoration-color:rgba(255,255,255,0.6);cursor:pointer;' : ''}">${r.customer_name}</div>
         ${hPx > 30 && r.menu ? `<div class="week-tg-bmenu">${r.menu}</div>` : ''}
       </div>`
@@ -2113,7 +2171,7 @@ function renderDayCalendar() {
     return `<div class="day-slot">
       <div class="day-slot-time">${hStr}</div>
       <div class="day-slot-line">${hRes.map(r => `
-        <div class="day-slot-res ${r.status}" ontouchstart="lpStart(event,${JSON.stringify(r).replace(/"/g,'&quot;')})" ontouchend="lpEnd(event)" ontouchmove="lpMove(event)" onclick="openEditReservation(${JSON.stringify(r).replace(/"/g,'&quot;')})">
+        <div class="day-slot-res ${r.status}" ontouchstart="lpStart(event,${JSON.stringify(r).replace(/"/g,'&quot;')})" ontouchend="lpEnd(event)" ontouchmove="lpMove(event)" onclick="openResActionMenu(${JSON.stringify(r).replace(/"/g,'&quot;')})">
           <div class="day-slot-res-name">${r.time} ${r.customer_name}</div>
           <div class="day-slot-res-info">${r.menu||'—'}${r.duration ? ' · '+fmtDur(r.duration) : ''}</div>
         </div>`).join('')}</div>
