@@ -953,6 +953,23 @@ const STATUS_LABEL = { reserved:'予約済', visited:'来店済', cancelled:'キ
 const STATUS_BADGE = { reserved:'badge-reserved', visited:'badge-visited', cancelled:'badge-cancelled', no_show:'badge-no_show' }
 const DAY_JP = ['日','月','火','水','木','金','土']
 
+// 日本の祝日（内蔵データ・2025〜2027年）
+const JP_HOLIDAYS = {
+  // 2025
+  '2025-01-01':'元日','2025-01-13':'成人の日','2025-02-11':'建国記念の日','2025-02-23':'天皇誕生日','2025-02-24':'振替休日',
+  '2025-03-20':'春分の日','2025-04-29':'昭和の日','2025-05-03':'憲法記念日','2025-05-04':'みどりの日','2025-05-05':'こどもの日','2025-05-06':'振替休日',
+  '2025-07-21':'海の日','2025-08-11':'山の日','2025-09-15':'敬老の日','2025-09-23':'秋分の日','2025-10-13':'スポーツの日','2025-11-03':'文化の日','2025-11-23':'勤労感謝の日','2025-11-24':'振替休日',
+  // 2026
+  '2026-01-01':'元日','2026-01-12':'成人の日','2026-02-11':'建国記念の日','2026-02-23':'天皇誕生日',
+  '2026-03-20':'春分の日','2026-04-29':'昭和の日','2026-05-03':'憲法記念日','2026-05-04':'みどりの日','2026-05-05':'こどもの日','2026-05-06':'振替休日',
+  '2026-07-20':'海の日','2026-08-11':'山の日','2026-09-21':'敬老の日','2026-09-22':'国民の休日','2026-09-23':'秋分の日','2026-10-12':'スポーツの日','2026-11-03':'文化の日','2026-11-23':'勤労感謝の日',
+  // 2027
+  '2027-01-01':'元日','2027-01-11':'成人の日','2027-02-11':'建国記念の日','2027-02-23':'天皇誕生日',
+  '2027-03-21':'春分の日','2027-03-22':'振替休日','2027-04-29':'昭和の日','2027-05-03':'憲法記念日','2027-05-04':'みどりの日','2027-05-05':'こどもの日',
+  '2027-07-19':'海の日','2027-08-11':'山の日','2027-09-20':'敬老の日','2027-09-23':'秋分の日','2027-10-11':'スポーツの日','2027-11-03':'文化の日','2027-11-23':'勤労感謝の日',
+}
+function jpHoliday(dateStr) { return JP_HOLIDAYS[dateStr] || '' }
+
 // 毎週火曜は自動定休日。その日に手動の定休日イベントが無ければ自動チップを返す
 function regularHolidayChip(dateStr, opts) {
   const d = new Date(dateStr)
@@ -1462,11 +1479,14 @@ function renderMonthCalendar() {
     const cnt = resDots[s] || 0
     const dots = cnt > 0 ? `<div class="month-dot">${'<span></span>'.repeat(Math.min(cnt, 3))}</div>` : ''
     const dayEvts = allEvents.filter(ev => ev.date === s)
-    const evHtml = regularHolidayChip(s) + dayEvts.map(ev =>
+    const jph = jpHoliday(s)
+    const jphHtml = jph ? `<span class="event-chip" style="background:#fdeef0;color:#d6336c;">${jph}</span>` : ''
+    const numStyle = jph ? ' style="color:#d6336c;"' : ''
+    const evHtml = jphHtml + regularHolidayChip(s) + dayEvts.map(ev =>
       `<span class="event-chip ${ev.type==='holiday'?'event-holiday':'event-other'}" onclick="event.stopPropagation();openAddEvent('${s}')">${ev.title||'定休日'}</span>`
     ).join('')
     return `<div class="${cls}" data-mdate="${s}" onclick="selectMonthDay('${s}')">
-      <div class="month-num">${d}</div>${dots}${evHtml}
+      <div class="month-num"${numStyle}>${d}</div>${dots}${evHtml}
     </div>`
   }).join('')
 
@@ -2201,8 +2221,10 @@ function renderWeekCalendar() {
     const ds = localDate(dd)
     const dayEvts = allEvents.filter(ev => ev.date === ds)
     const autoChip = regularHolidayChip(ds)
-    if (dayEvts.length || autoChip) hasWeekEvent = true
-    document.getElementById('wad'+i).innerHTML = autoChip + dayEvts.map(ev =>
+    const jph = jpHoliday(ds)
+    const jphChip = jph ? `<span class="event-chip" style="background:#fdeef0;color:#d6336c;">${jph}</span>` : ''
+    if (dayEvts.length || autoChip || jphChip) hasWeekEvent = true
+    document.getElementById('wad'+i).innerHTML = jphChip + autoChip + dayEvts.map(ev =>
       `<span class="event-chip ${ev.type==='holiday'?'event-holiday':'event-other'}" onclick="openAddEvent('${ds}')">${ev.title||'定休日'}</span>`
     ).join('')
   })
@@ -2234,7 +2256,9 @@ function renderDayCalendar() {
 
   const dayEvts = allEvents.filter(ev => ev.date === ds)
   const autoChip = regularHolidayChip(ds, {inline:true})
-  const evInner = autoChip + dayEvts.map(ev =>
+  const jph = jpHoliday(ds)
+  const jphChip = jph ? `<span class="event-chip" style="background:#fdeef0;color:#d6336c;display:inline-block;margin-right:4px;">${jph}</span>` : ''
+  const evInner = jphChip + autoChip + dayEvts.map(ev =>
     `<span class="event-chip ${ev.type==='holiday'?'event-holiday':'event-other'}" style="display:inline-block;margin-right:4px" onclick="openAddEvent('${ds}')">${ev.title||'定休日'}</span>`
   ).join('')
   const evBanner = evInner ? `<div style="padding:6px 16px 4px">${evInner}</div>` : ''
