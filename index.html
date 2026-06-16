@@ -687,13 +687,15 @@ select.input { appearance:none; }
       </div>
     </div>
     <div class="field">
-      <label class="label">日付 *</label>
-      <div style="display:flex;gap:8px;">
-        <input class="input" id="ev-date" type="date" style="flex:1;" />
-        <button type="button" onclick="addPendingEventDate()" style="white-space:nowrap;padding:0 14px;border-radius:10px;border:1.5px solid #007aff;background:#fff;color:#007aff;font-size:14px;font-weight:600;cursor:pointer;">＋ 追加</button>
+      <label class="label">日付 *（タップで選択／複数日OK）</label>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin:4px 0 8px;">
+        <button type="button" onclick="evCalPrev()" style="background:#f0f0f5;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;">‹</button>
+        <div id="ev-cal-title" style="font-size:15px;font-weight:700;"></div>
+        <button type="button" onclick="evCalNext()" style="background:#f0f0f5;border:none;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;">›</button>
       </div>
-      <div style="font-size:12px;color:#aaa;margin-top:4px;">複数日まとめて登録できます。日付を選んで「＋追加」を押してください。</div>
-      <div id="ev-pending-dates" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></div>
+      <div id="ev-cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;"></div>
+      <input type="hidden" id="ev-date" />
+      <div id="ev-pending-count" style="font-size:13px;color:#007aff;font-weight:600;margin-top:8px;text-align:center;"></div>
     </div>
     <div class="field"><label class="label">タイトル</label><input class="input" id="ev-title" placeholder="定休日・研修・棚卸しなど" /></div>
     <button class="btn-primary" onclick="submitAddEvent()">追加する</button>
@@ -3338,38 +3340,65 @@ function selectEventType(t) {
 }
 
 let _pendingEventDates = []
+let _evCalMonth = null   // 表示中の月（その月の1日のDate）
 
 function openAddEvent(date) {
   const d = date || calSelectedDate || todayStr()
-  document.getElementById('ev-date').value = d
+  const base = new Date(d)
+  _evCalMonth = new Date(base.getFullYear(), base.getMonth(), 1)
   document.getElementById('ev-title').value = ''
   _pendingEventDates = []
-  renderPendingDates()
   selectEventType('holiday')
+  renderEventCalendar()
   renderEvList()
   openModal('modal-add-event')
 }
 
-function addPendingEventDate() {
-  const d = document.getElementById('ev-date').value
-  if (!d) { toast('日付を選んでください'); return }
-  if (!_pendingEventDates.includes(d)) _pendingEventDates.push(d)
-  _pendingEventDates.sort()
-  renderPendingDates()
+function evCalPrev() { _evCalMonth = new Date(_evCalMonth.getFullYear(), _evCalMonth.getMonth()-1, 1); renderEventCalendar() }
+function evCalNext() { _evCalMonth = new Date(_evCalMonth.getFullYear(), _evCalMonth.getMonth()+1, 1); renderEventCalendar() }
+
+function toggleEvDay(ds) {
+  if (_pendingEventDates.includes(ds)) _pendingEventDates = _pendingEventDates.filter(x => x !== ds)
+  else _pendingEventDates.push(ds)
+  renderEventCalendar()
 }
 
-function removePendingEventDate(d) {
-  _pendingEventDates = _pendingEventDates.filter(x => x !== d)
-  renderPendingDates()
-}
+function renderEventCalendar() {
+  const y = _evCalMonth.getFullYear(), m = _evCalMonth.getMonth()
+  document.getElementById('ev-cal-title').textContent = `${y}年${m+1}月`
+  const firstDow = new Date(y, m, 1).getDay()   // 0=日
+  const daysInMonth = new Date(y, m+1, 0).getDate()
+  const holidaySet = new Set(allEvents.filter(e => e.type === 'holiday').map(e => e.date))
+  const otherSet = new Set(allEvents.filter(e => e.type !== 'holiday').map(e => e.date))
 
-function renderPendingDates() {
-  const el = document.getElementById('ev-pending-dates')
-  el.innerHTML = _pendingEventDates.map(d => {
-    const dt = new Date(d)
-    const label = `${dt.getMonth()+1}/${dt.getDate()}(${DAY_JP[dt.getDay()]})`
-    return `<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:14px;background:#eaf3ff;color:#007aff;font-size:13px;font-weight:600;">${label}<span onclick="removePendingEventDate('${d}')" style="cursor:pointer;font-weight:700;">×</span></span>`
-  }).join('')
+  let html = ''
+  // 曜日見出し
+  DAY_JP.forEach((w, i) =>
+    html += `<div style="text-align:center;font-size:11px;color:${i===0?'#e33':i===6?'#007aff':'#aaa'};padding:2px 0;">${w}</div>`)
+  // 空白埋め
+  for (let i = 0; i < firstDow; i++) html += '<div></div>'
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dt = new Date(y, m, day)
+    const ds = localDate(dt)
+    const dow = dt.getDay()
+    const isTue = dow === 2
+    const registered = holidaySet.has(ds) || otherSet.has(ds)
+    const selected = _pendingEventDates.includes(ds)
+    let bg = '#fff', color = dow===0?'#e33':dow===6?'#007aff':'#1c1c1e', border = '1px solid #eee'
+    let sub = ''
+    if (isTue) { bg = '#ffecec'; color = '#e33'; sub = '休' }       // 火曜は自動定休
+    if (registered) { bg = '#ffecec'; color = '#e33'; sub = '休' }   // 登録済み
+    if (selected) { bg = '#e33'; color = '#fff'; border = '1px solid #e33'; sub = '✓' }
+    const tappable = !isTue && !registered
+    const onclick = tappable ? `onclick="toggleEvDay('${ds}')"` : ''
+    html += `<div ${onclick} style="aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:8px;background:${bg};color:${color};border:${border};font-size:14px;cursor:${tappable?'pointer':'default'};opacity:${tappable||selected?'1':'0.55'};">
+      <span>${day}</span>${sub?`<span style="font-size:9px;line-height:1;">${sub}</span>`:''}
+    </div>`
+  }
+  document.getElementById('ev-cal-grid').innerHTML = html
+
+  const cnt = _pendingEventDates.length
+  document.getElementById('ev-pending-count').textContent = cnt ? `${cnt}日選択中` : 'タップで休む日を選択（火曜と登録済みは自動でお休み）'
 }
 
 function renderEvList() {
@@ -3388,12 +3417,8 @@ function renderEvList() {
 
 async function submitAddEvent() {
   // 複数日リストがあればそれを、なければ日付入力欄の1日を登録
-  let dates = _pendingEventDates.slice()
-  if (!dates.length) {
-    const d = document.getElementById('ev-date').value
-    if (!d) { toast('日付を入力してください'); return }
-    dates = [d]
-  }
+  const dates = _pendingEventDates.slice()
+  if (!dates.length) { toast('休む日をタップで選んでください'); return }
   const title = document.getElementById('ev-title').value.trim() || (addEventType==='holiday' ? '定休日' : 'その他')
   const btn = event.target; btn.disabled=true; btn.textContent='追加中...'
   for (const date of dates) {
@@ -3402,8 +3427,8 @@ async function submitAddEvent() {
   }
   btn.disabled=false; btn.textContent='追加する'
   _pendingEventDates = []
-  renderPendingDates()
   allEvents = await api({ action:'getEvents' }).then(d => Array.isArray(d)?d:allEvents)
+  renderEventCalendar()
   renderEvList()
   renderCalendar()
   toast(dates.length > 1 ? `${dates.length}日分を追加しました` : '追加しました')
