@@ -968,7 +968,31 @@ const JP_HOLIDAYS = {
   '2027-03-21':'春分の日','2027-03-22':'振替休日','2027-04-29':'昭和の日','2027-05-03':'憲法記念日','2027-05-04':'みどりの日','2027-05-05':'こどもの日',
   '2027-07-19':'海の日','2027-08-11':'山の日','2027-09-20':'敬老の日','2027-09-23':'秋分の日','2027-10-11':'スポーツの日','2027-11-03':'文化の日','2027-11-23':'勤労感謝の日',
 }
-function jpHoliday(dateStr) { return JP_HOLIDAYS[dateStr] || '' }
+// 実行時の祝日マップ（内蔵データ＋APIで取得した最新データを統合）
+let _jpHolidaysRuntime = Object.assign({}, JP_HOLIDAYS)
+function jpHoliday(dateStr) { return _jpHolidaysRuntime[dateStr] || '' }
+
+// 祝日データを外部APIから取得して統合（将来の年も自動追加）。オフライン時はキャッシュ/内蔵を使用
+async function loadJpHolidays() {
+  // まずキャッシュを反映
+  try {
+    const cached = JSON.parse(localStorage.getItem('jpHolidaysCache') || 'null')
+    if (cached) _jpHolidaysRuntime = Object.assign({}, JP_HOLIDAYS, cached)
+  } catch(e) {}
+  // 最新を取得（成功したらキャッシュ更新＆再描画）
+  try {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 8000)
+    const res = await fetch('https://holidays-jp.github.io/api/v1/date.json', { signal: controller.signal })
+    clearTimeout(timer)
+    const data = await res.json()
+    if (data && typeof data === 'object') {
+      localStorage.setItem('jpHolidaysCache', JSON.stringify(data))
+      _jpHolidaysRuntime = Object.assign({}, JP_HOLIDAYS, data)
+      if (document.getElementById('screen-calendar').style.display !== 'none') renderCalendar()
+    }
+  } catch(e) { /* オフライン等は内蔵データで継続 */ }
+}
 
 // 毎週火曜は自動定休日。その日に手動の定休日イベントが無ければ自動チップを返す
 function regularHolidayChip(dateStr, opts) {
@@ -990,6 +1014,7 @@ window.onload = () => {
   setTimeVal('res-time-h','res-time-m','10:00')
   calSelectedDate = today
   loadAll()
+  loadJpHolidays()
   // Service Worker登録（起動のたびに最新版を自動取得）
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js').catch(() => {})
