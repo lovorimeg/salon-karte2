@@ -971,6 +971,10 @@ window.onload = () => {
   setTimeVal('res-time-h','res-time-m','10:00')
   calSelectedDate = today
   loadAll()
+  // Service Worker登録（起動のたびに最新版を自動取得）
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(() => {})
+  }
 }
 
 // ── ローカルキャッシュ ──
