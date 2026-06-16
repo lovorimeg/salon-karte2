@@ -686,7 +686,15 @@ select.input { appearance:none; }
         <button type="button" class="payment-btn"        id="ev-type-other"   onclick="selectEventType('other')">その他</button>
       </div>
     </div>
-    <div class="field"><label class="label">日付 *</label><input class="input" id="ev-date" type="date" /></div>
+    <div class="field">
+      <label class="label">日付 *</label>
+      <div style="display:flex;gap:8px;">
+        <input class="input" id="ev-date" type="date" style="flex:1;" />
+        <button type="button" onclick="addPendingEventDate()" style="white-space:nowrap;padding:0 14px;border-radius:10px;border:1.5px solid #007aff;background:#fff;color:#007aff;font-size:14px;font-weight:600;cursor:pointer;">＋ 追加</button>
+      </div>
+      <div style="font-size:12px;color:#aaa;margin-top:4px;">複数日まとめて登録できます。日付を選んで「＋追加」を押してください。</div>
+      <div id="ev-pending-dates" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></div>
+    </div>
     <div class="field"><label class="label">タイトル</label><input class="input" id="ev-title" placeholder="定休日・研修・棚卸しなど" /></div>
     <button class="btn-primary" onclick="submitAddEvent()">追加する</button>
     <button class="btn-secondary" onclick="closeModal('modal-add-event')">キャンセル</button>
@@ -3325,13 +3333,39 @@ function selectEventType(t) {
   ;['holiday','other'].forEach(x => document.getElementById('ev-type-'+x).classList.toggle('active', x===t))
 }
 
+let _pendingEventDates = []
+
 function openAddEvent(date) {
   const d = date || calSelectedDate || todayStr()
   document.getElementById('ev-date').value = d
   document.getElementById('ev-title').value = ''
+  _pendingEventDates = []
+  renderPendingDates()
   selectEventType('holiday')
   renderEvList()
   openModal('modal-add-event')
+}
+
+function addPendingEventDate() {
+  const d = document.getElementById('ev-date').value
+  if (!d) { toast('日付を選んでください'); return }
+  if (!_pendingEventDates.includes(d)) _pendingEventDates.push(d)
+  _pendingEventDates.sort()
+  renderPendingDates()
+}
+
+function removePendingEventDate(d) {
+  _pendingEventDates = _pendingEventDates.filter(x => x !== d)
+  renderPendingDates()
+}
+
+function renderPendingDates() {
+  const el = document.getElementById('ev-pending-dates')
+  el.innerHTML = _pendingEventDates.map(d => {
+    const dt = new Date(d)
+    const label = `${dt.getMonth()+1}/${dt.getDate()}(${DAY_JP[dt.getDay()]})`
+    return `<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:14px;background:#eaf3ff;color:#007aff;font-size:13px;font-weight:600;">${label}<span onclick="removePendingEventDate('${d}')" style="cursor:pointer;font-weight:700;">×</span></span>`
+  }).join('')
 }
 
 function renderEvList() {
@@ -3349,17 +3383,26 @@ function renderEvList() {
 }
 
 async function submitAddEvent() {
-  const date = document.getElementById('ev-date').value
-  if (!date) { toast('日付を入力してください'); return }
+  // 複数日リストがあればそれを、なければ日付入力欄の1日を登録
+  let dates = _pendingEventDates.slice()
+  if (!dates.length) {
+    const d = document.getElementById('ev-date').value
+    if (!d) { toast('日付を入力してください'); return }
+    dates = [d]
+  }
   const title = document.getElementById('ev-title').value.trim() || (addEventType==='holiday' ? '定休日' : 'その他')
   const btn = event.target; btn.disabled=true; btn.textContent='追加中...'
-  const res = await api({ action:'addEvent', date, title, type: addEventType })
+  for (const date of dates) {
+    const res = await api({ action:'addEvent', date, title, type: addEventType })
+    if (res.error) { toast('エラー: '+res.error); btn.disabled=false; btn.textContent='追加する'; return }
+  }
   btn.disabled=false; btn.textContent='追加する'
-  if (res.error) { toast('エラー: '+res.error); return }
+  _pendingEventDates = []
+  renderPendingDates()
   allEvents = await api({ action:'getEvents' }).then(d => Array.isArray(d)?d:allEvents)
   renderEvList()
   renderCalendar()
-  toast('追加しました')
+  toast(dates.length > 1 ? `${dates.length}日分を追加しました` : '追加しました')
 }
 
 async function deleteEventItem(id) {
