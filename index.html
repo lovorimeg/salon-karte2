@@ -943,6 +943,15 @@ const STATUS_LABEL = { reserved:'予約済', visited:'来店済', cancelled:'キ
 const STATUS_BADGE = { reserved:'badge-reserved', visited:'badge-visited', cancelled:'badge-cancelled', no_show:'badge-no_show' }
 const DAY_JP = ['日','月','火','水','木','金','土']
 
+// 毎週火曜は自動定休日。その日に手動の定休日イベントが無ければ自動チップを返す
+function regularHolidayChip(dateStr, opts) {
+  const d = new Date(dateStr)
+  if (d.getDay() !== 2) return ''   // 火曜のみ
+  if (allEvents.some(ev => ev.date === dateStr && ev.type === 'holiday')) return ''  // 手動登録済みなら重複させない
+  const inline = opts && opts.inline ? 'display:inline-block;margin-right:4px;' : ''
+  return `<span class="event-chip event-holiday" style="cursor:default;${inline}">定休日</span>`
+}
+
 window.onload = () => {
   const today = todayStr()
   document.getElementById('add-first-visit').value = today
@@ -1439,7 +1448,7 @@ function renderMonthCalendar() {
     const cnt = resDots[s] || 0
     const dots = cnt > 0 ? `<div class="month-dot">${'<span></span>'.repeat(Math.min(cnt, 3))}</div>` : ''
     const dayEvts = allEvents.filter(ev => ev.date === s)
-    const evHtml = dayEvts.map(ev =>
+    const evHtml = regularHolidayChip(s) + dayEvts.map(ev =>
       `<span class="event-chip ${ev.type==='holiday'?'event-holiday':'event-other'}" onclick="event.stopPropagation();openAddEvent('${s}')">${ev.title||'定休日'}</span>`
     ).join('')
     return `<div class="${cls}" data-mdate="${s}" onclick="selectMonthDay('${s}')">
@@ -2177,8 +2186,9 @@ function renderWeekCalendar() {
   days.forEach((dd, i) => {
     const ds = localDate(dd)
     const dayEvts = allEvents.filter(ev => ev.date === ds)
-    if (dayEvts.length) hasWeekEvent = true
-    document.getElementById('wad'+i).innerHTML = dayEvts.map(ev =>
+    const autoChip = regularHolidayChip(ds)
+    if (dayEvts.length || autoChip) hasWeekEvent = true
+    document.getElementById('wad'+i).innerHTML = autoChip + dayEvts.map(ev =>
       `<span class="event-chip ${ev.type==='holiday'?'event-holiday':'event-other'}" onclick="openAddEvent('${ds}')">${ev.title||'定休日'}</span>`
     ).join('')
   })
@@ -2209,9 +2219,11 @@ function renderDayCalendar() {
   const totalH = (END - START) * PX
 
   const dayEvts = allEvents.filter(ev => ev.date === ds)
-  const evBanner = dayEvts.length ? `<div style="padding:6px 16px 4px">${dayEvts.map(ev =>
+  const autoChip = regularHolidayChip(ds, {inline:true})
+  const evInner = autoChip + dayEvts.map(ev =>
     `<span class="event-chip ${ev.type==='holiday'?'event-holiday':'event-other'}" style="display:inline-block;margin-right:4px" onclick="openAddEvent('${ds}')">${ev.title||'定休日'}</span>`
-  ).join('')}</div>` : ''
+  ).join('')
+  const evBanner = evInner ? `<div style="padding:6px 16px 4px">${evInner}</div>` : ''
 
   const dayRes = allReservations
     .filter(r => r.date === ds && r.status !== 'cancelled' && r.status !== 'no_show')
