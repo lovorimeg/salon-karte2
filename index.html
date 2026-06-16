@@ -395,15 +395,50 @@ select.input { appearance:none; }
   <div class="header">
     <div class="header-row">
       <button class="btn-small" onclick="backFromSales()">← 戻る</button>
-      <h1>売上集計</h1>
+      <h1>売上・経費</h1>
       <div style="width:60px"></div>
     </div>
     <div class="cal-view-toggle" style="margin:8px 16px 0;">
+      <button class="cal-view-btn active" id="tab-btn-sales"   onclick="setMoneyTab('sales')">売上</button>
+      <button class="cal-view-btn"        id="tab-btn-expense" onclick="setMoneyTab('expense')">経費</button>
+      <button class="cal-view-btn"        id="tab-btn-tax"     onclick="setMoneyTab('tax')">確定申告</button>
+    </div>
+  </div>
+
+  <!-- 売上タブ -->
+  <div id="money-tab-sales">
+    <div class="cal-view-toggle" style="margin:10px 16px 0;">
       <button class="cal-view-btn active" id="sales-btn-month" onclick="setSalesView('month')">月別</button>
       <button class="cal-view-btn" id="sales-btn-day" onclick="setSalesView('day')">日別</button>
     </div>
+    <div class="list" id="sales-summary-list"><div class="loading">読み込み中...</div></div>
   </div>
-  <div class="list" id="sales-summary-list"><div class="loading">読み込み中...</div></div>
+
+  <!-- 経費タブ -->
+  <div id="money-tab-expense" style="display:none">
+    <div style="padding:12px 16px;">
+      <button class="btn-primary" onclick="openAddExpense()">＋ 経費を追加</button>
+    </div>
+    <div class="list" id="expense-list"><div class="loading">読み込み中...</div></div>
+  </div>
+
+  <!-- 確定申告タブ -->
+  <div id="money-tab-tax" style="display:none">
+    <div style="padding:12px 16px;">
+      <div class="field">
+        <label class="label">対象年</label>
+        <select class="input" id="tax-year" onchange="renderTaxSummary()"></select>
+      </div>
+      <div id="tax-summary"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;">
+        <button class="btn-primary" onclick="exportTaxCSV()" style="background:#06955a;">📄 CSV出力</button>
+        <button class="btn-primary" onclick="printTaxSummary()">🖨 印刷/PDF</button>
+      </div>
+      <div style="font-size:12px;color:#aaa;margin-top:10px;line-height:1.6;">
+        ※ CSVはExcel等で開けます。印刷/PDFはスマホの共有メニューから「PDFで保存」も可能です。確定申告の最終確認は税理士・税務署にご相談ください。
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- ═══════════════ ボトムナビ ═══════════════ -->
@@ -704,6 +739,35 @@ select.input { appearance:none; }
       <div class="section-title" style="margin-bottom:10px">登録済みの予定</div>
       <div id="ev-list"><div style="color:#aaa;font-size:14px">なし</div></div>
     </div>
+  </div>
+</div>
+
+<!-- ═══════════════ モーダル：経費追加・編集 ═══════════════ -->
+<div class="overlay" id="modal-expense" onclick="closeModal('modal-expense')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="expense-modal-title">経費を追加</div>
+    <div class="field"><label class="label">日付 *</label><input class="input" id="exp-date" type="date" /></div>
+    <div class="field">
+      <label class="label">科目 *</label>
+      <select class="input" id="exp-category">
+        <option value="材料費">材料費（カラー剤・薬剤など）</option>
+        <option value="消耗品費">消耗品費（備品・タオルなど）</option>
+        <option value="旅費交通費">旅費交通費</option>
+        <option value="通信費">通信費</option>
+        <option value="水道光熱費">水道光熱費</option>
+        <option value="地代家賃">地代家賃</option>
+        <option value="広告宣伝費">広告宣伝費</option>
+        <option value="研修費">研修費・セミナー</option>
+        <option value="接待交際費">接待交際費</option>
+        <option value="雑費">雑費・その他</option>
+      </select>
+    </div>
+    <div class="field"><label class="label">内容</label><input class="input" id="exp-memo" placeholder="例：カラー剤まとめ買い" /></div>
+    <div class="field"><label class="label">金額 *</label><input class="input" id="exp-amount" type="number" inputmode="numeric" placeholder="0" /></div>
+    <button class="btn-primary" onclick="submitExpense()">保存する</button>
+    <button class="btn-secondary" id="exp-delete-btn" onclick="deleteExpenseItem()" style="display:none;color:#e33;">削除する</button>
+    <button class="btn-secondary" onclick="closeModal('modal-expense')">キャンセル</button>
   </div>
 </div>
 
@@ -1134,7 +1198,7 @@ function showCalendar() {
   setCalView('week')
 }
 function showList() { showScreen('screen-list'); loadCustomers() }
-function goSales()  { showScreen('screen-sales'); setSalesView('day'); loadSalesSummary() }
+function goSales()  { showScreen('screen-sales'); setMoneyTab('sales'); setSalesView('day'); loadSalesSummary(); loadExpenses(); populateTaxYears() }
 function backFromDetail() {
   if (detailFrom === 'list') showList()
   else showCalendar()
@@ -3594,6 +3658,266 @@ function renderSalesSummary(data) {
   }).join('')
 }
 
+// ═══════════════ お金タブ切替 ═══════════════
+function setMoneyTab(t) {
+  ;['sales','expense','tax'].forEach(k => {
+    document.getElementById('tab-btn-'+k).classList.toggle('active', k===t)
+    document.getElementById('money-tab-'+k).style.display = k===t ? 'block' : 'none'
+  })
+  if (t === 'tax') renderTaxSummary()
+}
+
+// ═══════════════ 経費 ═══════════════
+let _allExpenses = []
+let _editingExpenseId = null
+
+async function loadExpenses() {
+  const list = document.getElementById('expense-list')
+  const cached = _loadLocalCache({ action:'getExpenses' })
+  if (cached) { _allExpenses = cached; renderExpenses() }
+  else list.innerHTML = '<div class="loading">読み込み中...</div>'
+  const data = await api({ action:'getExpenses' })
+  _allExpenses = Array.isArray(data) ? data : []
+  renderExpenses()
+}
+
+function renderExpenses() {
+  const list = document.getElementById('expense-list')
+  if (!_allExpenses.length) { list.innerHTML = '<div class="empty">経費がまだありません</div>'; return }
+  // 月ごとにまとめる
+  const byMonth = {}
+  _allExpenses.forEach(e => {
+    const ym = (e.date||'').slice(0,7)
+    ;(byMonth[ym] = byMonth[ym] || []).push(e)
+  })
+  const months = Object.keys(byMonth).sort().reverse()
+  list.innerHTML = months.map(ym => {
+    const items = byMonth[ym]
+    const total = items.reduce((s,e) => s + e.amount, 0)
+    const [y,m] = ym.split('-')
+    return `<div class="summary-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="summary-date">${y}年${Number(m)}月</div>
+        <div style="font-size:18px;font-weight:800;color:#e0395a;">¥${total.toLocaleString()}</div>
+      </div>
+      <div class="summary-items" style="margin-top:8px;">
+        ${items.map(e => `
+          <div class="summary-item" onclick="openEditExpense('${e.id}')" style="cursor:pointer;padding:8px 0;border-bottom:1px solid #f7f7fa;">
+            <span style="color:#aaa;width:42px;font-size:12px;">${(e.date||'').slice(5).replace('-','/')}</span>
+            <span style="font-size:12px;background:#f0f0f5;border-radius:8px;padding:2px 8px;margin-right:6px;">${e.category}</span>
+            <span style="flex:1;">${e.memo||''}</span>
+            <span style="font-weight:700;">¥${e.amount.toLocaleString()}</span>
+          </div>`).join('')}
+      </div>
+    </div>`
+  }).join('')
+}
+
+function openAddExpense() {
+  _editingExpenseId = null
+  document.getElementById('expense-modal-title').textContent = '経費を追加'
+  document.getElementById('exp-date').value = todayStr()
+  document.getElementById('exp-category').value = '材料費'
+  document.getElementById('exp-memo').value = ''
+  document.getElementById('exp-amount').value = ''
+  document.getElementById('exp-delete-btn').style.display = 'none'
+  openModal('modal-expense')
+}
+
+function openEditExpense(id) {
+  const e = _allExpenses.find(x => x.id === id)
+  if (!e) return
+  _editingExpenseId = id
+  document.getElementById('expense-modal-title').textContent = '経費を編集'
+  document.getElementById('exp-date').value = e.date
+  document.getElementById('exp-category').value = e.category
+  document.getElementById('exp-memo').value = e.memo
+  document.getElementById('exp-amount').value = e.amount
+  document.getElementById('exp-delete-btn').style.display = 'block'
+  openModal('modal-expense')
+}
+
+async function submitExpense() {
+  const date = document.getElementById('exp-date').value
+  const category = document.getElementById('exp-category').value
+  const memo = document.getElementById('exp-memo').value
+  const amount = Number(document.getElementById('exp-amount').value)
+  if (!date) { toast('日付を入力してください'); return }
+  if (!amount) { toast('金額を入力してください'); return }
+  const btn = event.target; btn.disabled = true; btn.textContent = '保存中...'
+  const action = _editingExpenseId ? 'updateExpense' : 'addExpense'
+  const params = { action, date, category, memo, amount }
+  if (_editingExpenseId) params.id = _editingExpenseId
+  const res = await api(params)
+  btn.disabled = false; btn.textContent = '保存する'
+  if (res.error) { toast('エラー: '+res.error); return }
+  closeModal('modal-expense')
+  toast('保存しました')
+  await loadExpenses()
+}
+
+async function deleteExpenseItem() {
+  if (!_editingExpenseId) return
+  if (!confirm('この経費を削除しますか？')) return
+  await api({ action:'deleteExpense', id:_editingExpenseId })
+  closeModal('modal-expense')
+  toast('削除しました')
+  await loadExpenses()
+}
+
+// ═══════════════ 確定申告まとめ ═══════════════
+function populateTaxYears() {
+  const sel = document.getElementById('tax-year')
+  const years = new Set()
+  const thisYear = new Date().getFullYear()
+  years.add(thisYear); years.add(thisYear - 1)
+  _salesData.forEach(d => { if (d.date) years.add(Number(d.date.slice(0,4))) })
+  _allExpenses.forEach(e => { if (e.date) years.add(Number(e.date.slice(0,4))) })
+  const sorted = Array.from(years).sort((a,b) => b - a)
+  const cur = sel.value
+  sel.innerHTML = sorted.map(y => `<option value="${y}">${y}年</option>`).join('')
+  if (cur && sorted.includes(Number(cur))) sel.value = cur
+}
+
+function _taxCompute(year) {
+  const ys = String(year)
+  // 売上（月別・支払方法別）
+  const months = Array.from({length:12}, () => ({ total:0, cash:0, card:0, qr:0, visits:0 }))
+  let sTotal = 0, sCash = 0, sCard = 0, sQr = 0, sVisits = 0
+  _salesData.forEach(d => {
+    if (!d.date || d.date.slice(0,4) !== ys) return
+    const mi = Number(d.date.slice(5,7)) - 1
+    months[mi].total += d.total; months[mi].cash += d.cash; months[mi].card += d.card; months[mi].qr += d.qr
+    months[mi].visits += d.items.length
+    sTotal += d.total; sCash += d.cash; sCard += d.card; sQr += d.qr; sVisits += d.items.length
+  })
+  // 経費（科目別）
+  const catMap = {}
+  let eTotal = 0
+  _allExpenses.forEach(e => {
+    if (!e.date || e.date.slice(0,4) !== ys) return
+    catMap[e.category] = (catMap[e.category] || 0) + e.amount
+    eTotal += e.amount
+  })
+  return { months, sTotal, sCash, sCard, sQr, sVisits, catMap, eTotal, net: sTotal - eTotal }
+}
+
+function renderTaxSummary() {
+  const year = Number(document.getElementById('tax-year').value)
+  if (!year) return
+  const t = _taxCompute(year)
+  const cats = Object.entries(t.catMap).sort((a,b) => b[1]-a[1])
+  const monthRows = t.months.map((m, i) => m.total ? `
+    <div class="summary-item" style="padding:4px 0;">
+      <span style="flex:1;">${i+1}月</span>
+      <span style="color:#aaa;margin-right:10px;">${m.visits}人</span>
+      <span style="font-weight:600;">¥${m.total.toLocaleString()}</span>
+    </div>` : '').join('')
+
+  document.getElementById('tax-summary').innerHTML = `
+    <div class="summary-card">
+      <div class="summary-date">${year}年 サマリー</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0;">
+        <div style="background:#eefaf2;border-radius:10px;padding:10px;text-align:center;">
+          <div style="font-size:12px;color:#06955a;">売上合計</div>
+          <div style="font-size:20px;font-weight:800;color:#06955a;">¥${t.sTotal.toLocaleString()}</div>
+        </div>
+        <div style="background:#fdeef0;border-radius:10px;padding:10px;text-align:center;">
+          <div style="font-size:12px;color:#e0395a;">経費合計</div>
+          <div style="font-size:20px;font-weight:800;color:#e0395a;">¥${t.eTotal.toLocaleString()}</div>
+        </div>
+      </div>
+      <div style="background:#eef3ff;border-radius:10px;padding:10px;text-align:center;margin-bottom:6px;">
+        <div style="font-size:12px;color:#3366cc;">差引（売上−経費）</div>
+        <div style="font-size:22px;font-weight:900;color:#3366cc;">¥${t.net.toLocaleString()}</div>
+      </div>
+    </div>
+
+    <div class="summary-card">
+      <div style="font-size:13px;font-weight:700;margin-bottom:6px;">売上の内訳（支払方法別）</div>
+      <div class="summary-grid">
+        <div class="summary-cell"><div class="summary-cell-label">現金</div><div class="summary-cell-val">¥${t.sCash.toLocaleString()}</div></div>
+        <div class="summary-cell"><div class="summary-cell-label">カード</div><div class="summary-cell-val">¥${t.sCard.toLocaleString()}</div></div>
+        <div class="summary-cell"><div class="summary-cell-label">QR決済</div><div class="summary-cell-val">¥${t.sQr.toLocaleString()}</div></div>
+      </div>
+      <div style="font-size:12px;color:#aaa;margin-top:8px;">来店延べ人数：${t.sVisits}人</div>
+      ${monthRows ? `<div class="summary-items" style="margin-top:8px;border-top:1px solid #f0f0f5;padding-top:8px;"><div style="font-size:12px;color:#8e8e93;font-weight:600;margin-bottom:4px;">月別売上</div>${monthRows}</div>` : ''}
+    </div>
+
+    <div class="summary-card">
+      <div style="font-size:13px;font-weight:700;margin-bottom:6px;">経費の内訳（科目別）</div>
+      ${cats.length ? cats.map(([c, v]) => `
+        <div class="summary-item" style="padding:4px 0;">
+          <span style="flex:1;">${c}</span>
+          <span style="font-weight:600;">¥${v.toLocaleString()}</span>
+        </div>`).join('') : '<div style="color:#aaa;font-size:13px;">経費の登録がありません</div>'}
+    </div>`
+}
+
+function exportTaxCSV() {
+  const year = Number(document.getElementById('tax-year').value)
+  const t = _taxCompute(year)
+  let rows = []
+  rows.push([`${year}年 確定申告用サマリー`])
+  rows.push([])
+  rows.push(['■ 売上'])
+  rows.push(['月','来店人数','現金','カード','QR決済','合計'])
+  t.months.forEach((m, i) => {
+    if (m.total) rows.push([`${i+1}月`, m.visits, m.cash, m.card, m.qr, m.total])
+  })
+  rows.push(['年間合計', t.sVisits, t.sCash, t.sCard, t.sQr, t.sTotal])
+  rows.push([])
+  rows.push(['■ 経費（科目別）'])
+  rows.push(['科目','金額'])
+  Object.entries(t.catMap).sort((a,b)=>b[1]-a[1]).forEach(([c,v]) => rows.push([c, v]))
+  rows.push(['経費合計', t.eTotal])
+  rows.push([])
+  rows.push(['差引（売上−経費）', t.net])
+  rows.push([])
+  rows.push(['■ 経費 明細'])
+  rows.push(['日付','科目','内容','金額'])
+  _allExpenses.filter(e => (e.date||'').slice(0,4) === String(year))
+    .sort((a,b) => a.date.localeCompare(b.date))
+    .forEach(e => rows.push([e.date, e.category, e.memo, e.amount]))
+
+  const csv = rows.map(r => r.map(c => {
+    const s = String(c == null ? '' : c)
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s
+  }).join(',')).join('\r\n')
+  // BOM付きでExcelの文字化け防止
+  const blob = new Blob(['﻿' + csv], { type:'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = `確定申告_${year}年.csv`
+  document.body.appendChild(a); a.click(); document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+  toast('CSVを出力しました')
+}
+
+function printTaxSummary() {
+  const year = Number(document.getElementById('tax-year').value)
+  const t = _taxCompute(year)
+  const monthRows = t.months.map((m,i) => m.total ? `<tr><td>${i+1}月</td><td style="text-align:right">${m.visits}</td><td style="text-align:right">¥${m.cash.toLocaleString()}</td><td style="text-align:right">¥${m.card.toLocaleString()}</td><td style="text-align:right">¥${m.qr.toLocaleString()}</td><td style="text-align:right">¥${m.total.toLocaleString()}</td></tr>` : '').join('')
+  const catRows = Object.entries(t.catMap).sort((a,b)=>b[1]-a[1]).map(([c,v]) => `<tr><td>${c}</td><td style="text-align:right">¥${v.toLocaleString()}</td></tr>`).join('')
+  const w = window.open('', '_blank')
+  w.document.write(`<html><head><title>確定申告_${year}年</title><meta name="viewport" content="width=device-width,initial-scale=1">
+    <style>body{font-family:sans-serif;padding:20px;color:#222;}h1{font-size:20px;}h2{font-size:15px;margin-top:24px;border-left:4px solid #06955a;padding-left:8px;}table{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px;}th,td{border:1px solid #ddd;padding:6px 8px;}th{background:#f5f5f5;}.big{font-size:18px;font-weight:bold;}</style>
+    </head><body>
+    <h1>${year}年 確定申告用サマリー</h1>
+    <p class="big">売上合計：¥${t.sTotal.toLocaleString()}　／　経費合計：¥${t.eTotal.toLocaleString()}　／　差引：¥${t.net.toLocaleString()}</p>
+    <h2>売上（月別・支払方法別）</h2>
+    <table><tr><th>月</th><th>来店人数</th><th>現金</th><th>カード</th><th>QR決済</th><th>合計</th></tr>
+    ${monthRows}
+    <tr style="font-weight:bold;background:#fafafa;"><td>年間合計</td><td style="text-align:right">${t.sVisits}</td><td style="text-align:right">¥${t.sCash.toLocaleString()}</td><td style="text-align:right">¥${t.sCard.toLocaleString()}</td><td style="text-align:right">¥${t.sQr.toLocaleString()}</td><td style="text-align:right">¥${t.sTotal.toLocaleString()}</td></tr>
+    </table>
+    <h2>経費（科目別）</h2>
+    <table><tr><th>科目</th><th>金額</th></tr>${catRows || '<tr><td colspan="2">なし</td></tr>'}
+    <tr style="font-weight:bold;background:#fafafa;"><td>経費合計</td><td style="text-align:right">¥${t.eTotal.toLocaleString()}</td></tr></table>
+    <p style="margin-top:24px;color:#888;font-size:12px;">※ 最終確認は税理士・税務署にご相談ください。</p>
+    </body></html>`)
+  w.document.close()
+  setTimeout(() => w.print(), 400)
+}
 
 </script>
 </body>
