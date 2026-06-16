@@ -714,7 +714,11 @@ select.input { appearance:none; }
     <div class="modal-title">空き枠検索</div>
     <div class="field">
       <label class="label">期間</label>
-      <select class="input" id="sf-month"></select>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <select class="input" id="sf-month-from" style="flex:1;"></select>
+        <span style="color:#888;">〜</span>
+        <select class="input" id="sf-month-to" style="flex:1;"></select>
+      </div>
     </div>
     <div class="field">
       <label class="label">所要時間</label>
@@ -3247,15 +3251,15 @@ function _minToHHMM(m) {
 }
 
 function openSlotFinder() {
-  const sel = document.getElementById('sf-month')
   const now = new Date()
   let opts = ''
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 12; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() + i, 1)
     const val = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0')
     opts += `<option value="${val}">${d.getFullYear()}年${d.getMonth()+1}月</option>`
   }
-  sel.innerHTML = opts
+  document.getElementById('sf-month-from').innerHTML = opts
+  document.getElementById('sf-month-to').innerHTML = opts
   setSlotDow('all')
   document.getElementById('sf-result').innerHTML = ''
   document.getElementById('sf-reply-area').style.display = 'none'
@@ -3271,11 +3275,15 @@ function setSlotDow(v) {
 }
 
 function runSlotSearch() {
-  const monthVal = document.getElementById('sf-month').value  // YYYY-MM
   const dur = Number(document.getElementById('sf-duration').value)
-  const [yy, mm] = monthVal.split('-').map(Number)
-  const monthStart = new Date(yy, mm-1, 1)
-  const monthEnd = new Date(yy, mm, 0)  // 月末日
+  let fromVal = document.getElementById('sf-month-from').value  // YYYY-MM
+  let toVal = document.getElementById('sf-month-to').value
+  // 開始＞終了なら入れ替え
+  if (fromVal > toVal) { const t = fromVal; fromVal = toVal; toVal = t }
+  const [fy, fm] = fromVal.split('-').map(Number)
+  const [ty, tm] = toVal.split('-').map(Number)
+  const monthStart = new Date(fy, fm-1, 1)
+  const monthEnd = new Date(ty, tm, 0)  // 終了月の月末日
   const today = new Date(); today.setHours(0,0,0,0)
 
   // 休業日（定休日イベント）の日付セット
