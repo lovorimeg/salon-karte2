@@ -892,6 +892,7 @@ select.input { appearance:none; }
     <button onclick="resActionKarte()" style="padding:18px;border-radius:14px;border:none;background:#f0f0f5;font-size:15px;font-weight:600;cursor:pointer;color:#1c1c1e;">📋 カルテ詳細</button>
     <button onclick="resActionEdit()" style="padding:18px;border-radius:14px;border:none;background:#f0f0f5;font-size:15px;font-weight:600;cursor:pointer;color:#1c1c1e;">✏️ 予約編集</button>
     <button id="res-action-line-btn" onclick="resActionLine()" style="padding:18px;border-radius:14px;border:none;background:#f0fff4;font-size:15px;font-weight:600;cursor:pointer;color:#06c755;">💬 LINEコピー</button>
+    <button id="res-action-change-btn" onclick="resActionChange()" style="padding:18px;border-radius:14px;border:none;background:#fff6e8;font-size:15px;font-weight:600;cursor:pointer;color:#e08e00;grid-column:1/-1;">🔄 変更依頼コピー</button>
     <button onclick="resActionDelete()" style="padding:18px;border-radius:14px;border:none;background:#fff0f0;font-size:15px;font-weight:600;cursor:pointer;color:#e33;grid-column:1/-1;">🗑️ 削除する</button>
   </div>
 </div>
@@ -1464,6 +1465,22 @@ function resActionLine() {
   if (!r) return
   const btn = document.getElementById('res-action-line-btn')
   copyLineMsg(r, btn)
+}
+
+function resActionChange() {
+  const r = _resActionTarget
+  if (!r) return
+  const dt = fmtResDatetime(r.date, r.time)
+  const text = `${r.customer_name}様\n\nいつもありがとうございます。\n大変申し訳ございませんが、${dt}のご予約について、こちらの都合によりお時間の変更をお願いできないかと思いご連絡いたしました🙇‍♀️\n\nご希望のお日にち・お時間がございましたらお知らせください。\nお手数をおかけし申し訳ございませんが、ご確認のほどよろしくお願いいたします。`
+  const btn = document.getElementById('res-action-change-btn')
+  navigator.clipboard.writeText(text).then(() => {
+    toast('変更依頼メッセージをコピーしました')
+    if (btn) {
+      const orig = btn.textContent
+      btn.textContent = '✓ コピー済'
+      setTimeout(() => { btn.textContent = '🔄 変更依頼コピー' }, 2000)
+    }
+  })
 }
 
 async function resActionDelete() {
