@@ -893,6 +893,7 @@ select.input { appearance:none; }
     <button onclick="resActionEdit()" style="padding:18px;border-radius:14px;border:none;background:#f0f0f5;font-size:15px;font-weight:600;cursor:pointer;color:#1c1c1e;">✏️ 予約編集</button>
     <button id="res-action-line-btn" onclick="resActionLine()" style="padding:18px;border-radius:14px;border:none;background:#f0fff4;font-size:15px;font-weight:600;cursor:pointer;color:#06c755;">💬 LINEコピー</button>
     <button id="res-action-change-btn" onclick="resActionChange()" style="padding:18px;border-radius:14px;border:none;background:#fff6e8;font-size:15px;font-weight:600;cursor:pointer;color:#e08e00;grid-column:1/-1;">🔄 変更依頼コピー</button>
+    <button id="res-action-confirm-btn" onclick="resActionConfirm()" style="padding:18px;border-radius:14px;border:none;background:#eef7ff;font-size:15px;font-weight:600;cursor:pointer;color:#2278d4;grid-column:1/-1;">✅ 変更確定コピー</button>
     <button onclick="resActionDelete()" style="padding:18px;border-radius:14px;border:none;background:#fff0f0;font-size:15px;font-weight:600;cursor:pointer;color:#e33;grid-column:1/-1;">🗑️ 削除する</button>
   </div>
 </div>
@@ -1473,6 +1474,21 @@ function resActionChange() {
   closeResActionPopup()
   // 空き枠検索を「変更依頼モード」で開く。候補日を選ぶと変更依頼文が自動生成される
   openSlotFinder('change', r)
+}
+
+function resActionConfirm() {
+  const r = _resActionTarget
+  if (!r) return
+  const dt = fmtResDatetime(r.date, r.time)
+  const text = `${r.customer_name}様\n\nご返信ありがとうございます🙇‍♀️\nそれでは、${dt}〜で\nご予約をお取りいたしました。\n\nご都合を合わせていただき、ありがとうございます。\n当日お会いできるのを楽しみにしております✨\n（ご確認のためですので返信は不要です）`
+  const btn = document.getElementById('res-action-confirm-btn')
+  navigator.clipboard.writeText(text).then(() => {
+    toast('変更確定メッセージをコピーしました')
+    if (btn) {
+      btn.textContent = '✓ コピー済'
+      setTimeout(() => { btn.textContent = '✅ 変更確定コピー' }, 2000)
+    }
+  })
 }
 
 async function resActionDelete() {
