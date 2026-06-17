@@ -1471,7 +1471,7 @@ function resActionChange() {
   const r = _resActionTarget
   if (!r) return
   const dt = fmtResDatetime(r.date, r.time)
-  const text = `${r.customer_name}様\n\nいつもありがとうございます。\n大変申し訳ございませんが、${dt}のご予約について、こちらの都合によりお時間の変更をお願いできないかと思いご連絡いたしました🙇‍♀️\n\nご希望のお日にち・お時間がございましたらお知らせください。\nお手数をおかけし申し訳ございませんが、ご確認のほどよろしくお願いいたします。`
+  const text = `${r.customer_name}様\n\nいつもありがとうございます。\n大変申し訳ございませんが、\n${dt}のご予約について、\nこちらの都合により日時の変更をお願いできないかと思いご連絡いたしました🙇‍♀️\n\n下記のお日にちでしたらご案内が可能です。\n・○月○日（○）○:○○〜\n・○月○日（○）○:○○〜\n\nご都合いかがでしょうか？\nお手数をおかけし申し訳ございませんが、\nご確認のほどよろしくお願いいたします。`
   const btn = document.getElementById('res-action-change-btn')
   navigator.clipboard.writeText(text).then(() => {
     toast('変更依頼メッセージをコピーしました')
