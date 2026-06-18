@@ -1,7 +1,7 @@
 // 美容室カルテ Service Worker
 // HTMLは「キャッシュで即表示 → 裏で最新を取得して次回反映」(stale-while-revalidate)。
 // 起動が速いまま、自動更新も保てる。オフライン時もキャッシュで表示。
-const CACHE = 'salon-karte-v2'
+const CACHE = 'salon-karte-v3'
 
 self.addEventListener('install', e => self.skipWaiting())
 self.addEventListener('activate', e => e.waitUntil(
