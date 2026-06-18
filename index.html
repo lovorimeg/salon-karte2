@@ -2566,15 +2566,16 @@ function renderCustomerList(customers) {
     list.innerHTML = '<div class="empty">顧客が登録されていません</div>'; return
   }
   const sorted = [...customers].sort((a,b) => (a.name_kana||a.name).localeCompare(b.name_kana||b.name,'ja'))
-  // 来店回数・最終来店日を予約から計算
-  const visitMap = {}
-  allReservations.filter(r => r.status === 'visited').forEach(r => {
-    if (!visitMap[r.customer_id]) visitMap[r.customer_id] = []
-    visitMap[r.customer_id].push(r.date)
-  })
-  // 次回予約（今日以降・未来）を計算
   const today = todayStr()
   const dayNames = ['日','月','火','水','木','金','土']
+  // 来店回数・最終来店日を計算（来店済み、または過去のキャンセル以外の予約＝来店とみなす）
+  const visitMap = {}
+  allReservations
+    .filter(r => r.status !== 'cancelled' && r.status !== 'no_show' && (r.status === 'visited' || r.date < today))
+    .forEach(r => {
+      if (!visitMap[r.customer_id]) visitMap[r.customer_id] = []
+      visitMap[r.customer_id].push(r.date)
+    })
   const upcomingMap = {}
   allReservations
     .filter(r => r.date >= today && r.status !== 'cancelled' && r.status !== 'no_show')
@@ -3457,10 +3458,10 @@ async function confirmCheckout() {
     })
   }
 
-  // 予約の支払方法を更新
-  await api({ action:'updateReservation', id: coRes.id, payment: coPayment })
+  // 予約の支払方法を更新し、ステータスを「来店済み」に
+  await api({ action:'updateReservation', id: coRes.id, payment: coPayment, status: 'visited' })
   allReservations = allReservations.map(r =>
-    r.id === coRes.id ? { ...r, payment: coPayment } : r)
+    r.id === coRes.id ? { ...r, payment: coPayment, status: 'visited' } : r)
 
   btn.textContent = 'お会計'; btn.disabled = false
   closeCheckout()
