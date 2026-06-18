@@ -2576,24 +2576,28 @@ function renderCustomerList(customers) {
   const today = todayStr()
   const dayNames = ['日','月','火','水','木','金','土']
   // 来店回数・最終来店日はカルテ（お会計で作られる記録）のみを使用＝確実
+  // 今後の予約（複数あれば全部）を顧客ごとに集める
   const upcomingMap = {}
   allReservations
     .filter(r => r.date >= today && r.status !== 'cancelled' && r.status !== 'no_show')
+    .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
     .forEach(r => {
-      const cur = upcomingMap[r.customer_id]
-      if (!cur || (r.date + r.time) < (cur.date + cur.time)) upcomingMap[r.customer_id] = r
+      (upcomingMap[r.customer_id] = upcomingMap[r.customer_id] || []).push(r)
     })
   list.innerHTML = sorted.map(c => {
     // 来店回数・最終来店日：カルテ（お会計記録）のみ
     const stat = _visitStats[c.id]
     const visitCount = stat ? stat.count : 0
     const lastVisit = stat && stat.last ? stat.last : null
-    const next = upcomingMap[c.id]
+    const upcoming = upcomingMap[c.id] || []
     let nextHtml = ''
-    if (next) {
-      const d = new Date(next.date)
-      const label = `${d.getMonth()+1}/${d.getDate()}(${dayNames[d.getDay()]}) ${(next.time||'').slice(0,5)}`
-      nextHtml = `<div class="card-sub" style="color:#06955a;font-weight:600;">📅 次回 ${label}${next.menu ? ' '+next.menu : ''}</div>`
+    if (upcoming.length) {
+      nextHtml = upcoming.map((r, i) => {
+        const d = new Date(r.date)
+        const label = `${d.getMonth()+1}/${d.getDate()}(${dayNames[d.getDay()]}) ${(r.time||'').slice(0,5)}`
+        const head = i === 0 ? '📅 次回 ' : '　　　 '
+        return `<div class="card-sub" style="color:#06955a;font-weight:600;">${head}${label}${r.menu ? ' '+r.menu : ''}</div>`
+      }).join('')
     }
     return `<div class="card" onclick='showDetail(${JSON.stringify(c)},"list")'>
       <div>
