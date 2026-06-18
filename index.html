@@ -2572,13 +2572,31 @@ function renderCustomerList(customers) {
     if (!visitMap[r.customer_id]) visitMap[r.customer_id] = []
     visitMap[r.customer_id].push(r.date)
   })
+  // 次回予約（今日以降・未来）を計算
+  const today = todayStr()
+  const dayNames = ['日','月','火','水','木','金','土']
+  const upcomingMap = {}
+  allReservations
+    .filter(r => r.date >= today && r.status !== 'cancelled' && r.status !== 'no_show')
+    .forEach(r => {
+      const cur = upcomingMap[r.customer_id]
+      if (!cur || (r.date + r.time) < (cur.date + cur.time)) upcomingMap[r.customer_id] = r
+    })
   list.innerHTML = sorted.map(c => {
     const visits = visitMap[c.id] || []
     const lastVisit = visits.length ? visits.sort().reverse()[0] : null
+    const next = upcomingMap[c.id]
+    let nextHtml = ''
+    if (next) {
+      const d = new Date(next.date)
+      const label = `${d.getMonth()+1}/${d.getDate()}(${dayNames[d.getDay()]}) ${(next.time||'').slice(0,5)}`
+      nextHtml = `<div class="card-sub" style="color:#06955a;font-weight:600;">📅 次回 ${label}${next.menu ? ' '+next.menu : ''}</div>`
+    }
     return `<div class="card" onclick='showDetail(${JSON.stringify(c)},"list")'>
       <div>
         <div class="card-name">${c.name}</div>
         <div class="card-sub">${[c.name_kana, c.phone].filter(Boolean).join('　')}</div>
+        ${nextHtml}
         ${lastVisit ? `<div class="card-sub">最終来店: ${lastVisit} / 来店${visits.length}回</div>` : ''}
       </div>
       <span class="chevron">›</span>
