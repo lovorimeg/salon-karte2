@@ -2575,14 +2575,7 @@ function renderCustomerList(customers) {
   const sorted = [...customers].sort((a,b) => (a.name_kana||a.name).localeCompare(b.name_kana||b.name,'ja'))
   const today = todayStr()
   const dayNames = ['日','月','火','水','木','金','土']
-  // 来店回数・最終来店日を計算（来店済み、または過去のキャンセル以外の予約＝来店とみなす）
-  const visitMap = {}
-  allReservations
-    .filter(r => r.status !== 'cancelled' && r.status !== 'no_show' && (r.status === 'visited' || r.date < today))
-    .forEach(r => {
-      if (!visitMap[r.customer_id]) visitMap[r.customer_id] = []
-      visitMap[r.customer_id].push(r.date)
-    })
+  // 来店回数・最終来店日はカルテ（お会計で作られる記録）のみを使用＝確実
   const upcomingMap = {}
   allReservations
     .filter(r => r.date >= today && r.status !== 'cancelled' && r.status !== 'no_show')
@@ -2591,17 +2584,10 @@ function renderCustomerList(customers) {
       if (!cur || (r.date + r.time) < (cur.date + cur.time)) upcomingMap[r.customer_id] = r
     })
   list.innerHTML = sorted.map(c => {
-    // 来店回数・最終来店日：カルテの集計を優先、なければ予約から推定
+    // 来店回数・最終来店日：カルテ（お会計記録）のみ
     const stat = _visitStats[c.id]
-    let visitCount, lastVisit
-    if (stat && stat.count) {
-      visitCount = stat.count
-      lastVisit = stat.last || null
-    } else {
-      const visits = visitMap[c.id] || []
-      visitCount = visits.length
-      lastVisit = visits.length ? visits.sort().reverse()[0] : null
-    }
+    const visitCount = stat ? stat.count : 0
+    const lastVisit = stat && stat.last ? stat.last : null
     const next = upcomingMap[c.id]
     let nextHtml = ''
     if (next) {
