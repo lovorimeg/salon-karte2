@@ -3629,7 +3629,7 @@ function buildSlotReply() {
   if (_slotMode === 'change' && _slotChangeTarget) {
     const r = _slotChangeTarget
     const dt = fmtResDatetime(r.date, r.time)
-    text = `${r.customer_name}様\n\nいつもありがとうございます。\n大変申し訳ございませんが、\n${dt}のご予約について、\nこちらの都合により日時の変更をお願いできないかと思いご連絡いたしました🙇‍♀️\n\n下記のお日にちでしたらご案内が可能です。\n\n${lines}\n\nご都合いかがでしょうか？\nお手数をおかけし申し訳ございませんが、\nご確認のほどよろしくお願いいたします。`
+    text = `${r.customer_name}様\n\nいつもありがとうございます。\n大変申し訳ございませんが、\n${dt}のご予約について、\nこちらの都合により日時の変更をお願いできないかと思いご連絡いたしました🙇‍♀️\n\n下記のお日にちでしたらご案内が可能です。\n\n${lines}\n\nご都合いかがでしょうか？\nお手数をおかけして申し訳ございませんがお返事よろしくお願いいたします。`
   } else {
     text = `お問い合わせありがとうございます🙇‍♀️\n\nご希望に近い空き状況は下記の通りです。\n\n${lines}\n\nご都合のよいお日にちはございますか？✨`
   }
