@@ -2614,7 +2614,7 @@ function renderCustomerList(customers) {
         <div class="card-name">${c.name}</div>
         <div class="card-sub">${[c.name_kana, c.phone].filter(Boolean).join('　')}</div>
         ${nextHtml}
-        ${lastVisit ? `<div class="card-sub">最終来店: ${lastVisit} / 来店${visitCount}回</div>` : ''}
+        ${visitCount ? `<div class="card-sub">${lastVisit ? '最終来店: '+lastVisit+' / ' : ''}来店${visitCount}回</div>` : ''}
       </div>
       <span class="chevron">›</span>
     </div>`
