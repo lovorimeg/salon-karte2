@@ -282,6 +282,18 @@ select.input { appearance:none; }
 </head>
 <body oncontextmenu="return false">
 
+<!-- ═══════════════ 暗証番号ロック画面 ═══════════════ -->
+<div id="pin-overlay" style="display:none;position:fixed;inset:0;background:#fbf9f7;z-index:9999;flex-direction:column;align-items:center;justify-content:center;padding:32px;">
+  <div style="font-size:40px;margin-bottom:12px;">🔒</div>
+  <div id="pin-title" style="font-size:20px;font-weight:800;color:#1c1c1e;margin-bottom:6px;">暗証番号を入力</div>
+  <div id="pin-sub" style="font-size:13px;color:#888;margin-bottom:24px;text-align:center;line-height:1.6;">このアプリの暗証番号を入力してください</div>
+  <input id="pin-input" type="tel" inputmode="numeric" pattern="[0-9]*" maxlength="12" data-mode="enter"
+    onkeydown="if(event.key==='Enter')submitPin()"
+    style="width:200px;text-align:center;font-size:28px;letter-spacing:8px;padding:14px;border:2px solid #ddd;border-radius:14px;background:#fff;outline:none;" />
+  <div id="pin-error" style="color:#e33;font-size:13px;min-height:18px;margin-top:10px;"></div>
+  <button onclick="submitPin()" style="margin-top:14px;width:200px;padding:15px;border:none;border-radius:14px;background:#1c1c1e;color:#fff;font-size:16px;font-weight:700;cursor:pointer;">決定</button>
+</div>
+
 <!-- ═══════════════ ホーム画面 ═══════════════ -->
 <div id="screen-home" style="display:none">
   <div class="header">
@@ -1084,12 +1096,96 @@ window.onload = () => {
   buildHourOptions('edit-res-time-h')
   setTimeVal('res-time-h','res-time-m','10:00')
   calSelectedDate = today
-  loadAll()
-  loadJpHolidays()
   // Service Worker登録（起動のたびに最新版を自動取得）
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js').catch(() => {})
   }
+  // 暗証番号ロックを確認してからアプリを開始
+  pinGate()
+}
+
+function startApp() {
+  loadAll()
+  loadJpHolidays()
+}
+
+// ═══════════════ 暗証番号ロック ═══════════════
+async function pinGate() {
+  // この端末で確認済みならスキップ
+  if (localStorage.getItem('pinOK') === '1') { startApp(); return }
+  // PINが設定されているか確認
+  let status
+  try { status = await api({ action:'getPinStatus' }) } catch(e) { status = null }
+  if (!status || status.set === undefined) {
+    // オフライン等で確認できない → とりあえず開始（この端末は未確認のまま）
+    startApp(); return
+  }
+  if (status.set) showPinScreen('enter')
+  else showPinScreen('setup')
+}
+
+let _pinSetupFirst = ''
+function showPinScreen(mode) {
+  _pinSetupFirst = ''
+  document.getElementById('pin-overlay').style.display = 'flex'
+  document.getElementById('pin-input').value = ''
+  document.getElementById('pin-error').textContent = ''
+  if (mode === 'setup') {
+    document.getElementById('pin-title').textContent = '暗証番号を設定'
+    document.getElementById('pin-sub').textContent = 'アプリを守る4桁以上の番号を決めてください'
+    document.getElementById('pin-input').dataset.mode = 'setup1'
+  } else {
+    document.getElementById('pin-title').textContent = '暗証番号を入力'
+    document.getElementById('pin-sub').textContent = 'このアプリの暗証番号を入力してください'
+    document.getElementById('pin-input').dataset.mode = 'enter'
+  }
+  setTimeout(() => document.getElementById('pin-input').focus(), 100)
+}
+
+async function submitPin() {
+  const inp = document.getElementById('pin-input')
+  const val = inp.value.trim()
+  const err = document.getElementById('pin-error')
+  const mode = inp.dataset.mode
+  err.textContent = ''
+  if (mode === 'setup1') {
+    if (val.length < 4) { err.textContent = '4桁以上で入力してください'; return }
+    _pinSetupFirst = val
+    inp.value = ''
+    inp.dataset.mode = 'setup2'
+    document.getElementById('pin-title').textContent = 'もう一度入力'
+    document.getElementById('pin-sub').textContent = '確認のため、同じ番号をもう一度入力してください'
+    return
+  }
+  if (mode === 'setup2') {
+    if (val !== _pinSetupFirst) {
+      err.textContent = '番号が一致しません。最初からやり直してください'
+      inp.value = ''; inp.dataset.mode = 'setup1'
+      document.getElementById('pin-title').textContent = '暗証番号を設定'
+      document.getElementById('pin-sub').textContent = 'アプリを守る4桁以上の番号を決めてください'
+      _pinSetupFirst = ''
+      return
+    }
+    const res = await api({ action:'setPin', pin: val })
+    if (res.error) { err.textContent = res.error; return }
+    localStorage.setItem('pinOK', '1')
+    hidePinScreen()
+    return
+  }
+  // enter モード
+  const res = await api({ action:'checkPin', pin: val })
+  if (res && res.ok) {
+    localStorage.setItem('pinOK', '1')
+    hidePinScreen()
+  } else {
+    err.textContent = '暗証番号が違います'
+    inp.value = ''
+  }
+}
+
+function hidePinScreen() {
+  document.getElementById('pin-overlay').style.display = 'none'
+  startApp()
 }
 
 // ── ローカルキャッシュ ──
