@@ -894,6 +894,7 @@ select.input { appearance:none; }
     <button id="res-action-line-btn" onclick="resActionLine()" style="padding:18px;border-radius:14px;border:none;background:#f0fff4;font-size:15px;font-weight:600;cursor:pointer;color:#06c755;">💬 LINEコピー</button>
     <button id="res-action-change-btn" onclick="resActionChange()" style="padding:18px;border-radius:14px;border:none;background:#fff6e8;font-size:15px;font-weight:600;cursor:pointer;color:#e08e00;grid-column:1/-1;">🔄 変更依頼コピー</button>
     <button id="res-action-confirm-btn" onclick="resActionConfirm()" style="padding:18px;border-radius:14px;border:none;background:#eef7ff;font-size:15px;font-weight:600;cursor:pointer;color:#2278d4;grid-column:1/-1;">✅ 変更確定コピー</button>
+    <button id="res-action-listcopy-btn" onclick="resActionListCopy()" style="padding:18px;border-radius:14px;border:none;background:#f0fff4;font-size:15px;font-weight:600;cursor:pointer;color:#06c755;grid-column:1/-1;">📋 予約一覧コピー</button>
     <button onclick="resActionDelete()" style="padding:18px;border-radius:14px;border:none;background:#fff0f0;font-size:15px;font-weight:600;cursor:pointer;color:#e33;grid-column:1/-1;">🗑️ 削除する</button>
   </div>
 </div>
@@ -1474,6 +1475,31 @@ function resActionChange() {
   closeResActionPopup()
   // 空き枠検索を「変更依頼モード」で開く。候補日を選ぶと変更依頼文が自動生成される
   openSlotFinder('change', r)
+}
+
+function resActionListCopy() {
+  const r = _resActionTarget
+  if (!r) return
+  const dayNames = ['日','月','火','水','木','金','土']
+  const today = todayStr()
+  const custRes = allReservations
+    .filter(cr => cr.customer_id === r.customer_id && cr.date >= today)
+    .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
+  if (!custRes.length) { toast('今後の予約がありません'); return }
+  const lines = custRes.map(cr => {
+    const d = new Date(cr.date)
+    const label = `${d.getMonth()+1}月${d.getDate()}日（${dayNames[d.getDay()]}）${(cr.time||'').slice(0,5)}`
+    return `・${label}　${cr.menu||''}`
+  }).join('\n')
+  const text = `${r.customer_name}様\n\n現在ご予約いただいているお日にちは下記の通りです。\n\n${lines}\n\nご確認のほどよろしくお願いいたします✨`
+  const btn = document.getElementById('res-action-listcopy-btn')
+  navigator.clipboard.writeText(text).then(() => {
+    toast('予約一覧をコピーしました')
+    if (btn) {
+      btn.textContent = '✓ コピー済'
+      setTimeout(() => { btn.textContent = '📋 予約一覧コピー' }, 2000)
+    }
+  })
 }
 
 function resActionConfirm() {
