@@ -2553,10 +2553,17 @@ function renderCalDayList(ds) {
 }
 
 // ═══════════════ 顧客一覧 ═══════════════
+let _visitStats = {}
 function loadCustomers() {
+  // キャッシュ済みの来店統計があれば即反映
+  const cachedStats = _loadLocalCache({ action:'getVisitStats' })
+  if (cachedStats) _visitStats = cachedStats
   renderCustomerList(allCustomers)
   api({ action:'getCustomers' }).then(d => {
     if (Array.isArray(d)) { allCustomers = d; renderCustomerList(allCustomers) }
+  })
+  api({ action:'getVisitStats' }).then(d => {
+    if (d && typeof d === 'object' && !Array.isArray(d)) { _visitStats = d; renderCustomerList(allCustomers) }
   })
 }
 
@@ -2584,8 +2591,17 @@ function renderCustomerList(customers) {
       if (!cur || (r.date + r.time) < (cur.date + cur.time)) upcomingMap[r.customer_id] = r
     })
   list.innerHTML = sorted.map(c => {
-    const visits = visitMap[c.id] || []
-    const lastVisit = visits.length ? visits.sort().reverse()[0] : null
+    // 来店回数・最終来店日：カルテの集計を優先、なければ予約から推定
+    const stat = _visitStats[c.id]
+    let visitCount, lastVisit
+    if (stat && stat.count) {
+      visitCount = stat.count
+      lastVisit = stat.last || null
+    } else {
+      const visits = visitMap[c.id] || []
+      visitCount = visits.length
+      lastVisit = visits.length ? visits.sort().reverse()[0] : null
+    }
     const next = upcomingMap[c.id]
     let nextHtml = ''
     if (next) {
@@ -2598,7 +2614,7 @@ function renderCustomerList(customers) {
         <div class="card-name">${c.name}</div>
         <div class="card-sub">${[c.name_kana, c.phone].filter(Boolean).join('　')}</div>
         ${nextHtml}
-        ${lastVisit ? `<div class="card-sub">最終来店: ${lastVisit} / 来店${visits.length}回</div>` : ''}
+        ${lastVisit ? `<div class="card-sub">最終来店: ${lastVisit} / 来店${visitCount}回</div>` : ''}
       </div>
       <span class="chevron">›</span>
     </div>`
