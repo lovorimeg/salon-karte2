@@ -182,7 +182,7 @@ select.input { appearance:none; }
 .undo-toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:#1c1c1e; color:#fff; padding:12px 16px; border-radius:20px; font-size:14px; z-index:300; display:flex; align-items:center; gap:10px; white-space:nowrap; }
 .undo-btn { background:rgba(255,255,255,0.2); border:none; color:#fff; padding:6px 14px; border-radius:14px; font-size:13px; font-weight:600; cursor:pointer; }
 /* ドラッグ */
-.week-nav-zone { position:fixed; top:0; bottom:0; width:52px; z-index:999; display:flex; align-items:center; justify-content:center; pointer-events:none; transition:background 0.2s; }
+.week-nav-zone { position:fixed; top:0; bottom:0; width:34px; z-index:999; display:flex; align-items:center; justify-content:center; pointer-events:none; transition:background 0.2s; }
 .week-nav-zone.left  { left:0; }
 .week-nav-zone.right { right:0; }
 .week-nav-zone.active { background:rgba(0,122,255,0.18); }
@@ -1933,6 +1933,7 @@ function lpMove(e) {
       _ghostMove(drag.lastX, drag.lastY)
       _highlightTarget(drag.lastX, drag.lastY)
       _autoScroll(drag.lastY)
+      _checkWeekNavZone(drag.lastX)
     })
   }
 }
@@ -1954,6 +1955,19 @@ function _dragActivate(x, y) {
   tl.id = 'drag-time-label'
   document.body.appendChild(tl)
   drag.timeLabel = tl
+  // 週切り替えゾーン（画面端で長めに待つと前後の週へ。うっかり防止に狭め＆長め）
+  const zl = document.createElement('div')
+  zl.className = 'week-nav-zone left'
+  zl.innerHTML = '<span class="week-nav-zone-arrow">‹</span>'
+  zl.id = 'wnz-left'
+  document.body.appendChild(zl)
+  const zr = document.createElement('div')
+  zr.className = 'week-nav-zone right'
+  zr.innerHTML = '<span class="week-nav-zone-arrow">›</span>'
+  zr.id = 'wnz-right'
+  document.body.appendChild(zr)
+  drag.zoneL = zl
+  drag.zoneR = zr
   _ghostMove(x, y)
 }
 
@@ -2038,7 +2052,7 @@ function _highlightTarget(x, y) {
 function _checkWeekNavZone(x) {
   if (!drag || calView !== 'week') return
   const W = window.innerWidth
-  const ZONE = 52
+  const ZONE = 34
   const inLeft  = x < ZONE
   const inRight = x > W - ZONE
 
@@ -2053,8 +2067,8 @@ function _checkWeekNavZone(x) {
         else        { calDate.setDate(calDate.getDate() + 7) }
         // 週を切り替えてグリッドを再描画（drag状態は維持）
         renderWeekCalendar()
-        if (navigator.vibrate) navigator.vibrate(20)
-      }, 700)
+        if (navigator.vibrate) navigator.vibrate(30)
+      }, 1100)
     }
   } else {
     if (drag.weekNavTimer) { clearTimeout(drag.weekNavTimer); drag.weekNavTimer = null }
