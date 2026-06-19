@@ -481,7 +481,6 @@ select.input { appearance:none; }
     <div class="field"><label class="label">電話番号</label><input class="input" id="add-phone" type="tel" placeholder="090-0000-0000" /></div>
     <div class="field"><label class="label">初回来店日</label><input class="input" id="add-first-visit" type="date" /></div>
     <div class="field"><label class="label">常用薬剤</label><textarea class="input" id="add-regular-medicine" placeholder="いつも使っている薬剤など"></textarea></div>
-    <div class="field"><label class="label">LINE URL</label><input class="input" id="add-line-url" placeholder="LINEトークのURLを貼り付け" /></div>
     <div class="field"><label class="label">メモ</label><textarea class="input" id="add-memo" placeholder="アレルギー・好みなど"></textarea></div>
     <div id="add-error" class="error-msg"></div>
     <button class="btn-primary" onclick="submitAddCustomer()">登録する</button>
@@ -499,7 +498,6 @@ select.input { appearance:none; }
     <div class="field"><label class="label">電話番号</label><input class="input" id="edit-phone" type="tel" /></div>
     <div class="field"><label class="label">初回来店日</label><input class="input" id="edit-first-visit" type="date" /></div>
     <div class="field"><label class="label">常用薬剤</label><textarea class="input" id="edit-regular-medicine" placeholder="いつも使っている薬剤など"></textarea></div>
-    <div class="field"><label class="label">LINE URL</label><input class="input" id="edit-line-url" placeholder="LINEトークのURLを貼り付け" /></div>
     <div class="field"><label class="label">メモ</label><textarea class="input" id="edit-memo"></textarea></div>
     <div id="edit-error" class="error-msg"></div>
     <button class="btn-primary" onclick="submitEditCustomer()">更新する</button>
@@ -2623,7 +2621,7 @@ async function loadDetailReservations(customerId) {
 
 // ═══════════════ 顧客 CRUD ═══════════════
 function openAddCustomer() {
-  ['add-name','add-kana','add-phone','add-regular-medicine','add-memo','add-line-url'].forEach(id => document.getElementById(id).value='')
+  ['add-name','add-kana','add-phone','add-regular-medicine','add-memo'].forEach(id => document.getElementById(id).value='')
   document.getElementById('add-first-visit').value = todayStr()
   hideError('add-error')
   openModal('modal-add-customer')
@@ -2639,7 +2637,6 @@ async function submitAddCustomer() {
     first_visit: document.getElementById('add-first-visit').value,
     memo: document.getElementById('add-memo').value,
     regular_medicine: document.getElementById('add-regular-medicine').value,
-    line_url: document.getElementById('add-line-url').value,
   })
   btn.disabled=false; btn.textContent='登録する'
   if (res.error) { showError('add-error', res.error); return }
@@ -2656,7 +2653,6 @@ function openEditCustomer() {
   document.getElementById('edit-first-visit').value=c.first_visit||''
   document.getElementById('edit-memo').value=c.memo||''
   document.getElementById('edit-regular-medicine').value=c.regular_medicine||''
-  document.getElementById('edit-line-url').value=c.line_url||''
   hideError('edit-error'); openModal('modal-edit-customer')
 }
 
@@ -2670,11 +2666,10 @@ async function submitEditCustomer() {
     first_visit: document.getElementById('edit-first-visit').value,
     memo: document.getElementById('edit-memo').value,
     regular_medicine: document.getElementById('edit-regular-medicine').value,
-    line_url: document.getElementById('edit-line-url').value,
   })
   btn.disabled=false; btn.textContent='更新する'
   if (res.error) { showError('edit-error', res.error); return }
-  currentCustomer = { ...currentCustomer, name, name_kana: document.getElementById('edit-kana').value, regular_medicine: document.getElementById('edit-regular-medicine').value, line_url: document.getElementById('edit-line-url').value }
+  currentCustomer = { ...currentCustomer, name, name_kana: document.getElementById('edit-kana').value, regular_medicine: document.getElementById('edit-regular-medicine').value }
   closeModal('modal-edit-customer'); toast('更新しました')
   allCustomers = await api({ action:'getCustomers' }).then(d => Array.isArray(d)?d:allCustomers)
   showDetail(currentCustomer, detailFrom)
