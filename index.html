@@ -478,7 +478,6 @@ select.input { appearance:none; }
     <div class="modal-title">顧客登録</div>
     <div class="field"><label class="label">氏名 *</label><input class="input" id="add-name" placeholder="山田 花子" /></div>
     <div class="field"><label class="label">フリガナ</label><input class="input" id="add-kana" placeholder="やまだ はなこ" oninput="this.value=toHiragana(this.value)" /></div>
-    <div class="field"><label class="label">電話番号</label><input class="input" id="add-phone" type="tel" placeholder="090-0000-0000" /></div>
     <div class="field"><label class="label">初回来店日</label><input class="input" id="add-first-visit" type="date" /></div>
     <div class="field"><label class="label">常用薬剤</label><textarea class="input" id="add-regular-medicine" placeholder="いつも使っている薬剤など"></textarea></div>
     <div class="field"><label class="label">メモ</label><textarea class="input" id="add-memo" placeholder="アレルギー・好みなど"></textarea></div>
@@ -495,7 +494,6 @@ select.input { appearance:none; }
     <div class="modal-title">顧客情報を編集</div>
     <div class="field"><label class="label">氏名 *</label><input class="input" id="edit-name" /></div>
     <div class="field"><label class="label">フリガナ</label><input class="input" id="edit-kana" placeholder="やまだ はなこ" oninput="this.value=toHiragana(this.value)" /></div>
-    <div class="field"><label class="label">電話番号</label><input class="input" id="edit-phone" type="tel" /></div>
     <div class="field"><label class="label">初回来店日</label><input class="input" id="edit-first-visit" type="date" /></div>
     <div class="field"><label class="label">常用薬剤</label><textarea class="input" id="edit-regular-medicine" placeholder="いつも使っている薬剤など"></textarea></div>
     <div class="field"><label class="label">メモ</label><textarea class="input" id="edit-memo"></textarea></div>
@@ -2572,7 +2570,7 @@ function renderCustomerList(customers) {
     return `<div class="card" onclick='showDetail(${JSON.stringify(c)},"list")'>
       <div>
         <div class="card-name">${c.name}</div>
-        <div class="card-sub">${[c.name_kana, c.phone].filter(Boolean).join('　')}</div>
+        <div class="card-sub">${[c.name_kana].filter(Boolean).join('　')}</div>
         ${nextHtml}
         ${visitCount ? `<div class="card-sub">${lastVisit ? '最終来店: '+lastVisit+' / ' : ''}来店${visitCount}回</div>` : ''}
       </div>
@@ -2598,7 +2596,7 @@ async function showDetail(customer, from) {
 
 function renderDetailInfo(c) {
   const rows = [
-    {label:'フリガナ',value:c.name_kana},{label:'電話番号',value:c.phone},
+    {label:'フリガナ',value:c.name_kana},
     {label:'常用薬剤',value:c.regular_medicine},{label:'メモ',value:c.memo}
   ].filter(r => r.value)
   // 予約から来店回数・最終来店日を集計
@@ -2621,7 +2619,7 @@ async function loadDetailReservations(customerId) {
 
 // ═══════════════ 顧客 CRUD ═══════════════
 function openAddCustomer() {
-  ['add-name','add-kana','add-phone','add-regular-medicine','add-memo'].forEach(id => document.getElementById(id).value='')
+  ['add-name','add-kana','add-regular-medicine','add-memo'].forEach(id => document.getElementById(id).value='')
   document.getElementById('add-first-visit').value = todayStr()
   hideError('add-error')
   openModal('modal-add-customer')
@@ -2633,7 +2631,6 @@ async function submitAddCustomer() {
   const btn = event.target; btn.disabled=true; btn.textContent='登録中...'
   const res = await api({ action:'addCustomer', name,
     name_kana: document.getElementById('add-kana').value,
-    phone: document.getElementById('add-phone').value,
     first_visit: document.getElementById('add-first-visit').value,
     memo: document.getElementById('add-memo').value,
     regular_medicine: document.getElementById('add-regular-medicine').value,
@@ -2649,7 +2646,6 @@ function openEditCustomer() {
   const c = currentCustomer
   document.getElementById('edit-name').value=c.name||''
   document.getElementById('edit-kana').value=toHiragana(c.name_kana||'')
-  document.getElementById('edit-phone').value=c.phone||''
   document.getElementById('edit-first-visit').value=c.first_visit||''
   document.getElementById('edit-memo').value=c.memo||''
   document.getElementById('edit-regular-medicine').value=c.regular_medicine||''
@@ -2662,7 +2658,6 @@ async function submitEditCustomer() {
   const btn = event.target; btn.disabled=true; btn.textContent='更新中...'
   const res = await api({ action:'updateCustomer', id:currentCustomer.id, name,
     name_kana: document.getElementById('edit-kana').value,
-    phone: document.getElementById('edit-phone').value,
     first_visit: document.getElementById('edit-first-visit').value,
     memo: document.getElementById('edit-memo').value,
     regular_medicine: document.getElementById('edit-regular-medicine').value,
@@ -2899,7 +2894,7 @@ function renderCustDrop(target, q) {
   // テキスト検索
   if (q) {
     filtered = filtered.filter(c =>
-      c.name.includes(q) || (c.name_kana||'').includes(q) || (c.phone||'').includes(q))
+      c.name.includes(q) || (c.name_kana||'').includes(q))
   }
 
   if (!filtered.length) {
@@ -2911,7 +2906,6 @@ function renderCustDrop(target, q) {
           <div class="cust-drop-name">${c.name}</div>
           ${c.name_kana ? `<div class="cust-drop-kana">${c.name_kana}</div>` : ''}
         </div>
-        ${c.phone ? `<div class="cust-drop-phone">${c.phone}</div>` : ''}
       </div>`).join('')
   }
   drop.style.display = 'block'
