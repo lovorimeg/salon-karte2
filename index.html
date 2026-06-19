@@ -1608,12 +1608,15 @@ function setCalView(v) {
 let _calSwipe = null
 
 function calSwipeStart(e) {
-  if (drag?.active) return  // ドラッグ中は無視
+  // 予約ブロックの上で始めた指の動きは「移動」操作。スワイプ週送りを記録しない
+  // （lpStart が先に走って drag をセットするため、ここで drag があれば予約発の操作）
+  if (drag) return
   const t = e.touches[0]
   _calSwipe = { x: t.clientX, y: t.clientY }
 }
 
 function calSwipeEnd(e) {
+  if (drag) { _calSwipe = null; return }  // ドラッグが絡む操作ではページ送りしない
   if (!_calSwipe) return
   const t = e.changedTouches[0]
   const dx = t.clientX - _calSwipe.x
