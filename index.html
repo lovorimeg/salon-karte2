@@ -308,7 +308,6 @@ select.input { appearance:none; }
       <div class="stat-card"><div class="stat-label">今週の予約</div><div class="stat-value" id="home-week-count">—</div></div>
     </div>
     <div id="home-next-res"></div>
-    <div id="home-birthday"></div>
     <div class="section-header"><div class="section-title">本日の予約</div></div>
     <div id="home-today-list"><div class="loading">読み込み中...</div></div>
   </div>
@@ -480,7 +479,6 @@ select.input { appearance:none; }
     <div class="field"><label class="label">氏名 *</label><input class="input" id="add-name" placeholder="山田 花子" /></div>
     <div class="field"><label class="label">フリガナ</label><input class="input" id="add-kana" placeholder="やまだ はなこ" oninput="this.value=toHiragana(this.value)" /></div>
     <div class="field"><label class="label">電話番号</label><input class="input" id="add-phone" type="tel" placeholder="090-0000-0000" /></div>
-    <div class="field"><label class="label">生年月日</label><input class="input" id="add-birthday" type="date" /></div>
     <div class="field"><label class="label">初回来店日</label><input class="input" id="add-first-visit" type="date" /></div>
     <div class="field"><label class="label">常用薬剤</label><textarea class="input" id="add-regular-medicine" placeholder="いつも使っている薬剤など"></textarea></div>
     <div class="field"><label class="label">LINE URL</label><input class="input" id="add-line-url" placeholder="LINEトークのURLを貼り付け" /></div>
@@ -499,7 +497,6 @@ select.input { appearance:none; }
     <div class="field"><label class="label">氏名 *</label><input class="input" id="edit-name" /></div>
     <div class="field"><label class="label">フリガナ</label><input class="input" id="edit-kana" placeholder="やまだ はなこ" oninput="this.value=toHiragana(this.value)" /></div>
     <div class="field"><label class="label">電話番号</label><input class="input" id="edit-phone" type="tel" /></div>
-    <div class="field"><label class="label">生年月日</label><input class="input" id="edit-birthday" type="date" /></div>
     <div class="field"><label class="label">初回来店日</label><input class="input" id="edit-first-visit" type="date" /></div>
     <div class="field"><label class="label">常用薬剤</label><textarea class="input" id="edit-regular-medicine" placeholder="いつも使っている薬剤など"></textarea></div>
     <div class="field"><label class="label">LINE URL</label><input class="input" id="edit-line-url" placeholder="LINEトークのURLを貼り付け" /></div>
@@ -1382,41 +1379,6 @@ function loadHome() {
       </div>`
   } else {
     nextEl.innerHTML = ''
-  }
-
-  // 誕生日が近い顧客（7日以内）
-  const birthdayEl = document.getElementById('home-birthday')
-  const todayMD = today.slice(5)
-  const upcoming = allCustomers.filter(c => {
-    if (!c.birthday) return false
-    const bd = c.birthday.slice(5)
-    // 年をまたぐ場合も考慮
-    const thisYear = today.slice(0,4) + '-' + bd
-    const nextYear = String(Number(today.slice(0,4))+1) + '-' + bd
-    const diff1 = (new Date(thisYear) - new Date(today)) / 86400000
-    const diff2 = (new Date(nextYear) - new Date(today)) / 86400000
-    const diff = diff1 >= 0 ? diff1 : diff2
-    return diff <= 7
-  }).map(c => {
-    const bd = c.birthday.slice(5)
-    const thisYear = today.slice(0,4) + '-' + bd
-    const nextYear = String(Number(today.slice(0,4))+1) + '-' + bd
-    const diff1 = (new Date(thisYear) - new Date(today)) / 86400000
-    const diff = diff1 >= 0 ? diff1 : (new Date(nextYear) - new Date(today)) / 86400000
-    return { ...c, bdDiff: Math.round(diff) }
-  }).sort((a,b) => a.bdDiff - b.bdDiff)
-  if (upcoming.length) {
-    birthdayEl.innerHTML = `<div class="section-header"><div class="section-title">🎂 もうすぐ誕生日</div></div>` +
-      upcoming.map(c => `
-        <div class="next-res-card" onclick="showDetail(allCustomers.find(x=>x.id==='${c.id}'),'list')" style="display:flex;align-items:center;gap:12px;padding:12px 16px">
-          <div style="font-size:24px">🎂</div>
-          <div style="flex:1">
-            <div style="font-weight:600">${c.name}</div>
-            <div style="font-size:12px;color:#8e8e93">${c.birthday.slice(5).replace('-','月')}日 &nbsp;${c.bdDiff===0?'今日！': c.bdDiff+'日後'}</div>
-          </div>
-        </div>`).join('')
-  } else {
-    birthdayEl.innerHTML = ''
   }
 
   // 本日の予約リスト
@@ -2639,7 +2601,7 @@ async function showDetail(customer, from) {
 function renderDetailInfo(c) {
   const rows = [
     {label:'フリガナ',value:c.name_kana},{label:'電話番号',value:c.phone},
-    {label:'生年月日',value:c.birthday},{label:'常用薬剤',value:c.regular_medicine},{label:'メモ',value:c.memo}
+    {label:'常用薬剤',value:c.regular_medicine},{label:'メモ',value:c.memo}
   ].filter(r => r.value)
   // 予約から来店回数・最終来店日を集計
   const visits = allReservations.filter(r => r.customer_id === c.id && r.status === 'visited')
@@ -2662,7 +2624,6 @@ async function loadDetailReservations(customerId) {
 // ═══════════════ 顧客 CRUD ═══════════════
 function openAddCustomer() {
   ['add-name','add-kana','add-phone','add-regular-medicine','add-memo','add-line-url'].forEach(id => document.getElementById(id).value='')
-  document.getElementById('add-birthday').value=''
   document.getElementById('add-first-visit').value = todayStr()
   hideError('add-error')
   openModal('modal-add-customer')
@@ -2675,7 +2636,6 @@ async function submitAddCustomer() {
   const res = await api({ action:'addCustomer', name,
     name_kana: document.getElementById('add-kana').value,
     phone: document.getElementById('add-phone').value,
-    birthday: document.getElementById('add-birthday').value,
     first_visit: document.getElementById('add-first-visit').value,
     memo: document.getElementById('add-memo').value,
     regular_medicine: document.getElementById('add-regular-medicine').value,
@@ -2693,7 +2653,6 @@ function openEditCustomer() {
   document.getElementById('edit-name').value=c.name||''
   document.getElementById('edit-kana').value=toHiragana(c.name_kana||'')
   document.getElementById('edit-phone').value=c.phone||''
-  document.getElementById('edit-birthday').value=c.birthday||''
   document.getElementById('edit-first-visit').value=c.first_visit||''
   document.getElementById('edit-memo').value=c.memo||''
   document.getElementById('edit-regular-medicine').value=c.regular_medicine||''
@@ -2708,7 +2667,6 @@ async function submitEditCustomer() {
   const res = await api({ action:'updateCustomer', id:currentCustomer.id, name,
     name_kana: document.getElementById('edit-kana').value,
     phone: document.getElementById('edit-phone').value,
-    birthday: document.getElementById('edit-birthday').value,
     first_visit: document.getElementById('edit-first-visit').value,
     memo: document.getElementById('edit-memo').value,
     regular_medicine: document.getElementById('edit-regular-medicine').value,
