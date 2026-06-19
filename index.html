@@ -1930,7 +1930,6 @@ function lpMove(e) {
       _ghostMove(drag.lastX, drag.lastY)
       _highlightTarget(drag.lastX, drag.lastY)
       _autoScroll(drag.lastY)
-      _checkWeekNavZone(drag.lastX)
     })
   }
 }
@@ -1952,25 +1951,12 @@ function _dragActivate(x, y) {
   tl.id = 'drag-time-label'
   document.body.appendChild(tl)
   drag.timeLabel = tl
-  // 週切り替えゾーン
-  const zl = document.createElement('div')
-  zl.className = 'week-nav-zone left'
-  zl.innerHTML = '<span class="week-nav-zone-arrow">‹</span>'
-  zl.id = 'wnz-left'
-  document.body.appendChild(zl)
-  const zr = document.createElement('div')
-  zr.className = 'week-nav-zone right'
-  zr.innerHTML = '<span class="week-nav-zone-arrow">›</span>'
-  zr.id = 'wnz-right'
-  document.body.appendChild(zr)
-  drag.zoneL = zl
-  drag.zoneR = zr
   _ghostMove(x, y)
 }
 
 function _ghostMove(x, y) {
   if (!drag?.ghost) return
-  drag.ghost.style.transform = `translate3d(${x - 12}px, ${y - 50}px, 0) scale(1.06)`
+  drag.ghost.style.transform = `translate3d(${x - 12}px, ${y - 30}px, 0) scale(1.06)`
 }
 
 function _highlightTarget(x, y) {
@@ -1986,9 +1972,11 @@ function _highlightTarget(x, y) {
     if (!sc) return
     const scRect = sc.getBoundingClientRect()
     const relY   = y - scRect.top + sc.scrollTop
-    const totalMin = Math.floor((relY / DH_PX) * 60) + DH_START * 60
-    const h = Math.max(DH_START, Math.min(DH_END - 1, Math.floor(totalMin / 60)))
-    const m = Math.floor((totalMin % 60) / 30) * 30
+    // タップ作成時と同じ「最寄り30分に丸め」で統一（狙った時間に落ちるように）
+    let totalMin = Math.round(((relY / DH_PX) * 60 + DH_START * 60) / 30) * 30
+    totalMin = Math.max(DH_START * 60, Math.min((DH_END - 1) * 60 + 30, totalMin))
+    const h = Math.floor(totalMin / 60)
+    const m = totalMin % 60
     const timeStr  = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0')
     const topPx    = ((h * 60 + m - DH_START * 60) / 60) * DH_PX
     const heightPx = Math.max((drag.res.duration||60) / 60 * DH_PX, 24)
@@ -2083,9 +2071,11 @@ function _calcWeekTime(colEl, y) {
   if (!sc) return null
   const sr = sc.getBoundingClientRect()
   const relY = y - sr.top + sc.scrollTop
-  const totalMin = Math.floor((relY / DH_PX) * 60) + DH_START * 60
-  const h = Math.max(DH_START, Math.min(DH_END - 1, Math.floor(totalMin / 60)))
-  const m = Math.floor((totalMin % 60) / 30) * 30
+  // _highlightTarget と同じ丸め方に統一（インジケータ表示＝実際の落下先）
+  let totalMin = Math.round(((relY / DH_PX) * 60 + DH_START * 60) / 30) * 30
+  totalMin = Math.max(DH_START * 60, Math.min((DH_END - 1) * 60 + 30, totalMin))
+  const h = Math.floor(totalMin / 60)
+  const m = totalMin % 60
   return { date: colEl.dataset.ddate, time: String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') }
 }
 
