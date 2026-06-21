@@ -207,6 +207,8 @@ select.input { appearance:none; }
 .summary-cell-val   { font-size:14px; font-weight:600; }
 .summary-items      { border-top:1px solid #f0f0f5; padding-top:10px; }
 .summary-item       { display:flex; justify-content:space-between; font-size:13px; padding:4px 0; color:#555; }
+.safe-btn           { width:100%; margin-top:12px; padding:11px; border-radius:12px; border:1.5px dashed #34c759; background:#fff; color:#1a7a30; font-size:14px; font-weight:700; cursor:pointer; }
+.safe-btn.done      { border-style:solid; background:#34c759; color:#fff; }
 
 /* ── セクション ── */
 .section-header { display:flex; align-items:center; justify-content:space-between; margin:20px 0 10px; }
@@ -3763,6 +3765,14 @@ async function loadSalesSummary() {
   renderSalesSummary(data)
 }
 
+// 現金を金庫に移したか（この端末に保存）
+function isSafeMoved(date) { return localStorage.getItem('safeMoved_' + date) === '1' }
+function toggleSafeMoved(date) {
+  if (isSafeMoved(date)) localStorage.removeItem('safeMoved_' + date)
+  else localStorage.setItem('safeMoved_' + date, '1')
+  renderSalesSummary(_salesData)
+}
+
 function renderSalesSummary(data) {
   const list = document.getElementById('sales-summary-list')
   if (!data.length) { list.innerHTML = '<div class="empty">売上データがありません</div>'; return }
@@ -3777,6 +3787,7 @@ function renderSalesSummary(data) {
           <div class="summary-cell"><div class="summary-cell-label">カード</div><div class="summary-cell-val">¥${Number(d.card).toLocaleString()}</div></div>
           <div class="summary-cell"><div class="summary-cell-label">QR決済</div><div class="summary-cell-val">¥${Number(d.qr).toLocaleString()}</div></div>
         </div>
+        ${Number(d.cash) > 0 ? `<button class="safe-btn${isSafeMoved(d.date) ? ' done' : ''}" onclick="toggleSafeMoved('${d.date}')">${isSafeMoved(d.date) ? '✓ 現金を金庫に入れた' : '現金を金庫に移した'}</button>` : ''}
         <div class="summary-items">
           ${d.items.map(item => `
             <div class="summary-item">
