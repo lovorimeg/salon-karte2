@@ -1598,7 +1598,8 @@ async function resActionDelete() {
   closeResActionPopup()
   if (!r) return
   if (!confirm(`${r.customer_name}様の予約（${r.date} ${r.time}）を削除しますか？`)) return
-  await apiCall({ action: 'deleteReservation', id: r.id })
+  const res = await api({ action: 'deleteReservation', id: r.id })
+  if (res && res.error) { toast('削除に失敗しました: ' + res.error); return }
   toast('予約を削除しました')
   await loadAll()
 }
