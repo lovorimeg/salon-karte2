@@ -3060,8 +3060,8 @@ function _renderSelBlock(topPx, heightPx, dispStart, dispEnd, colEl) {
   ind.style.top    = topPx + 'px'
   ind.style.height = Math.max(heightPx, 20) + 'px'
   ind.innerHTML    = ''
-  // 時刻は指で隠れないよう、画面上部の見やすい位置に固定表示する
-  _showSelTimeLabel(dispStart === dispEnd ? dispStart : `${dispStart}〜${dispEnd}`)
+  // 時刻は指で隠れないよう、画面上部に固定表示（開始時間のみ）
+  _showSelTimeLabel(dispStart)
 }
 
 function _showSelTimeLabel(text) {
