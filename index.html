@@ -1279,6 +1279,27 @@ window.addEventListener('online', async () => {
   loadAll()
 })
 
+// ── 確認ダイアログ（iOSのホーム画面アプリで confirm() が出ない問題に対応）──
+function uiConfirm(message, okLabel) {
+  return new Promise(resolve => {
+    const ov = document.createElement('div')
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:2000;display:flex;align-items:center;justify-content:center;padding:24px;'
+    ov.innerHTML = `<div style="background:#fff;border-radius:16px;max-width:340px;width:100%;padding:22px 20px;">
+      <div data-uic-msg style="font-size:15px;line-height:1.7;white-space:pre-wrap;color:#1c1c1e;margin-bottom:18px;text-align:center;"></div>
+      <div style="display:flex;gap:10px;">
+        <button data-uic="0" style="flex:1;padding:13px;border-radius:12px;border:none;background:#f0f0f5;color:#1c1c1e;font-size:15px;font-weight:600;cursor:pointer;">キャンセル</button>
+        <button data-uic="1" style="flex:1;padding:13px;border-radius:12px;border:none;background:#ff3b30;color:#fff;font-size:15px;font-weight:700;cursor:pointer;">${okLabel || 'OK'}</button>
+      </div>
+    </div>`
+    ov.querySelector('[data-uic-msg]').textContent = message
+    document.body.appendChild(ov)
+    const done = v => { ov.remove(); resolve(v) }
+    ov.querySelector('[data-uic="1"]').onclick = () => done(true)
+    ov.querySelector('[data-uic="0"]').onclick = () => done(false)
+    ov.onclick = e => { if (e.target === ov) done(false) }
+  })
+}
+
 // ── トースト ──
 function toast(msg) {
   const el = document.getElementById('toast')
@@ -1597,7 +1618,7 @@ async function resActionDelete() {
   const r = _resActionTarget
   closeResActionPopup()
   if (!r) return
-  if (!confirm(`${r.customer_name}様の予約（${r.date} ${r.time}）を削除しますか？`)) return
+  if (!(await uiConfirm(`${r.customer_name}様の予約（${r.date} ${r.time}）を削除しますか？`, '削除する'))) return
   const res = await api({ action: 'deleteReservation', id: r.id })
   if (res && res.error) { toast('削除に失敗しました: ' + res.error); return }
   toast('予約を削除しました')
@@ -1907,7 +1928,7 @@ async function moveMenu(index, dir) {
 }
 
 async function deleteMenuMasterItem(id) {
-  if (!confirm('このメニューを削除しますか？')) return
+  if (!(await uiConfirm('このメニューを削除しますか？', '削除する'))) return
   await api({ action:'deleteMenuMaster', id })
   allMenuMaster = allMenuMaster.filter(m => m.id !== id)
   renderMenuManageList()
@@ -2751,7 +2772,7 @@ async function submitEditCustomer() {
 }
 
 async function doDeleteCustomer() {
-  if (!confirm(`${currentCustomer.name} を削除しますか？\nカルテも全て削除されます。`)) return
+  if (!(await uiConfirm(`${currentCustomer.name} を削除しますか？\nカルテも全て削除されます。`, '削除する'))) return
   await api({ action:'deleteCustomer', id:currentCustomer.id })
   closeModal('modal-edit-customer'); toast('削除しました')
   allCustomers = allCustomers.filter(c => c.id !== currentCustomer.id)
@@ -2857,7 +2878,7 @@ async function submitEditVisit() {
 }
 
 async function doDeleteVisit() {
-  if (!confirm('このカルテを削除しますか？')) return
+  if (!(await uiConfirm('このカルテを削除しますか？', '削除する'))) return
   await api({ action:'deleteVisit', id:editingVisitId })
   closeModal('modal-edit-visit'); toast('削除しました'); loadVisits(currentCustomer.id)
 }
@@ -3043,8 +3064,8 @@ function addTimeBlock(date, start, dur) {
   saveTimeBlocks(arr)
 }
 function removeTimeBlock(id) { saveTimeBlocks(getTimeBlocks().filter(b => b.id !== id)) }
-function onBlockClick(id) {
-  if (confirm('この「予約不可」を解除しますか？')) { removeTimeBlock(id); renderCalendar() }
+async function onBlockClick(id) {
+  if (await uiConfirm('この「予約不可」を解除しますか？', '解除する')) { removeTimeBlock(id); renderCalendar() }
 }
 function blockThisSlot() {
   const date = document.getElementById('res-date').value
@@ -3274,7 +3295,7 @@ async function submitEditReservation() {
 }
 
 async function doDeleteReservation() {
-  if (!confirm('この予約を削除しますか？')) return
+  if (!(await uiConfirm('この予約を削除しますか？', '削除する'))) return
   await api({ action:'deleteReservation', id:editingResId })
   closeModal('modal-edit-res'); toast('削除しました')
   allReservations = allReservations.filter(r => r.id !== editingResId)
@@ -3832,7 +3853,7 @@ async function submitAddEvent() {
 }
 
 async function deleteEventItem(id) {
-  if (!confirm('この予定を削除しますか？')) return
+  if (!(await uiConfirm('この予定を削除しますか？', '削除する'))) return
   await api({ action:'deleteEvent', id })
   allEvents = allEvents.filter(ev => ev.id !== id)
   renderEvList()
@@ -4043,7 +4064,7 @@ async function submitExpense() {
 
 async function deleteExpenseItem() {
   if (!_editingExpenseId) return
-  if (!confirm('この経費を削除しますか？')) return
+  if (!(await uiConfirm('この経費を削除しますか？', '削除する'))) return
   await api({ action:'deleteExpense', id:_editingExpenseId })
   closeModal('modal-expense')
   toast('削除しました')
