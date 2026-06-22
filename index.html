@@ -3121,7 +3121,6 @@ function colTouchEnd(e, ds) {
     const dur = _colSel.dur || 60
     _colSel = null; _colTap = null
     openAddReservation(nextBookCustomer ? nextBookCustomer.id : null, ds, startTime)
-    if (nextBookCustomer) cancelNextBook()
     return
   }
   if (!_colTap || _colTap.ds !== ds) { _colTap = null; return }
@@ -3144,7 +3143,6 @@ function colClick(e, ds) {
   const m = totalMin % 60 < 60 ? totalMin % 60 : 0
   const time = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0')
   openAddReservation(nextBookCustomer ? nextBookCustomer.id : null, ds, time)
-  if (nextBookCustomer) cancelNextBook()
 }
 
 async function submitAddReservation() {
@@ -3162,7 +3160,7 @@ async function submitAddReservation() {
   })
   btn.disabled=false; btn.textContent='登録する'
   if (res.error) { showError('res-add-error',res.error); return }
-  closeModal('modal-add-res'); toast('予約を登録しました')
+  closeModal('modal-add-res'); toast('予約を登録しました'); cancelNextBook()
   // 楽観的更新：即座に画面に反映
   const cust = allCustomers.find(c => c.id === cid)
   const newRes = {
