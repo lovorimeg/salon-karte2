@@ -1222,6 +1222,7 @@ async function api(params) {
       r = await fetch(GAS_URL, { method:'POST', body:JSON.stringify({ pin, ...params, secret: API_SECRET }), headers:{'Content-Type':'text/plain'}, signal: controller.signal })
     }
     clearTimeout(timer)
+    _hideOfflineBanner()  // 通信成功＝オンライン。誤って残ったバナーを必ず消す
     const result = await r.json()
     // PIN認証エラー → 保存PINを破棄して再入力を求める
     if (result && result.error === 'unauthorized_pin') {
@@ -1240,12 +1241,12 @@ async function api(params) {
       // タイムアウトもキャッシュで代替
       if (params.action.startsWith('get')) {
         const cached = _loadLocalCache(params)
-        if (cached) { _showOfflineBanner(); return cached }
+        if (cached) { if (!navigator.onLine) _showOfflineBanner(); return cached }
       }
       return { error: 'タイムアウトしました。再度お試しください。' }
     }
     // オフライン：GETはキャッシュ、書き込みはキュー
-    _showOfflineBanner()
+    if (!navigator.onLine) _showOfflineBanner()  // 本当に圏外のときだけ表示（GASの一時不調では出さない）
     if (params.action.startsWith('get')) {
       return _loadLocalCache(params) || []
     }
