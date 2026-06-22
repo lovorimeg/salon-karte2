@@ -3059,7 +3059,26 @@ function _renderSelBlock(topPx, heightPx, dispStart, dispEnd, colEl) {
   if (!ind) { ind = document.createElement('div'); ind.className = 'time-select-block'; colEl.appendChild(ind) }
   ind.style.top    = topPx + 'px'
   ind.style.height = Math.max(heightPx, 20) + 'px'
-  ind.innerHTML    = `<span class="time-select-label">${dispStart}〜${dispEnd}</span>`
+  ind.innerHTML    = ''
+  // 時刻は指で隠れないよう、画面上部の見やすい位置に固定表示する
+  _showSelTimeLabel(dispStart === dispEnd ? dispStart : `${dispStart}〜${dispEnd}`)
+}
+
+function _showSelTimeLabel(text) {
+  let lb = document.getElementById('sel-time-label')
+  if (!lb) { lb = document.createElement('div'); lb.id = 'sel-time-label'; lb.className = 'drag-time-label'; document.body.appendChild(lb) }
+  lb.textContent = text
+  const sc = document.getElementById('week-tg-scroll')
+  const top = sc ? sc.getBoundingClientRect().top - 40 : 56
+  lb.style.left = '50%'
+  lb.style.transform = 'translateX(-50%)'
+  lb.style.top = Math.max(top, 8) + 'px'
+  lb.style.display = 'block'
+}
+
+function _removeSelTimeLabel() {
+  const lb = document.getElementById('sel-time-label')
+  if (lb) lb.remove()
 }
 
 function colTouchMove(e, ds) {
@@ -3090,6 +3109,7 @@ let _colTouchHandled = false  // タッチ操作後のclickを無視するフラ
 function colTouchEnd(e, ds) {
   _colTouchHandled = true
   setTimeout(() => { _colTouchHandled = false }, 400)
+  _removeSelTimeLabel()
   // 長押し後のドラッグ終了 → 予約登録
   if (_colSel && _colSel.ds === ds) {
     const ind = _colSel.colEl.querySelector('.time-select-block')
