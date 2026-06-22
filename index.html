@@ -152,6 +152,7 @@ select.input { appearance:none; }
 .week-tg-block.status-visited   { background:#ff9500; color:#fff; }
 .week-tg-block.status-cancelled { background:#c7c7cc; color:#fff; }
 .week-tg-block.status-no_show   { background:#ff3b30; color:#fff; }
+.week-tg-block.tg-block-x        { background:#8e8e93; color:#fff; opacity:0.92; }
 .week-tg-bname  { font-weight:600; font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .week-tg-bmenu  { font-size:10px; opacity:.85; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
@@ -590,6 +591,7 @@ select.input { appearance:none; }
     <div class="field"><label class="label">メモ</label><textarea class="input" id="res-memo" placeholder="備考など"></textarea></div>
     <div id="res-add-error" class="error-msg"></div>
     <button class="btn-primary" onclick="submitAddReservation()">登録する</button>
+    <button class="btn-secondary" onclick="blockThisSlot()" style="background:#3a3a3c;color:#fff;">🚫 この時間を予約不可にする（予定）</button>
     <button class="btn-secondary" onclick="closeModal('modal-add-res')">キャンセル</button>
   </div>
 </div>
@@ -2477,10 +2479,18 @@ function renderWeekCalendar() {
       </div>`
     }).join('')
 
+    const blockEls = getTimeBlocks().filter(b => b.date === ds).map(b => {
+      const [bh, bm] = b.start.split(':').map(Number)
+      const topPx = ((bh * 60 + bm - HOUR_START * 60) / 60) * HOUR_H
+      const hPx = Math.max((b.dur / 60) * HOUR_H, 22)
+      if (topPx < 0 || topPx >= totalH) return ''
+      return `<div class="week-tg-block tg-block-x" style="top:${topPx}px;height:${hPx}px;" onclick="onBlockClick('${b.id}')"><div class="week-tg-bname">🚫 予約不可</div></div>`
+    }).join('')
+
     const colClick = (moveMode || fastMoveMode)
       ? `onclick="handleWeekColMoveClick(event,'${ds}',${HOUR_START},${HOUR_H})"`
       : `ontouchstart="colTouchStart(event,'${ds}')" ontouchmove="colTouchMove(event,'${ds}')" ontouchend="colTouchEnd(event,'${ds}')" onclick="colClick(event,'${ds}')"`
-    return `<div class="${colCls}" data-ddate="${ds}" style="height:${totalH}px" ${colClick}>${linesHtml}${blocks}</div>`
+    return `<div class="${colCls}" data-ddate="${ds}" style="height:${totalH}px" ${colClick}>${linesHtml}${blocks}${blockEls}</div>`
   }).join('')
 
   document.getElementById('week-tg-body').innerHTML =
@@ -2565,8 +2575,14 @@ function renderDayCalendar() {
     </div>`
   }).join('')
 
+  const blockEls = getTimeBlocks().filter(b => b.date === ds).map(b => {
+    const [bh, bm] = b.start.split(':').map(Number)
+    const topPx = ((bh * 60 + bm - START * 60) / 60) * PX
+    const hPx = Math.max((b.dur / 60) * PX, PX * 0.5)
+    return `<div class="week-tg-block tg-block-x" style="top:${topPx}px;height:${hPx}px;left:52px;right:8px;" onclick="onBlockClick('${b.id}')"><div style="font-size:13px;font-weight:700;">🚫 予約不可</div></div>`
+  }).join('')
   dayEl.innerHTML = evBanner +
-    `<div style="position:relative;height:${totalH}px;margin:0 0 32px;">${lines}${blocks}</div>`
+    `<div style="position:relative;height:${totalH}px;margin:0 0 32px;">${lines}${blocks}${blockEls}</div>`
 
   // 9時付近にスクロール
   dayEl.parentElement.scrollTop = (9 - START) * PX
@@ -3015,6 +3031,29 @@ function openAddReservation(customerId, date, time, durationMin) {
   document.getElementById('res-duration').value = durationMin ? (durationMin / 60) : '1'
   document.getElementById('res-price').value = ''
   hideError('res-add-error'); openModal('modal-add-res')
+}
+
+// ── 予約不可ブロック（予定）── この端末に保存し、カレンダー表示＆空き案内から除外
+function getTimeBlocks() { try { return JSON.parse(localStorage.getItem('timeBlocks') || '[]') } catch(e) { return [] } }
+function saveTimeBlocks(arr) { localStorage.setItem('timeBlocks', JSON.stringify(arr)) }
+function addTimeBlock(date, start, dur) {
+  const arr = getTimeBlocks()
+  arr.push({ id: 'blk-' + Date.now(), date, start, dur: dur || 60 })
+  saveTimeBlocks(arr)
+}
+function removeTimeBlock(id) { saveTimeBlocks(getTimeBlocks().filter(b => b.id !== id)) }
+function onBlockClick(id) {
+  if (confirm('この「予約不可」を解除しますか？')) { removeTimeBlock(id); renderCalendar() }
+}
+function blockThisSlot() {
+  const date = document.getElementById('res-date').value
+  const time = getTimeVal('res-time-h','res-time-m')
+  if (!date || !time) { showError('res-add-error','日付と時刻を確認してください'); return }
+  const dur = Math.round((parseFloat(document.getElementById('res-duration').value)||1) * 60)
+  addTimeBlock(date, time, dur)
+  closeModal('modal-add-res'); cancelNextBook()
+  toast('この時間を予約不可にしました')
+  renderCalendar()
 }
 
 // 週コマタップ用の軽量タッチ状態
@@ -3594,6 +3633,12 @@ function runSlotSearch() {
         const start = h*60 + m
         return [start, start + (r.duration || 60)]
       })
+    // 予約不可ブロック（予定）も埋まり扱いにして空き案内から除外
+    getTimeBlocks().filter(b => b.date === ds).forEach(b => {
+      const [bh, bm] = b.start.split(':').map(Number)
+      const s = bh*60 + bm
+      busy.push([s, s + (b.dur || 60)])
+    })
 
     // 30分刻みで空き枠を探す
     const slots = []
