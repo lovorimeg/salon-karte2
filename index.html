@@ -560,7 +560,10 @@ select.input { appearance:none; }
 <div class="overlay" id="modal-add-res" onclick="closeModal('modal-add-res')">
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-handle"></div>
-    <div class="modal-title">予約登録</div>
+    <div style="display:flex;align-items:center;gap:4px;margin-bottom:20px;">
+      <button onclick="closeModal('modal-add-res')" style="background:none;border:none;font-size:26px;color:#1c1c1e;cursor:pointer;padding:0 8px 0 0;line-height:1;">‹</button>
+      <div class="modal-title" style="margin-bottom:0;">予約登録</div>
+    </div>
     <div class="field">
       <label class="label">顧客 *</label>
       <input class="input" id="res-cust-search" placeholder="名前・フリガナで検索…" oninput="custPickerInput('add')" onfocus="custPickerFocus('add')" autocomplete="off" />
