@@ -3730,19 +3730,18 @@ function copySlotReply(btn) {
   })
 }
 
-async function sendSlotReplyLine() {
+function sendSlotReplyLine() {
   const text = document.getElementById('sf-reply').value
   if (!text || text.includes('（枠を選択')) { toast('先に空き枠を選んでください'); return }
-  // 共有が使えない場合でも貼れるよう、まずコピー
-  try { await navigator.clipboard.writeText(text) } catch(e) {}
-  // iPhoneの共有シート（LINEを選べる）が使えれば開く
-  if (navigator.share) {
-    try { await navigator.share({ text }) } catch(e) { /* キャンセル等は無視 */ }
-    return
-  }
-  // フォールバック：コピー済みのままLINEアプリを開く
-  toast('返信文をコピーしました。LINEに貼り付けて送信してください')
-  window.location.href = 'line://'
+  const openLine = () => { window.location.href = 'line://' }
+  // 返信文をコピー → LINEアプリを開く（公式アカウントの返信画面に貼り付け）
+  navigator.clipboard.writeText(text).then(() => {
+    toast('コピーしました。LINEに貼り付けて送信してください')
+    setTimeout(openLine, 600)
+  }).catch(() => {
+    toast('コピーできませんでした。文章を長押しでコピーしてください')
+    setTimeout(openLine, 600)
+  })
 }
 
 // ═══════════════ イベント ═══════════════
