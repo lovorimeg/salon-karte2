@@ -897,6 +897,7 @@ select.input { appearance:none; }
   <div id="res-action-name" style="text-align:center;font-size:17px;font-weight:700;margin-bottom:4px;color:#1c1c1e;"></div>
   <div id="res-action-reslist" style="margin:10px 0 14px;border-top:1px solid #f0f0f5;border-bottom:1px solid #f0f0f5;padding:10px 0;font-size:13px;color:#555;line-height:1.9;"></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+    <button onclick="startNextBook()" style="padding:18px;border-radius:14px;border:none;background:#1c1c1e;font-size:15px;font-weight:700;cursor:pointer;color:#fff;grid-column:1/-1;">📅 次回予約を入れる</button>
     <button onclick="resActionCheckout()" style="padding:18px;border-radius:14px;border:none;background:#f0f0f5;font-size:15px;font-weight:600;cursor:pointer;color:#1c1c1e;">💳 お会計</button>
     <button onclick="resActionKarte()" style="padding:18px;border-radius:14px;border:none;background:#f0f0f5;font-size:15px;font-weight:600;cursor:pointer;color:#1c1c1e;">📋 カルテ詳細</button>
     <button onclick="resActionEdit()" style="padding:18px;border-radius:14px;border:none;background:#f0f0f5;font-size:15px;font-weight:600;cursor:pointer;color:#1c1c1e;">✏️ 予約編集</button>
@@ -950,6 +951,7 @@ let moveTargetTime   = ''
 // 高速移動
 let fastMoveMode     = false
 let fastMovingRes    = null
+let nextBookCustomer = null   // 次回予約モード（{id,name}）。空き枠長押しで名前自動入力
 // ドラッグ定数（週ビュー用）
 const DH_START = 8, DH_END = 20
 let DH_PX = 50  // 動的に再計算される
@@ -2191,6 +2193,31 @@ async function executeFastMove(targetDate, targetTime) {
   cancelFastMoveMode()
 }
 
+// ── 次回予約モード（お客様を選んで→カレンダーの空き枠を長押し→名前が自動で入る）──
+function startNextBook() {
+  const r = _resActionTarget
+  if (!r) return
+  nextBookCustomer = { id: r.customer_id, name: r.customer_name }
+  closeResActionPopup()
+  let b = document.getElementById('nextbook-banner')
+  if (!b) {
+    b = document.createElement('div')
+    b.id = 'nextbook-banner'
+    b.className = 'fmove-banner'
+    document.body.appendChild(b)
+  }
+  b.innerHTML = `<span>📅 ${nextBookCustomer.name}様の次回予約：希望の枠を長押し</span><button class="fmove-banner-cancel" onclick="cancelNextBook()">✕</button>`
+  b.style.display = 'flex'
+  showScreen('screen-calendar')
+  setCalView('week')
+}
+
+function cancelNextBook() {
+  nextBookCustomer = null
+  const b = document.getElementById('nextbook-banner')
+  if (b) b.style.display = 'none'
+}
+
 function _doFastMove(res, targetDate, targetTime) {
   // 重複チェック
   const conflict = allReservations.some(r =>
@@ -3070,7 +3097,8 @@ function colTouchEnd(e, ds) {
     const startTime = _colSel.endTime || _colSel.startTime
     const dur = _colSel.dur || 60
     _colSel = null; _colTap = null
-    openAddReservation(null, ds, startTime)
+    openAddReservation(nextBookCustomer ? nextBookCustomer.id : null, ds, startTime)
+    if (nextBookCustomer) cancelNextBook()
     return
   }
   if (!_colTap || _colTap.ds !== ds) { _colTap = null; return }
@@ -3092,7 +3120,8 @@ function colClick(e, ds) {
   const h = Math.max(DH_START, Math.min(DH_END - 1, Math.floor(totalMin / 60)))
   const m = totalMin % 60 < 60 ? totalMin % 60 : 0
   const time = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0')
-  openAddReservation(null, ds, time)
+  openAddReservation(nextBookCustomer ? nextBookCustomer.id : null, ds, time)
+  if (nextBookCustomer) cancelNextBook()
 }
 
 async function submitAddReservation() {
