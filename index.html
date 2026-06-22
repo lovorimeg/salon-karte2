@@ -823,7 +823,6 @@ select.input { appearance:none; }
       <div class="section-title" style="margin-bottom:8px;">返信文（タップで枠を選択／解除）</div>
       <textarea class="input" id="sf-reply" rows="9" style="font-size:13px;line-height:1.6;"></textarea>
       <button class="btn-primary" id="sf-copy-btn" onclick="copySlotReply(this)" style="margin-top:10px;background:#06955a;">📋 返信文をコピー</button>
-      <button class="btn-primary" onclick="sendSlotReplyLine()" style="margin-top:8px;background:#06c755;">💬 LINEで送る</button>
     </div>
     <button class="btn-secondary" onclick="closeModal('modal-slot-finder')" style="margin-top:10px;">閉じる</button>
   </div>
@@ -3727,20 +3726,6 @@ function copySlotReply(btn) {
   navigator.clipboard.writeText(text).then(() => {
     toast('返信文をコピーしました')
     if (btn) { btn.textContent = '✓ コピー済'; setTimeout(() => { btn.textContent = '📋 返信文をコピー' }, 2000) }
-  })
-}
-
-function sendSlotReplyLine() {
-  const text = document.getElementById('sf-reply').value
-  if (!text || text.includes('（枠を選択')) { toast('先に空き枠を選んでください'); return }
-  const openLine = () => { window.location.href = 'line://' }
-  // 返信文をコピー → LINEアプリを開く（公式アカウントの返信画面に貼り付け）
-  navigator.clipboard.writeText(text).then(() => {
-    toast('コピーしました。LINEに貼り付けて送信してください')
-    setTimeout(openLine, 600)
-  }).catch(() => {
-    toast('コピーできませんでした。文章を長押しでコピーしてください')
-    setTimeout(openLine, 600)
   })
 }
 
