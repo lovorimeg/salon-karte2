@@ -907,6 +907,7 @@ select.input { appearance:none; }
     <button onclick="resActionKarte()" style="padding:18px;border-radius:14px;border:none;background:#f0f0f5;font-size:15px;font-weight:600;cursor:pointer;color:#1c1c1e;">📋 カルテ詳細</button>
     <button onclick="resActionEdit()" style="padding:18px;border-radius:14px;border:none;background:#f0f0f5;font-size:15px;font-weight:600;cursor:pointer;color:#1c1c1e;">✏️ 予約編集</button>
     <button id="res-action-line-btn" onclick="resActionLine()" style="padding:18px;border-radius:14px;border:none;background:#f0fff4;font-size:15px;font-weight:600;cursor:pointer;color:#06c755;">📅 前日確認コピー</button>
+    <button id="res-action-newconfirm-btn" onclick="resActionNewConfirm()" style="padding:18px;border-radius:14px;border:none;background:#eafff3;font-size:15px;font-weight:600;cursor:pointer;color:#06955a;grid-column:1/-1;">📩 予約確認コピー（新規）</button>
     <button id="res-action-change-btn" onclick="resActionChange()" style="padding:18px;border-radius:14px;border:none;background:#fff6e8;font-size:15px;font-weight:600;cursor:pointer;color:#e08e00;grid-column:1/-1;">🔄 変更依頼コピー</button>
     <button id="res-action-confirm-btn" onclick="resActionConfirm()" style="padding:18px;border-radius:14px;border:none;background:#eef7ff;font-size:15px;font-weight:600;cursor:pointer;color:#2278d4;grid-column:1/-1;">✅ 変更確定コピー</button>
     <button id="res-action-listcopy-btn" onclick="resActionListCopy()" style="padding:18px;border-radius:14px;border:none;background:#f0fff4;font-size:15px;font-weight:600;cursor:pointer;color:#06c755;grid-column:1/-1;">📋 予約一覧コピー</button>
@@ -1034,6 +1035,25 @@ function copyLineMsg(r, btn) {
         btn.style.background = '#f0fff4'
         btn.style.color = '#06c755'
         btn.textContent = '📅 前日確認コピー'
+      }, 2000)
+    }
+  })
+}
+
+function copyNewBookingMsg(r, btn) {
+  const dt = fmtResDatetime(r.date, r.time)
+  const menu = r.menu ? `\n💇‍♀️ ${r.menu}` : ''
+  const text = `${r.customer_name}様\n\nこのたびはご予約ありがとうございます😊\n下記の内容で承りました。\n\n📅 ${dt}${menu}\n\nご来店を心よりお待ちしております✨\nご変更・ご不明点がございましたら、お気軽にご連絡ください。`
+  navigator.clipboard.writeText(text).then(() => {
+    toast('予約確認メッセージをコピーしました')
+    if (btn) {
+      btn.style.background = '#06955a'
+      btn.style.color = '#fff'
+      btn.textContent = '✓ コピーしました'
+      setTimeout(() => {
+        btn.style.background = '#eafff3'
+        btn.style.color = '#06955a'
+        btn.textContent = '📩 予約確認コピー（新規）'
       }, 2000)
     }
   })
@@ -1568,6 +1588,12 @@ function resActionLine() {
   if (!r) return
   const btn = document.getElementById('res-action-line-btn')
   copyLineMsg(r, btn)
+}
+
+function resActionNewConfirm() {
+  const r = _resActionTarget
+  if (!r) return
+  copyNewBookingMsg(r, document.getElementById('res-action-newconfirm-btn'))
 }
 
 function resActionChange() {
