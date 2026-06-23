@@ -517,7 +517,7 @@ select.input { appearance:none; }
     <button onclick="copyLastKarte()" style="width:100%;padding:12px;border-radius:12px;border:1.5px solid #007aff;background:#eef6ff;color:#007aff;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:14px;">📋 前回カルテをコピー</button>
     <div class="field"><label class="label">来店日 *</label><input class="input" id="visit-date" type="date" /></div>
     <div class="field"><label class="label">施術メニュー</label><input class="input" id="visit-menu" placeholder="カット・カラー・パーマ など" /></div>
-    <div class="field"><label class="label">使用薬剤</label><textarea class="input" id="visit-medicine" placeholder="薬剤名・配合など"></textarea></div>
+    <div class="field"><label class="label">使用薬剤 <button type="button" onclick="openTemplatePicker('visit-medicine')" style="background:#eef6ff;color:#007aff;border:1px solid #cfe3ff;border-radius:10px;padding:2px 10px;font-size:12px;font-weight:700;cursor:pointer;margin-left:6px;">📝 テンプレ</button></label><textarea class="input" id="visit-medicine" placeholder="薬剤名・配合など"></textarea></div>
     <div class="field"><label class="label">料金（円）</label><input class="input" id="visit-price" type="number" placeholder="15000" /></div>
     <div class="field">
       <label class="label">支払方法</label>
@@ -542,7 +542,7 @@ select.input { appearance:none; }
     <button onclick="copyLastKarteToEdit()" style="width:100%;padding:12px;border-radius:12px;border:1.5px solid #007aff;background:#eef6ff;color:#007aff;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:14px;">📋 前回カルテをコピー</button>
     <div class="field"><label class="label">来店日</label><input class="input" id="edit-visit-date" type="date" /></div>
     <div class="field"><label class="label">施術メニュー</label><input class="input" id="edit-visit-menu" /></div>
-    <div class="field"><label class="label">使用薬剤</label><textarea class="input" id="edit-visit-medicine"></textarea></div>
+    <div class="field"><label class="label">使用薬剤 <button type="button" onclick="openTemplatePicker('edit-visit-medicine')" style="background:#eef6ff;color:#007aff;border:1px solid #cfe3ff;border-radius:10px;padding:2px 10px;font-size:12px;font-weight:700;cursor:pointer;margin-left:6px;">📝 テンプレ</button></label><textarea class="input" id="edit-visit-medicine"></textarea></div>
     <div class="field"><label class="label">料金（円）</label><input class="input" id="edit-visit-price" type="number" /></div>
     <div class="field">
       <label class="label">支払方法</label>
@@ -2895,6 +2895,56 @@ function copyLastKarteToEdit() {
   if (prev.price) document.getElementById('edit-visit-price').value = prev.price
   if (prev.payment) selectEditPayment(prev.payment)
   toast(`前回カルテ（${prev.visit_date||''}）をコピーしました`)
+}
+
+// ── 薬剤テンプレート（この端末に保存）──
+function _escHtml(s){ return String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])) }
+function getKarteTemplates(){ try { return JSON.parse(localStorage.getItem('karteTemplates')||'[]') } catch(e){ return [] } }
+function saveKarteTemplates(a){ localStorage.setItem('karteTemplates', JSON.stringify(a)) }
+
+function openTemplatePicker(fieldId){
+  const tpls = getKarteTemplates()
+  const ov = document.createElement('div')
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:2000;display:flex;align-items:flex-end;'
+  const rows = tpls.length ? tpls.map((t,i) => `
+        <div style="display:flex;align-items:center;gap:8px;border-bottom:1px solid #f0f0f5;padding:12px 4px;">
+          <button data-ins="${i}" style="flex:1;text-align:left;background:none;border:none;cursor:pointer;">
+            <div style="font-weight:600;color:#1c1c1e;font-size:14px;">${_escHtml(t.name)}</div>
+            <div style="font-size:12px;color:#888;white-space:pre-wrap;margin-top:2px;">${_escHtml(t.text)}</div>
+          </button>
+          <button data-del="${i}" style="background:#fff0f0;border:none;color:#e33;border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;flex-shrink:0;">削除</button>
+        </div>`).join('') : '<div style="text-align:center;color:#aaa;padding:24px;font-size:14px;line-height:1.7;">テンプレートがありません。<br>下のボタンで、今入力中の「使用薬剤」を保存できます。</div>'
+  ov.innerHTML = `<div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:480px;margin:0 auto;max-height:78vh;display:flex;flex-direction:column;padding:16px 16px calc(20px + env(safe-area-inset-bottom));">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <div style="font-size:16px;font-weight:700;">薬剤テンプレート</div>
+        <button data-close style="background:none;border:none;font-size:20px;color:#888;cursor:pointer;">✕</button>
+      </div>
+      <div style="overflow-y:auto;flex:1;">${rows}</div>
+      <button data-save style="margin-top:12px;width:100%;padding:12px;border-radius:12px;border:1.5px dashed #007aff;background:#fff;color:#007aff;font-weight:700;font-size:14px;cursor:pointer;">＋ 今の「使用薬剤」をテンプレに保存</button>
+    </div>`
+  document.body.appendChild(ov)
+  const close = () => ov.remove()
+  ov.onclick = e => { if (e.target === ov) close() }
+  ov.querySelector('[data-close]').onclick = close
+  ov.querySelectorAll('[data-ins]').forEach(b => b.onclick = () => {
+    const t = getKarteTemplates()[+b.dataset.ins]; if (!t) return
+    const f = document.getElementById(fieldId)
+    f.value = (f.value && f.value.trim()) ? (f.value.replace(/\s+$/,'') + '\n' + t.text) : t.text
+    toast('テンプレを挿入しました'); close()
+  })
+  ov.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
+    if (await uiConfirm('このテンプレートを削除しますか？','削除する')) {
+      const a = getKarteTemplates(); a.splice(+b.dataset.del, 1); saveKarteTemplates(a)
+      close(); openTemplatePicker(fieldId)
+    }
+  })
+  ov.querySelector('[data-save]').onclick = () => {
+    const f = document.getElementById(fieldId); const txt = (f.value||'').trim()
+    if (!txt) { toast('先に「使用薬剤」を入力してください'); return }
+    const a = getKarteTemplates()
+    a.push({ name: txt.split('\n')[0].slice(0,16), text: txt }); saveKarteTemplates(a)
+    toast('テンプレに保存しました'); close(); openTemplatePicker(fieldId)
+  }
 }
 
 async function submitAddVisit() {
