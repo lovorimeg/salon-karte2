@@ -1043,7 +1043,7 @@ function copyLineMsg(r, btn) {
 function copyNewBookingMsg(r, btn) {
   const dt = fmtResDatetime(r.date, r.time)
   const menu = r.menu ? `\n💇‍♀️ ${r.menu}` : ''
-  const text = `${r.customer_name}様\n\nこのたびはご予約ありがとうございます😊\n下記の内容で承りました。\n\n📅 ${dt}${menu}\n\nご来店を心よりお待ちしております✨\nご変更・ご不明点がございましたら、お気軽にご連絡ください。`
+  const text = `${r.customer_name}様\n\nこの度はご予約ありがとうございます😊\n下記の内容で承りました。\n\n📅 ${dt}${menu}\n\nご来店を心よりお待ちしております✨\nご変更・ご不明点がございましたら、お気軽にご連絡ください。`
   navigator.clipboard.writeText(text).then(() => {
     toast('予約確認メッセージをコピーしました')
     if (btn) {
