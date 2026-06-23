@@ -539,6 +539,7 @@ select.input { appearance:none; }
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-handle"></div>
     <div class="modal-title">カルテを編集</div>
+    <button onclick="copyLastKarteToEdit()" style="width:100%;padding:12px;border-radius:12px;border:1.5px solid #007aff;background:#eef6ff;color:#007aff;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:14px;">📋 前回カルテをコピー</button>
     <div class="field"><label class="label">来店日</label><input class="input" id="edit-visit-date" type="date" /></div>
     <div class="field"><label class="label">施術メニュー</label><input class="input" id="edit-visit-menu" /></div>
     <div class="field"><label class="label">使用薬剤</label><textarea class="input" id="edit-visit-medicine"></textarea></div>
@@ -2878,6 +2879,22 @@ function copyLastKarte() {
   if (last.price) document.getElementById('visit-price').value = last.price
   if (last.payment) selectAddPayment(last.payment)
   toast(`前回カルテ（${last.visit_date||''}）をコピーしました`)
+}
+
+function copyLastKarteToEdit() {
+  const editDate = document.getElementById('edit-visit-date').value || ''
+  const others = (_lastVisits || []).filter(v => v.id !== editingVisitId)
+  // 編集中カルテより前の最新を「前回」とする。無ければ編集中以外で最新
+  let prev = others.filter(v => (v.visit_date||'') < editDate)
+    .sort((a,b) => (b.visit_date||'').localeCompare(a.visit_date||''))[0]
+  if (!prev) prev = others.slice().sort((a,b) => (b.visit_date||'').localeCompare(a.visit_date||''))[0]
+  if (!prev) { toast('前回のカルテがありません'); return }
+  document.getElementById('edit-visit-menu').value = prev.menu || ''
+  document.getElementById('edit-visit-medicine').value = prev.medicine || ''
+  document.getElementById('edit-visit-memo').value = prev.memo || ''
+  if (prev.price) document.getElementById('edit-visit-price').value = prev.price
+  if (prev.payment) selectEditPayment(prev.payment)
+  toast(`前回カルテ（${prev.visit_date||''}）をコピーしました`)
 }
 
 async function submitAddVisit() {
