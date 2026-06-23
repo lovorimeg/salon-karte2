@@ -514,6 +514,7 @@ select.input { appearance:none; }
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-handle"></div>
     <div class="modal-title">カルテ入力</div>
+    <button onclick="copyLastKarte()" style="width:100%;padding:12px;border-radius:12px;border:1.5px solid #007aff;background:#eef6ff;color:#007aff;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:14px;">📋 前回カルテをコピー</button>
     <div class="field"><label class="label">来店日 *</label><input class="input" id="visit-date" type="date" /></div>
     <div class="field"><label class="label">施術メニュー</label><input class="input" id="visit-menu" placeholder="カット・カラー・パーマ など" /></div>
     <div class="field"><label class="label">使用薬剤</label><textarea class="input" id="visit-medicine" placeholder="薬剤名・配合など"></textarea></div>
@@ -2866,6 +2867,17 @@ function openAddVisit() {
   document.getElementById('visit-medicine').value = lastMedicine || ''
   document.getElementById('visit-memo').value = ''
   selectAddPayment('cash'); hideError('visit-error'); openModal('modal-add-visit')
+}
+
+function copyLastKarte() {
+  const last = (_lastVisits || []).slice().sort((a,b) => (b.visit_date||'').localeCompare(a.visit_date||''))[0]
+  if (!last) { toast('前回のカルテがありません'); return }
+  document.getElementById('visit-menu').value = last.menu || ''
+  document.getElementById('visit-medicine').value = last.medicine || ''
+  document.getElementById('visit-memo').value = last.memo || ''
+  if (last.price) document.getElementById('visit-price').value = last.price
+  if (last.payment) selectAddPayment(last.payment)
+  toast(`前回カルテ（${last.visit_date||''}）をコピーしました`)
 }
 
 async function submitAddVisit() {
