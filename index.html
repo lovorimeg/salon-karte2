@@ -906,7 +906,7 @@ select.input { appearance:none; }
     <button onclick="resActionCheckout()" style="padding:18px;border-radius:14px;border:none;background:#f0f0f5;font-size:15px;font-weight:600;cursor:pointer;color:#1c1c1e;">💳 お会計</button>
     <button onclick="resActionKarte()" style="padding:18px;border-radius:14px;border:none;background:#f0f0f5;font-size:15px;font-weight:600;cursor:pointer;color:#1c1c1e;">📋 カルテ詳細</button>
     <button onclick="resActionEdit()" style="padding:18px;border-radius:14px;border:none;background:#f0f0f5;font-size:15px;font-weight:600;cursor:pointer;color:#1c1c1e;">✏️ 予約編集</button>
-    <button id="res-action-line-btn" onclick="resActionLine()" style="padding:18px;border-radius:14px;border:none;background:#f0fff4;font-size:15px;font-weight:600;cursor:pointer;color:#06c755;">💬 LINEコピー</button>
+    <button id="res-action-line-btn" onclick="resActionLine()" style="padding:18px;border-radius:14px;border:none;background:#f0fff4;font-size:15px;font-weight:600;cursor:pointer;color:#06c755;">📅 前日確認コピー</button>
     <button id="res-action-change-btn" onclick="resActionChange()" style="padding:18px;border-radius:14px;border:none;background:#fff6e8;font-size:15px;font-weight:600;cursor:pointer;color:#e08e00;grid-column:1/-1;">🔄 変更依頼コピー</button>
     <button id="res-action-confirm-btn" onclick="resActionConfirm()" style="padding:18px;border-radius:14px;border:none;background:#eef7ff;font-size:15px;font-weight:600;cursor:pointer;color:#2278d4;grid-column:1/-1;">✅ 変更確定コピー</button>
     <button id="res-action-listcopy-btn" onclick="resActionListCopy()" style="padding:18px;border-radius:14px;border:none;background:#f0fff4;font-size:15px;font-weight:600;cursor:pointer;color:#06c755;grid-column:1/-1;">📋 予約一覧コピー</button>
@@ -1029,8 +1029,12 @@ function copyLineMsg(r, btn) {
     if (btn) {
       btn.style.background = '#06c755'
       btn.style.color = '#fff'
-      btn.style.borderColor = '#06c755'
-      btn.textContent = '✓ コピー済'
+      btn.textContent = '✓ コピーしました'
+      setTimeout(() => {
+        btn.style.background = '#f0fff4'
+        btn.style.color = '#06c755'
+        btn.textContent = '📅 前日確認コピー'
+      }, 2000)
     }
   })
 }
