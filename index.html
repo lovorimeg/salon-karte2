@@ -2901,8 +2901,22 @@ function copyLastKarteToEdit() {
 function _escHtml(s){ return String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])) }
 function getKarteTemplates(){ try { return JSON.parse(localStorage.getItem('karteTemplates')||'[]') } catch(e){ return [] } }
 function saveKarteTemplates(a){ localStorage.setItem('karteTemplates', JSON.stringify(a)) }
+function seedDefaultTemplates(){
+  if (localStorage.getItem('karteTemplatesSeeded')) return
+  const defaults = [
+    '9BB:7サンド1:1 4.5%',
+    '7BB:7サンド1:1 4.5%',
+    '5.6:1.5 30:30 G / サイド 0:1.5 G'
+  ]
+  const cur = getKarteTemplates()
+  const have = new Set(cur.map(t => t.text))
+  defaults.forEach(d => { if (!have.has(d)) cur.push({ name: d, text: d }) })
+  saveKarteTemplates(cur)
+  localStorage.setItem('karteTemplatesSeeded', '1')
+}
 
 function openTemplatePicker(fieldId){
+  seedDefaultTemplates()
   const tpls = getKarteTemplates()
   const ov = document.createElement('div')
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:2000;display:flex;align-items:flex-end;'
