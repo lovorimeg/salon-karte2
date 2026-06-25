@@ -1234,6 +1234,15 @@ function _loadLocalCache(params) {
   } catch(e) { return null }
 }
 
+// 通信失敗時のフォールバック（古いキャッシュ/空配列）に印を付ける。
+// これにより、画面に表示中の確定データを古いデータで上書きして「予約が消える」事故を防ぐ。
+function _markStale(v) {
+  try { if (v && typeof v === 'object') Object.defineProperty(v, '_stale', { value: true, configurable: true }) } catch(e) {}
+  return v
+}
+// サーバーから取れた新しい配列のときだけ true（フォールバックは false）
+function _isFreshArray(d) { return Array.isArray(d) && !d._stale }
+
 // ── オフラインバナー ──
 function _showOfflineBanner() { document.getElementById('offline-banner').style.display = 'block' }
 function _hideOfflineBanner() { document.getElementById('offline-banner').style.display = 'none' }
@@ -1274,14 +1283,15 @@ async function api(params) {
       // タイムアウトもキャッシュで代替
       if (params.action.startsWith('get')) {
         const cached = _loadLocalCache(params)
-        if (cached) { if (!navigator.onLine) _showOfflineBanner(); return cached }
+        if (cached) { if (!navigator.onLine) _showOfflineBanner(); return _markStale(cached) }
+        return _markStale([])
       }
       return { error: 'タイムアウトしました。再度お試しください。' }
     }
     // オフライン：GETはキャッシュ、書き込みはキュー
     if (!navigator.onLine) _showOfflineBanner()  // 本当に圏外のときだけ表示（GASの一時不調では出さない）
     if (params.action.startsWith('get')) {
-      return _loadLocalCache(params) || []
+      return _markStale(_loadLocalCache(params) || [])
     }
     saveOffline(params)
     return { offline: true }
@@ -1368,10 +1378,10 @@ function backFromSales() { showCalendar() }
 
 // ── 一括読み込み ──
 function _applyAllData(custs, ress, menus, evts) {
-  allCustomers    = Array.isArray(custs)  ? custs  : allCustomers
-  allReservations = Array.isArray(ress)   ? ress   : allReservations
-  allMenuMaster   = Array.isArray(menus)  ? menus  : allMenuMaster
-  allEvents       = Array.isArray(evts)   ? evts   : allEvents
+  allCustomers    = _isFreshArray(custs)  ? custs  : allCustomers
+  allReservations = _isFreshArray(ress)   ? ress   : allReservations
+  allMenuMaster   = _isFreshArray(menus)  ? menus  : allMenuMaster
+  allEvents       = _isFreshArray(evts)   ? evts   : allEvents
 }
 
 async function loadAll() {
@@ -1902,7 +1912,7 @@ async function submitAddMenuMaster() {
   if (!name) { toast('メニュー名を入力してください'); return }
   const res = await api({ action:'addMenuMaster', name, duration: Math.round(dur*60), price })
   if (res.error) { toast('エラー: '+res.error); return }
-  allMenuMaster = await api({ action:'getMenuMaster' }).then(d => Array.isArray(d) ? d : allMenuMaster)
+  allMenuMaster = await api({ action:'getMenuMaster' }).then(d => _isFreshArray(d) ? d : allMenuMaster)
   ;['new-menu-name','new-menu-dur','new-menu-price'].forEach(id => document.getElementById(id).value='')
   renderMenuManageList()
   toast('追加しました')
@@ -1936,7 +1946,7 @@ async function submitEditMenuMaster() {
   const res = await api({ action:'updateMenuMaster', id:editingMenuId, name, duration:Math.round(dur*60), price })
   btn.disabled=false; btn.textContent='更新する'
   if (res.error) { toast('エラー: '+res.error); return }
-  allMenuMaster = await api({ action:'getMenuMaster' }).then(d => Array.isArray(d)?d:allMenuMaster)
+  allMenuMaster = await api({ action:'getMenuMaster' }).then(d => _isFreshArray(d)?d:allMenuMaster)
   cancelEditMenu()
   renderMenuManageList()
   toast('更新しました')
@@ -2446,8 +2456,8 @@ async function executeMove() {
     api({ action:'getCustomers' }),
     api({ action:'getReservations', filter:'' })
   ])
-  allCustomers    = Array.isArray(custs) ? custs : allCustomers
-  allReservations = Array.isArray(ress)  ? ress  : allReservations
+  allCustomers    = _isFreshArray(custs) ? custs : allCustomers
+  allReservations = _isFreshArray(ress)  ? ress  : allReservations
   updateResBadge()
   renderCalendar()
   loadHome()
@@ -2661,7 +2671,7 @@ function loadCustomers() {
   if (cachedStats) _visitStats = cachedStats
   renderCustomerList(allCustomers)
   api({ action:'getCustomers' }).then(d => {
-    if (Array.isArray(d)) { allCustomers = d; renderCustomerList(allCustomers) }
+    if (_isFreshArray(d)) { allCustomers = d; renderCustomerList(allCustomers) }
   })
   api({ action:'getVisitStats' }).then(d => {
     if (d && typeof d === 'object' && !Array.isArray(d)) { _visitStats = d; renderCustomerList(allCustomers) }
@@ -2771,7 +2781,7 @@ async function submitAddCustomer() {
   btn.disabled=false; btn.textContent='登録する'
   if (res.error) { showError('add-error', res.error); return }
   closeModal('modal-add-customer'); toast('顧客を登録しました')
-  allCustomers = await api({ action:'getCustomers' }).then(d => Array.isArray(d)?d:allCustomers)
+  allCustomers = await api({ action:'getCustomers' }).then(d => _isFreshArray(d)?d:allCustomers)
   loadCustomers()
 }
 
@@ -2799,7 +2809,7 @@ async function submitEditCustomer() {
   if (res.error) { showError('edit-error', res.error); return }
   currentCustomer = { ...currentCustomer, name, name_kana: document.getElementById('edit-kana').value, regular_medicine: document.getElementById('edit-regular-medicine').value }
   closeModal('modal-edit-customer'); toast('更新しました')
-  allCustomers = await api({ action:'getCustomers' }).then(d => Array.isArray(d)?d:allCustomers)
+  allCustomers = await api({ action:'getCustomers' }).then(d => _isFreshArray(d)?d:allCustomers)
   showDetail(currentCustomer, detailFrom)
 }
 
@@ -3362,7 +3372,7 @@ async function submitAddReservation() {
   updateResBadge(); renderCalendar(); loadHome()
   // バックグラウンドで正確なデータに更新
   api({ action:'getReservations', filter:'' }).then(d => {
-    if (Array.isArray(d)) { allReservations = d; updateResBadge(); renderCalendar(); loadHome() }
+    if (_isFreshArray(d)) { allReservations = d; updateResBadge(); renderCalendar(); loadHome() }
   })
 }
 
@@ -3412,7 +3422,7 @@ async function submitEditReservation() {
   btn.disabled=false; btn.textContent='更新する'
   if (res.error) { alert(res.error); return }
   closeModal('modal-edit-res'); toast('更新しました')
-  allReservations = await api({ action:'getReservations', filter:'' }).then(d => Array.isArray(d)?d:allReservations)
+  allReservations = await api({ action:'getReservations', filter:'' }).then(d => _isFreshArray(d)?d:allReservations)
   updateResBadge(); loadHome()
   renderCalendar()
 }
@@ -3968,7 +3978,7 @@ async function submitAddEvent() {
   }
   btn.disabled=false; btn.textContent='追加する'
   _pendingEventDates = []
-  allEvents = await api({ action:'getEvents' }).then(d => Array.isArray(d)?d:allEvents)
+  allEvents = await api({ action:'getEvents' }).then(d => _isFreshArray(d)?d:allEvents)
   renderEventCalendar()
   renderEvList()
   renderCalendar()
