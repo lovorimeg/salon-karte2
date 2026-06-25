@@ -1227,6 +1227,9 @@ function _cacheKey(params) {
 function _saveLocalCache(params, data) {
   try { localStorage.setItem(_cacheKey(params), JSON.stringify(data)) } catch(e) {}
 }
+// 楽観的更新（追加/移動/削除など）を端末キャッシュにも反映。
+// 別タブ・Safari・アプリ再起動の直後でも、新しい予約が消えて見えないようにする。
+function _persistReservations() { _saveLocalCache({ action:'getReservations', filter:'' }, allReservations) }
 function _loadLocalCache(params) {
   try {
     const v = localStorage.getItem(_cacheKey(params))
@@ -2304,6 +2307,7 @@ function _doFastMove(res, targetDate, targetTime) {
   allReservations = allReservations.map(r =>
     r.id === res.id ? { ...r, date: targetDate, time: targetTime } : r
   )
+  _persistReservations()
   updateResBadge(); renderCalendar(); loadHome()
   // API保存
   api({ action:'updateReservation', id: res.id, date: targetDate, time: targetTime })
@@ -2336,6 +2340,7 @@ async function doFastMoveUndo() {
   allReservations = allReservations.map(r =>
     r.id === id ? { ...r, date, time } : r
   )
+  _persistReservations()
   updateResBadge(); renderCalendar(); loadHome()
   api({ action:'updateReservation', id, date, time })
   toast('元に戻しました')
@@ -3369,6 +3374,7 @@ async function submitAddReservation() {
     status: 'reserved'
   }
   allReservations = [...allReservations, newRes].sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time))
+  _persistReservations()
   updateResBadge(); renderCalendar(); loadHome()
   // バックグラウンドで正確なデータに更新
   api({ action:'getReservations', filter:'' }).then(d => {
@@ -3432,6 +3438,7 @@ async function doDeleteReservation() {
   await api({ action:'deleteReservation', id:editingResId })
   closeModal('modal-edit-res'); toast('削除しました')
   allReservations = allReservations.filter(r => r.id !== editingResId)
+  _persistReservations()
   updateResBadge(); renderCalendar()
 }
 
@@ -3702,6 +3709,7 @@ async function confirmCheckout() {
   await api({ action:'updateReservation', id: coRes.id, payment: coPayment, status: 'visited' })
   allReservations = allReservations.map(r =>
     r.id === coRes.id ? { ...r, payment: coPayment, status: 'visited' } : r)
+  _persistReservations()
 
   btn.textContent = 'お会計'; btn.disabled = false
   closeCheckout()
