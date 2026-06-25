@@ -2287,7 +2287,7 @@ function startNextBook() {
     b.className = 'fmove-banner'
     document.body.appendChild(b)
   }
-  b.innerHTML = `<span>📅 <b id="nextbook-month" style="background:rgba(255,255,255,0.25);padding:2px 9px;border-radius:11px;font-weight:800;margin-right:6px;"></b>${nextBookCustomer.name}様の次回予約：枠を長押し</span><button class="fmove-banner-cancel" onclick="cancelNextBook()">✕</button>`
+  b.innerHTML = `<span><b id="nextbook-month" style="background:rgba(255,255,255,0.25);padding:2px 9px;border-radius:11px;font-weight:800;margin-right:6px;"></b>${nextBookCustomer.name}様の次回予約：枠を長押し</span><button class="fmove-banner-cancel" onclick="cancelNextBook()">✕</button>`
   b.style.display = 'flex'
   showScreen('screen-calendar')
   setCalView('week')
