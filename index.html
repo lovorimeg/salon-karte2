@@ -1729,6 +1729,15 @@ function renderCalendar() {
   if (calView === 'month') renderMonthCalendar()
   else if (calView === 'week') renderWeekCalendar()
   else renderDayCalendar()
+  _syncNextBookMonth()
+}
+
+// 次回予約モードの青いバナーが月表示を隠すので、バナー内に「○月」を出して常に最新化する
+function _syncNextBookMonth() {
+  const b = document.getElementById('nextbook-banner')
+  if (!b || b.style.display === 'none') return
+  const ml = document.getElementById('nextbook-month')
+  if (ml) ml.textContent = (calDate.getMonth() + 1) + '月'
 }
 
 function renderMonthCalendar() {
@@ -2278,10 +2287,11 @@ function startNextBook() {
     b.className = 'fmove-banner'
     document.body.appendChild(b)
   }
-  b.innerHTML = `<span>📅 ${nextBookCustomer.name}様の次回予約：希望の枠を長押し</span><button class="fmove-banner-cancel" onclick="cancelNextBook()">✕</button>`
+  b.innerHTML = `<span>📅 <b id="nextbook-month" style="background:rgba(255,255,255,0.25);padding:2px 9px;border-radius:11px;font-weight:800;margin-right:6px;"></b>${nextBookCustomer.name}様の次回予約：枠を長押し</span><button class="fmove-banner-cancel" onclick="cancelNextBook()">✕</button>`
   b.style.display = 'flex'
   showScreen('screen-calendar')
   setCalView('week')
+  _syncNextBookMonth()
 }
 
 function cancelNextBook() {
