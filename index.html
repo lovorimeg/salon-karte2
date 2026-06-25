@@ -1737,7 +1737,7 @@ function _syncNextBookMonth() {
   const b = document.getElementById('nextbook-banner')
   if (!b || b.style.display === 'none') return
   const ml = document.getElementById('nextbook-month')
-  if (ml) ml.textContent = (calDate.getMonth() + 1) + '月'
+  if (ml) ml.textContent = calDate.getFullYear() + '年' + (calDate.getMonth() + 1) + '月'
 }
 
 function renderMonthCalendar() {
