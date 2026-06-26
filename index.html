@@ -4026,7 +4026,12 @@ function setSalesView(v) {
 async function loadSalesSummary() {
   const list = document.getElementById('sales-summary-list')
   list.innerHTML = '<div class="loading">読み込み中...</div>'
-  const data = await api({ action:'getSalesSummary' })
+  const [data, moved] = await Promise.all([
+    api({ action:'getSalesSummary' }),
+    api({ action:'getSafeMoved' })
+  ])
+  // 金庫フラグはサーバー保存。取得できたら反映（失敗時は前回の状態を維持）
+  if (Array.isArray(moved)) _safeMovedSet = new Set(moved)
   if (!Array.isArray(data)) { list.innerHTML = `<div class="empty">エラー: ${JSON.stringify(data)}</div>`; return }
   if (data.length && data[0]._error) { list.innerHTML = `<div class="empty">エラー: ${data[0]._error}</div>`; return }
   if (!data.length) { list.innerHTML = '<div class="empty">売上データがありません</div>'; return }
@@ -4034,12 +4039,25 @@ async function loadSalesSummary() {
   renderSalesSummary(data)
 }
 
-// 現金を金庫に移したか（この端末に保存）
-function isSafeMoved(date) { return localStorage.getItem('safeMoved_' + date) === '1' }
-function toggleSafeMoved(date) {
-  if (isSafeMoved(date)) localStorage.removeItem('safeMoved_' + date)
-  else localStorage.setItem('safeMoved_' + date, '1')
+// 現金を金庫に移したか（サーバーに保存：iOSの自動削除や端末違いの影響を受けない）
+let _safeMovedSet = new Set()
+function isSafeMoved(date) { return _safeMovedSet.has(date) }
+async function toggleSafeMoved(date) {
+  const nowMoved = !isSafeMoved(date)
+  // まず画面を即更新（楽観的）
+  if (nowMoved) _safeMovedSet.add(date); else _safeMovedSet.delete(date)
   renderSalesSummary(_salesData)
+  // サーバーへ保存
+  const res = await api({ action:'setSafeMoved', date, moved: nowMoved })
+  if (res && res.error) {
+    // 失敗したら元に戻す
+    if (nowMoved) _safeMovedSet.delete(date); else _safeMovedSet.add(date)
+    renderSalesSummary(_salesData)
+    toast('保存に失敗しました。通信状況をご確認ください')
+    return
+  }
+  // 成功（またはオフラインでキュー保存）→ 端末キャッシュも更新して次回開いたとき即反映
+  _saveLocalCache({ action:'getSafeMoved' }, Array.from(_safeMovedSet))
 }
 
 function renderSalesSummary(data) {
