@@ -3690,40 +3690,22 @@ async function confirmCheckout() {
   const btn = document.querySelector('.checkout-confirm-btn')
   btn.textContent = '処理中...'; btn.disabled = true
 
-  // 同日のカルテが既にあれば更新、なければ新規作成
-  const existingVisits = await api({ action:'getVisits', customerId: coRes.customer_id })
-  const existing = Array.isArray(existingVisits)
-    ? existingVisits.find(v => v.visit_date === coRes.date)
-    : null
-  if (existing) {
-    await api({ action:'updateVisit',
-      id:          existing.id,
-      visit_date:  coRes.date,
-      menu:        menuText,
-      medicine:    existing.medicine || '',
-      price:       total,
-      memo:        existing.memo || '',
-      payment:     coPayment
-    })
-  } else {
-    await api({ action:'addVisit',
-      customer_id: coRes.customer_id,
-      visit_date:  coRes.date,
-      menu:        menuText,
-      medicine:    '',
-      price:       total,
-      memo:        '',
-      payment:     coPayment
-    })
-  }
+  // カルテ保存（同日upsert）＋予約の来店済み化をサーバー側で1回にまとめて実行（速度向上）
+  const res = await api({ action:'checkout',
+    customer_id:    coRes.customer_id,
+    visit_date:     coRes.date,
+    menu:           menuText,
+    price:          total,
+    payment:        coPayment,
+    reservation_id: coRes.id
+  })
+  btn.textContent = 'お会計'; btn.disabled = false
+  if (res && res.error) { alert('保存に失敗しました: ' + res.error); return }
 
-  // 予約の支払方法を更新し、ステータスを「来店済み」に
-  await api({ action:'updateReservation', id: coRes.id, payment: coPayment, status: 'visited' })
+  // 画面側も即反映
   allReservations = allReservations.map(r =>
     r.id === coRes.id ? { ...r, payment: coPayment, status: 'visited' } : r)
   _persistReservations()
-
-  btn.textContent = 'お会計'; btn.disabled = false
   closeCheckout()
   showCheckoutComplete(coRes.customer_name)
   loadAll()
