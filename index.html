@@ -313,7 +313,6 @@ select.input { appearance:none; }
       <div class="stat-card"><div class="stat-label">本日の予約</div><div class="stat-value" id="home-today-count">—</div></div>
       <div class="stat-card"><div class="stat-label">今週の予約</div><div class="stat-value" id="home-week-count">—</div></div>
     </div>
-    <button onclick="openSlotFinder('inquiry')" style="width:100%;padding:14px;border-radius:14px;border:none;background:#eafff3;color:#06955a;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:14px;">📩 新規予約の問い合わせに返信</button>
     <div id="home-next-res"></div>
     <div class="section-header"><div class="section-title">本日の予約</div></div>
     <div id="home-today-list"><div class="loading">読み込み中...</div></div>
@@ -913,6 +912,7 @@ select.input { appearance:none; }
     <button onclick="resActionEdit()" style="padding:18px;border-radius:14px;border:none;background:#f0f0f5;font-size:15px;font-weight:600;cursor:pointer;color:#1c1c1e;">✏️ 予約編集</button>
     <button id="res-action-line-btn" onclick="resActionLine()" style="padding:18px;border-radius:14px;border:none;background:#f0fff4;font-size:15px;font-weight:600;cursor:pointer;color:#06c755;">📅 前日確認コピー</button>
     <button id="res-action-newconfirm-btn" onclick="resActionNewConfirm()" style="padding:18px;border-radius:14px;border:none;background:#eafff3;font-size:15px;font-weight:600;cursor:pointer;color:#06955a;grid-column:1/-1;">📩 予約確認コピー（新規）</button>
+    <button onclick="resActionNewInquiry()" style="padding:18px;border-radius:14px;border:none;background:#eafff3;font-size:15px;font-weight:600;cursor:pointer;color:#06955a;grid-column:1/-1;">📩 新規予約の問い合わせに返信</button>
     <button id="res-action-change-btn" onclick="resActionChange()" style="padding:18px;border-radius:14px;border:none;background:#fff6e8;font-size:15px;font-weight:600;cursor:pointer;color:#e08e00;grid-column:1/-1;">🔄 変更依頼コピー</button>
     <button id="res-action-confirm-btn" onclick="resActionConfirm()" style="padding:18px;border-radius:14px;border:none;background:#eef7ff;font-size:15px;font-weight:600;cursor:pointer;color:#2278d4;grid-column:1/-1;">✅ 変更確定コピー</button>
     <button id="res-action-listcopy-btn" onclick="resActionListCopy()" style="padding:18px;border-radius:14px;border:none;background:#f0fff4;font-size:15px;font-weight:600;cursor:pointer;color:#06c755;grid-column:1/-1;">📋 予約一覧コピー</button>
@@ -1620,6 +1620,12 @@ function resActionChange() {
   closeResActionPopup()
   // 空き枠検索を「変更依頼モード」で開く。候補日を選ぶと変更依頼文が自動生成される
   openSlotFinder('change', r)
+}
+
+// 新規予約の問い合わせ対応：空き枠検索を「問い合わせ返信モード」で開く（特定予約に紐づかない）
+function resActionNewInquiry() {
+  closeResActionPopup()
+  openSlotFinder('inquiry')
 }
 
 function resActionListCopy() {
