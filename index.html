@@ -1867,6 +1867,7 @@ function calToday() {
 }
 
 function renderCalendar() {
+  if (!drag) _sweepDragArtifacts()  // 置き去りになったドラッグ表示があれば自動掃除（保険）
   if (calView === 'month') renderMonthCalendar()
   else if (calView === 'week') renderWeekCalendar()
   else renderDayCalendar()
@@ -2136,6 +2137,9 @@ const STATUS_COLOR = { reserved:'#ff6b9d', visited:'#ff9500', cancelled:'#8e8e93
 
 function lpStart(e, r) {
   if (fastMoveMode || moveMode) return
+  // 前のドラッグ表示が残っていたら必ず片付けてから開始（2本目の指などによる置き去り防止）
+  if (drag) _dragCleanup()
+  if (e.touches.length > 1) return  // 複数指では開始しない
   const t = e.touches[0]
   drag = { res:r, ghost:null, srcEl:e.currentTarget, startX:t.clientX, startY:t.clientY, active:false, timer:null }
   drag.timer = setTimeout(() => {
@@ -2355,18 +2359,21 @@ function _getDropTarget(x, y) {
   return cached
 }
 
-function _dragCleanup() {
-  if (!drag) return
-  if (drag.ghost) drag.ghost.remove()
-  if (drag.timeLabel) drag.timeLabel.remove()
-  if (drag.zoneL) drag.zoneL.remove()
-  if (drag.zoneR) drag.zoneR.remove()
-  if (drag.weekNavTimer) { clearTimeout(drag.weekNavTimer); drag.weekNavTimer = null }
-  if (drag.srcEl) drag.srcEl.classList.remove('drag-dim')
-  const ind = document.getElementById('drag-drop-ind')
-  if (ind) ind.remove()
+// ドラッグ由来の表示（ゴースト・時刻ラベル・週送りゾーン等）を画面から総ざらいで消す。
+// 管理情報(drag)が失われていても確実に消せるよう、IDとクラスで直接探して削除する。
+function _sweepDragArtifacts() {
+  document.querySelectorAll('.drag-ghost, #drag-time-label, #wnz-left, #wnz-right, #drag-drop-ind').forEach(el => el.remove())
+  document.querySelectorAll('.drag-dim').forEach(el => el.classList.remove('drag-dim'))
   document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'))
+}
+
+function _dragCleanup() {
+  if (drag) {
+    if (drag.timer) clearTimeout(drag.timer)
+    if (drag.weekNavTimer) clearTimeout(drag.weekNavTimer)
+  }
   drag = null
+  _sweepDragArtifacts()
 }
 
 document.addEventListener('touchend', e => {
