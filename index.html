@@ -560,9 +560,8 @@ select.input { appearance:none; }
       </div>
     </div>
     <div class="field"><label class="label">メモ</label><textarea class="input" id="edit-visit-memo"></textarea></div>
-    <button class="btn-primary" onclick="submitEditVisit()">更新する</button>
+    <button class="btn-primary" onclick="closeEditVisit()">閉じる（変更は自動保存）</button>
     <button class="btn-danger" onclick="doDeleteVisit()">このカルテを削除する</button>
-    <button class="btn-secondary" onclick="closeEditVisit()">閉じる</button>
   </div>
 </div>
 
@@ -3178,21 +3177,6 @@ async function closeEditVisit() {
   if (res && res.error) { toast('自動保存に失敗しました: ' + res.error); return }
   toast(res && res.offline ? '変更は保存待ちです（電波が戻ると自動送信）' : 'カルテを自動保存しました')
   if (currentCustomer) loadVisits(currentCustomer.id)
-}
-
-async function submitEditVisit() {
-  const btn = event.target; btn.disabled=true; btn.textContent='更新中...'
-  const res = await api({ action:'updateVisit', id:editingVisitId,
-    visit_date:document.getElementById('edit-visit-date').value,
-    menu:document.getElementById('edit-visit-menu').value,
-    medicine:document.getElementById('edit-visit-medicine').value,
-    price:document.getElementById('edit-visit-price').value,
-    memo:document.getElementById('edit-visit-memo').value, payment:editPayment
-  })
-  btn.disabled=false; btn.textContent='更新する'
-  if (res.error) { alert(res.error); return }
-  _editVisitSnapshot = null  // 手動保存済み＝閉じる時の自動保存は不要
-  closeModal('modal-edit-visit'); toast('更新しました'); loadVisits(currentCustomer.id)
 }
 
 async function doDeleteVisit() {
