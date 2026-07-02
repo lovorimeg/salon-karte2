@@ -1147,7 +1147,7 @@ function startApp() {
     api({ action:'checkPin', pin: localStorage.getItem('pinCode') }).then(r => {
       if (r && r.ok && r.token) {
         localStorage.setItem('deviceToken', r.token)
-        toast('この端末を登録しました（顔パス有効）')
+        toast('この端末を登録しました')
         _renderDeviceAuthStatus()
       }
     })
@@ -1444,8 +1444,8 @@ function _renderDeviceAuthStatus() {
   const el = document.getElementById('device-auth-status')
   if (!el) return
   el.textContent = localStorage.getItem('deviceToken')
-    ? '🔑 この端末：顔パス登録済み'
-    : '🔑 この端末：顔パス未登録（次回起動時に自動登録されます）'
+    ? '🔑 この端末：登録済み（安全な合鍵で認証中）'
+    : '🔑 この端末：未登録（次回起動時に自動登録されます）'
 }
 function goSales()  { showScreen('screen-sales'); setMoneyTab('sales'); setSalesView('day'); loadSalesSummary(); loadExpenses(); populateTaxYears() }
 function backFromDetail() {
