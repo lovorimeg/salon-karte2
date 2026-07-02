@@ -1141,6 +1141,12 @@ function startApp() {
   loadAll()
   loadJpHolidays()
   flushOfflineQueue()  // 前回送信できなかった保存待ちデータがあれば起動時に送信
+  // 既存端末の移行：PIN保存済みでも合鍵（顔パス）が無ければ一度だけ取得して保存
+  if (localStorage.getItem('pinCode') && !localStorage.getItem('deviceToken')) {
+    api({ action:'checkPin', pin: localStorage.getItem('pinCode') }).then(r => {
+      if (r && r.ok && r.token) localStorage.setItem('deviceToken', r.token)
+    })
+  }
 }
 
 // ═══════════════ 暗証番号ロック ═══════════════
@@ -1204,6 +1210,7 @@ async function submitPin() {
     if (res.error) { err.textContent = res.error; return }
     localStorage.setItem('pinCode', val)
     localStorage.setItem('pinOK', '1')
+    if (res.token) localStorage.setItem('deviceToken', res.token)  // この端末の合鍵を保存
     hidePinScreen()
     return
   }
@@ -1212,7 +1219,11 @@ async function submitPin() {
   if (res && res.ok) {
     localStorage.setItem('pinCode', val)
     localStorage.setItem('pinOK', '1')
+    if (res.token) localStorage.setItem('deviceToken', res.token)  // この端末の合鍵を保存
     hidePinScreen()
+  } else if (res && res.locked) {
+    err.textContent = '試行回数が多いため約15分間ロック中です。しばらくしてからお試しください'
+    inp.value = ''
   } else {
     err.textContent = '暗証番号が違います'
     inp.value = ''
@@ -1260,22 +1271,23 @@ window.addEventListener('online',  _hideOfflineBanner)
 async function api(params) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 20000)
-  // 端末に保存されたPINを毎回の通信に添付（checkPin/setPinは各自のpinを優先）
+  // 端末に保存された合鍵（顔パス）とPINを毎回の通信に添付（checkPin/setPinは各自のpinを優先）
   const pin = localStorage.getItem('pinCode') || ''
+  const deviceToken = localStorage.getItem('deviceToken') || ''
   try {
     let r
     if (params.action.startsWith('get')) {
-      const q = new URLSearchParams({ secret: API_SECRET, pin, ...params })
+      const q = new URLSearchParams({ secret: API_SECRET, pin, deviceToken, ...params })
       r = await fetch(`${GAS_URL}?${q}`, { signal: controller.signal })
     } else {
-      r = await fetch(GAS_URL, { method:'POST', body:JSON.stringify({ pin, ...params, secret: API_SECRET }), headers:{'Content-Type':'text/plain'}, signal: controller.signal })
+      r = await fetch(GAS_URL, { method:'POST', body:JSON.stringify({ pin, deviceToken, ...params, secret: API_SECRET }), headers:{'Content-Type':'text/plain'}, signal: controller.signal })
     }
     clearTimeout(timer)
     _hideOfflineBanner()  // 通信成功＝オンライン。誤って残ったバナーを必ず消す
     const result = await r.json()
     // PIN認証エラー → 保存PINを破棄して再入力を求める
     if (result && result.error === 'unauthorized_pin') {
-      localStorage.removeItem('pinCode'); localStorage.removeItem('pinOK')
+      localStorage.removeItem('pinCode'); localStorage.removeItem('pinOK'); localStorage.removeItem('deviceToken')
       showPinScreen('enter')
       return params.action.startsWith('get') ? [] : { error: 'unauthorized_pin' }
     }
