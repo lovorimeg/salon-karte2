@@ -1140,6 +1140,7 @@ window.onload = () => {
 function startApp() {
   loadAll()
   loadJpHolidays()
+  flushOfflineQueue()  // 前回送信できなかった保存待ちデータがあれば起動時に送信
 }
 
 // ═══════════════ 暗証番号ロック ═══════════════
@@ -1310,16 +1311,61 @@ function saveOffline(data) {
   localStorage.setItem('offlineQueue', JSON.stringify(q))
 }
 
-window.addEventListener('online', async () => {
-  _hideOfflineBanner()
+// ── 送信待ちキューの再送 ──
+// 以前は「圏外→復帰」の瞬間しか再送されず、アプリを閉じて開き直すと送信されないままだった。
+// さらに再送中に1件失敗すると removeItem で失敗分ごと消えるバグがあった。
+// → 起動時・画面復帰時・電波復帰時に必ず再送を試み、失敗分はキューに残す方式に修正。
+let _flushingQueue = false
+async function flushOfflineQueue() {
+  if (_flushingQueue || !navigator.onLine) return
   const q = JSON.parse(localStorage.getItem('offlineQueue')||'[]')
-  if (!q.length) { loadAll(); return }
-  toast('オフラインデータを同期中...')
-  for (const item of q) await api(item)
+  if (!q.length) return
+  _flushingQueue = true
+  // 先にキューを空にしてから再送。失敗した分は api() 内の saveOffline が自動で入れ直す
   localStorage.removeItem('offlineQueue')
-  toast('同期完了しました')
+  toast('保存待ちのデータを送信中...')
+  try {
+    for (const item of q) {
+      const r = await api(item)
+      // タイムアウトはキューに戻らない仕様なので、ここで手動で入れ直す（消失防止）
+      if (r && r.error && String(r.error).indexOf('タイムアウト') !== -1) saveOffline(item)
+    }
+  } finally { _flushingQueue = false }
+  const left = JSON.parse(localStorage.getItem('offlineQueue')||'[]')
+  if (left.length) toast('一部送信できませんでした。電波の良い場所で自動再送します')
+  else toast('保存待ちデータの送信が完了しました')
   loadAll()
+}
+
+window.addEventListener('online', () => {
+  _hideOfflineBanner()
+  flushOfflineQueue()
 })
+// ホーム画面アプリを開き直した時・タブに戻った時も再送を試みる
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) flushOfflineQueue()
+})
+
+// ── 送信待ちの予約を画面に出す（⏳付き）──
+// 保存待ちの予約はサーバーの取得結果に含まれないため、そのままだと画面から消えて
+// 「入れたのに入ってない」ように見える。取得結果に送信待ち分を合成して表示する。
+function _pendingResList() {
+  try {
+    const q = JSON.parse(localStorage.getItem('offlineQueue')||'[]')
+    return q.filter(i => i.action === 'addReservation').map((i, idx) => ({
+      id: 'pending-' + idx + '-' + (i.timestamp||0),
+      customer_id: i.customer_id,
+      customer_name: '⏳' + ((allCustomers.find(c => c.id === i.customer_id)||{}).name || ''),
+      date: i.date, time: i.time, menu: i.menu||'',
+      duration: i.duration||60, price: i.price||0, memo: i.memo||'',
+      status: 'reserved', _pending: true
+    }))
+  } catch(e) { return [] }
+}
+function _withPending(list) {
+  const p = _pendingResList()
+  return p.length ? [...list, ...p].sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)) : list
+}
 
 // ── 確認ダイアログ（iOSのホーム画面アプリで confirm() が出ない問題に対応）──
 function uiConfirm(message, okLabel) {
@@ -1385,7 +1431,7 @@ function backFromSales() { showCalendar() }
 // ── 一括読み込み ──
 function _applyAllData(custs, ress, menus, evts) {
   allCustomers    = _isFreshArray(custs)  ? custs  : allCustomers
-  allReservations = _isFreshArray(ress)   ? ress   : allReservations
+  allReservations = _isFreshArray(ress)   ? _withPending(ress) : allReservations
   allMenuMaster   = _isFreshArray(menus)  ? menus  : allMenuMaster
   allEvents       = _isFreshArray(evts)   ? evts   : allEvents
 }
@@ -2481,7 +2527,7 @@ async function executeMove() {
     api({ action:'getReservations', filter:'' })
   ])
   allCustomers    = _isFreshArray(custs) ? custs : allCustomers
-  allReservations = _isFreshArray(ress)  ? ress  : allReservations
+  allReservations = _isFreshArray(ress)  ? _withPending(ress) : allReservations
   updateResBadge()
   renderCalendar()
   loadHome()
@@ -3378,7 +3424,11 @@ async function submitAddReservation() {
   })
   btn.disabled=false; btn.textContent='登録する'
   if (res.error) { showError('res-add-error',res.error); return }
-  closeModal('modal-add-res'); toast('予約を登録しました'); cancelNextBook()
+  closeModal('modal-add-res')
+  // 送信待ちになった場合は正直に伝える（「登録しました」と言って実は未送信、を防ぐ）
+  if (res.offline) toast('電波が不安定のため保存待ちです（⏳表示）。電波が戻ると自動送信されます')
+  else toast('予約を登録しました')
+  cancelNextBook()
   // 楽観的更新：即座に画面に反映
   const cust = allCustomers.find(c => c.id === cid)
   const newRes = {
@@ -3397,7 +3447,7 @@ async function submitAddReservation() {
   updateResBadge(); renderCalendar(); loadHome()
   // バックグラウンドで正確なデータに更新
   api({ action:'getReservations', filter:'' }).then(d => {
-    if (_isFreshArray(d)) { allReservations = d; updateResBadge(); renderCalendar(); loadHome() }
+    if (_isFreshArray(d)) { allReservations = _withPending(d); updateResBadge(); renderCalendar(); loadHome() }
   })
 }
 
@@ -3447,7 +3497,7 @@ async function submitEditReservation() {
   btn.disabled=false; btn.textContent='更新する'
   if (res.error) { alert(res.error); return }
   closeModal('modal-edit-res'); toast('更新しました')
-  allReservations = await api({ action:'getReservations', filter:'' }).then(d => _isFreshArray(d)?d:allReservations)
+  allReservations = await api({ action:'getReservations', filter:'' }).then(d => _isFreshArray(d)?_withPending(d):allReservations)
   updateResBadge(); loadHome()
   renderCalendar()
 }
