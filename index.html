@@ -387,6 +387,7 @@ select.input { appearance:none; }
     <input class="search" type="search" placeholder="名前・フリガナで検索" oninput="filterCustomers(this.value)" />
   </div>
   <div class="list" id="customer-list"><div class="loading">読み込み中...</div></div>
+  <div id="device-auth-status" style="text-align:center;font-size:12px;color:#aaa;padding:6px 0 90px;"></div>
 </div>
 
 <!-- ═══════════════ 顧客詳細画面 ═══════════════ -->
@@ -1144,7 +1145,11 @@ function startApp() {
   // 既存端末の移行：PIN保存済みでも合鍵（顔パス）が無ければ一度だけ取得して保存
   if (localStorage.getItem('pinCode') && !localStorage.getItem('deviceToken')) {
     api({ action:'checkPin', pin: localStorage.getItem('pinCode') }).then(r => {
-      if (r && r.ok && r.token) localStorage.setItem('deviceToken', r.token)
+      if (r && r.ok && r.token) {
+        localStorage.setItem('deviceToken', r.token)
+        toast('この端末を登録しました（顔パス有効）')
+        _renderDeviceAuthStatus()
+      }
     })
   }
 }
@@ -1432,7 +1437,16 @@ function showCalendar() {
   showScreen('screen-calendar')
   setCalView('week')
 }
-function showList() { showScreen('screen-list'); loadCustomers() }
+function showList() { showScreen('screen-list'); loadCustomers(); _renderDeviceAuthStatus() }
+
+// この端末の認証方式を顧客画面の下部に表示（顔パスが有効かどうかの確認用）
+function _renderDeviceAuthStatus() {
+  const el = document.getElementById('device-auth-status')
+  if (!el) return
+  el.textContent = localStorage.getItem('deviceToken')
+    ? '🔑 この端末：顔パス登録済み'
+    : '🔑 この端末：顔パス未登録（次回起動時に自動登録されます）'
+}
 function goSales()  { showScreen('screen-sales'); setMoneyTab('sales'); setSalesView('day'); loadSalesSummary(); loadExpenses(); populateTaxYears() }
 function backFromDetail() {
   if (detailFrom === 'list') showList()
