@@ -542,10 +542,10 @@ select.input { appearance:none; }
 </div>
 
 <!-- ═══════════════ モーダル：カルテ編集 ═══════════════ -->
-<div class="overlay" id="modal-edit-visit" onclick="closeModal('modal-edit-visit')">
+<div class="overlay" id="modal-edit-visit" onclick="closeEditVisit()">
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-handle"></div>
-    <div class="modal-title">カルテを編集</div>
+    <div class="modal-title">カルテを編集 <span style="font-size:11px;font-weight:500;color:#aaa;">（閉じると自動保存）</span></div>
     <button onclick="copyLastKarteToEdit()" style="width:100%;padding:12px;border-radius:12px;border:1.5px solid #007aff;background:#eef6ff;color:#007aff;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:14px;">📋 前回カルテをコピー</button>
     <div class="field"><label class="label">来店日</label><input class="input" id="edit-visit-date" type="date" /></div>
     <div class="field"><label class="label">施術メニュー</label><input class="input" id="edit-visit-menu" /></div>
@@ -562,7 +562,7 @@ select.input { appearance:none; }
     <div class="field"><label class="label">メモ</label><textarea class="input" id="edit-visit-memo"></textarea></div>
     <button class="btn-primary" onclick="submitEditVisit()">更新する</button>
     <button class="btn-danger" onclick="doDeleteVisit()">このカルテを削除する</button>
-    <button class="btn-secondary" onclick="closeModal('modal-edit-visit')">キャンセル</button>
+    <button class="btn-secondary" onclick="closeEditVisit()">閉じる</button>
   </div>
 </div>
 
@@ -3143,6 +3143,19 @@ async function submitAddVisit() {
   closeModal('modal-add-visit'); toast('カルテを保存しました'); loadVisits(currentCustomer.id)
 }
 
+// カルテ編集の自動保存：開いた時点の内容を記憶し、閉じる時に変わっていれば自動でサーバー保存
+let _editVisitSnapshot = null
+function _editVisitValues() {
+  return {
+    visit_date: document.getElementById('edit-visit-date').value,
+    menu:       document.getElementById('edit-visit-menu').value,
+    medicine:   document.getElementById('edit-visit-medicine').value,
+    price:      document.getElementById('edit-visit-price').value,
+    memo:       document.getElementById('edit-visit-memo').value,
+    payment:    editPayment
+  }
+}
+
 function openEditVisit(visit) {
   editingVisitId = visit.id
   document.getElementById('edit-visit-date').value=visit.visit_date||''
@@ -3151,6 +3164,20 @@ function openEditVisit(visit) {
   document.getElementById('edit-visit-price').value=visit.price||''
   document.getElementById('edit-visit-memo').value=visit.memo||''
   selectEditPayment(visit.payment||'cash'); openModal('modal-edit-visit')
+  _editVisitSnapshot = JSON.stringify(_editVisitValues())
+}
+
+// どんな閉じ方（✕・閉じるボタン・画面外タップ）でも、変更があれば自動保存する
+async function closeEditVisit() {
+  const vals = _editVisitValues()
+  const changed = _editVisitSnapshot !== null && JSON.stringify(vals) !== _editVisitSnapshot
+  _editVisitSnapshot = null
+  closeModal('modal-edit-visit')
+  if (!changed) return
+  const res = await api({ action:'updateVisit', id: editingVisitId, ...vals })
+  if (res && res.error) { toast('自動保存に失敗しました: ' + res.error); return }
+  toast(res && res.offline ? '変更は保存待ちです（電波が戻ると自動送信）' : 'カルテを自動保存しました')
+  if (currentCustomer) loadVisits(currentCustomer.id)
 }
 
 async function submitEditVisit() {
@@ -3164,11 +3191,13 @@ async function submitEditVisit() {
   })
   btn.disabled=false; btn.textContent='更新する'
   if (res.error) { alert(res.error); return }
+  _editVisitSnapshot = null  // 手動保存済み＝閉じる時の自動保存は不要
   closeModal('modal-edit-visit'); toast('更新しました'); loadVisits(currentCustomer.id)
 }
 
 async function doDeleteVisit() {
   if (!(await uiConfirm('このカルテを削除しますか？', '削除する'))) return
+  _editVisitSnapshot = null  // 削除するので自動保存はしない
   await api({ action:'deleteVisit', id:editingVisitId })
   closeModal('modal-edit-visit'); toast('削除しました'); loadVisits(currentCustomer.id)
 }
