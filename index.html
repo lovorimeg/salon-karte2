@@ -2987,7 +2987,9 @@ async function doDeleteCustomer() {
 }
 
 // ═══════════════ カルテ ═══════════════
+let _visitsReqSeq = 0
 async function loadVisits(customerId) {
+  const seq = ++_visitsReqSeq
   const list = document.getElementById('visit-list')
   // キャッシュがあれば即表示
   const cached = _loadLocalCache({ action:'getVisits', customerId })
@@ -2998,6 +3000,9 @@ async function loadVisits(customerId) {
     list.innerHTML = '<div class="loading">読み込み中...</div>'
   }
   const data = await api({ action:'getVisits', customerId })
+  // 遅れて届いた古い応答は捨てる（別のお客様のカルテが一瞬表示される問題の修正）
+  if (seq !== _visitsReqSeq) return
+  if (!currentCustomer || String(currentCustomer.id) !== String(customerId)) return
   _lastVisits = Array.isArray(data) ? data : []
   renderVisits(data)
 }
