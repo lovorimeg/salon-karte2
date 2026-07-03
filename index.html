@@ -933,7 +933,9 @@ select.input { appearance:none; }
   <div style="font-size:13px;letter-spacing:6px;color:#aaa;margin-bottom:12px;">THANK YOU</div>
   <div id="co-complete-name" style="font-size:26px;font-weight:800;color:#fff;margin-bottom:8px;"></div>
   <div style="font-size:15px;color:#888;margin-bottom:24px;">ありがとうございました</div>
-  <div id="co-complete-total" style="font-size:42px;font-weight:900;color:#fff;letter-spacing:2px;margin-bottom:48px;"></div>
+  <div id="co-complete-total" style="font-size:42px;font-weight:900;color:#fff;letter-spacing:2px;margin-bottom:12px;"></div>
+  <div id="co-complete-note" style="display:none;font-size:14px;font-weight:700;color:#ffd60a;margin-bottom:24px;">⏳ 電波待ち：会計データは電波が戻ると自動送信されます</div>
+  <div style="margin-bottom:24px;"></div>
   <button onclick="completeToNextReservation()" style="width:100%;max-width:320px;padding:18px;border-radius:30px;background:#fff;color:#1c1c1e;border:none;font-size:17px;font-weight:800;cursor:pointer;margin-bottom:12px;letter-spacing:1px;">次回予約を取る</button>
   <button onclick="completeToHome()" style="width:100%;max-width:320px;padding:16px;border-radius:30px;background:transparent;color:#888;border:1.5px solid #444;font-size:16px;cursor:pointer;">予約一覧へ戻る</button>
 </div>
@@ -3705,10 +3707,12 @@ function closeCheckout() {
   document.getElementById('checkout-overlay').classList.remove('show')
 }
 
-function showCheckoutComplete(customerName) {
+function showCheckoutComplete(customerName, pending) {
   const total = coItems.reduce((s,i) => s+Number(i.price), 0)
   document.getElementById('co-complete-name').textContent = customerName + ' 様'
   document.getElementById('co-complete-total').textContent = '¥ ' + total.toLocaleString()
+  // 電波不安定で保存待ちになった場合は正直に表示（黙って未送信、を防ぐ）
+  document.getElementById('co-complete-note').style.display = pending ? 'block' : 'none'
   document.getElementById('checkout-complete').style.display = 'flex'
 }
 
@@ -3871,7 +3875,7 @@ async function confirmCheckout() {
     r.id === coRes.id ? { ...r, payment: coPayment, status: 'visited' } : r)
   _persistReservations()
   closeCheckout()
-  showCheckoutComplete(coRes.customer_name)
+  showCheckoutComplete(coRes.customer_name, !!(res && res.offline))
   loadAll()
 }
 
