@@ -3145,15 +3145,34 @@ async function submitAddVisit() {
   const date = document.getElementById('visit-date').value
   if (!date) { showError('visit-error','来店日を入力してください'); return }
   const btn = event.target; btn.disabled=true; btn.textContent='保存中...'
-  const res = await api({ action:'addVisit', customer_id:currentCustomer.id,
-    visit_date:date, menu:document.getElementById('visit-menu').value,
-    medicine:document.getElementById('visit-medicine').value,
-    price:document.getElementById('visit-price').value,
-    memo:document.getElementById('visit-memo').value, payment:addPayment
-  })
+  const menu     = document.getElementById('visit-menu').value
+  const medicine = document.getElementById('visit-medicine').value
+  const price    = document.getElementById('visit-price').value
+  const memo     = document.getElementById('visit-memo').value
+  // 同じ日のカルテが既にあれば「追記（上書き）」にする。
+  // お会計が同日カルテを自動作成するため、常に新規作成だと同じ日が2枚になり
+  // 支払方法の初期値「現金」で現金会計が二重計上される問題の対策。
+  const existing = _lastVisits.find(v => v.visit_date === date)
+  let res
+  if (existing) {
+    res = await api({ action:'updateVisit', id: existing.id,
+      visit_date: date,
+      menu:     menu     || existing.menu || '',
+      medicine: medicine || existing.medicine || '',
+      price:    (price !== '' && price != null) ? price : existing.price,
+      memo:     memo     || existing.memo || '',
+      // 支払方法は既存を優先（お会計で決めたカード/QRを、初期値の「現金」で上書きしない）
+      payment:  (addPayment && addPayment !== 'cash') ? addPayment : (existing.payment || addPayment)
+    })
+  } else {
+    res = await api({ action:'addVisit', customer_id:currentCustomer.id,
+      visit_date:date, menu, medicine, price, memo, payment:addPayment })
+  }
   btn.disabled=false; btn.textContent='保存する'
   if (res.error) { showError('visit-error',res.error); return }
-  closeModal('modal-add-visit'); toast('カルテを保存しました'); loadVisits(currentCustomer.id)
+  closeModal('modal-add-visit')
+  toast(existing ? '同じ日のカルテに追記しました（二重になりません）' : 'カルテを保存しました')
+  loadVisits(currentCustomer.id)
 }
 
 // カルテ編集の自動保存：開いた時点の内容を記憶し、閉じる時に変わっていれば自動でサーバー保存
