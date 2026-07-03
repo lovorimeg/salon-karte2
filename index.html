@@ -1135,12 +1135,34 @@ window.onload = () => {
   buildHourOptions('edit-res-time-h')
   setTimeVal('res-time-h','res-time-m','10:00')
   calSelectedDate = today
-  // Service Worker登録（起動のたびに最新版を自動取得）
+  // Service Worker登録（前回の画面で即起動し、裏で最新版を取得する）
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js').catch(() => {})
+    navigator.serviceWorker.addEventListener('message', ev => {
+      if (ev.data && ev.data.type === 'fresh-available') _onSwFreshAvailable()
+    })
   }
   // 暗証番号ロックを確認してからアプリを開始
   pinGate()
+}
+
+// 新しい版が裏で届いた時の処理（sw.js v6 からの通知）。
+// 起動直後で操作前なら、そのまま最新版に切り替える（起動の一部に見える）。
+// 操作中なら邪魔せずお知らせだけ（次回起動時には最新になっている）。
+let _appStartTs = Date.now()
+let _swReloadedOnce = false
+function _swDoReload() { location.reload() }
+function _onSwFreshAvailable() {
+  const pinEl = document.getElementById('pin-overlay')
+  const busy = document.querySelector('.overlay.show, .checkout-overlay.show') ||
+    (pinEl && pinEl.style.display === 'flex') ||
+    (document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName))
+  if (!_swReloadedOnce && !busy && (Date.now() - _appStartTs) < 4000) {
+    _swReloadedOnce = true
+    _swDoReload()
+  } else {
+    toast('新しいバージョンを準備しました（次回起動時に反映されます）')
+  }
 }
 
 function startApp() {
