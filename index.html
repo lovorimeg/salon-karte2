@@ -3056,20 +3056,42 @@ function selectEditPayment(m) {
   ;['cash','card','qr'].forEach(x => document.getElementById('edit-pay-'+x).classList.toggle('active',x===m))
 }
 
+let _addVisitPrefill = null
 function openAddVisit() {
   const today = todayStr()
-  // 該当顧客の予約から来店日・メニュー・料金を自動入力
+  // 該当顧客の予約から来店日を自動入力
   const res = allReservations
     .filter(r => r.customer_id === currentCustomer.id)
     .sort((a,b) => b.date.localeCompare(a.date))  // 直近順
     .find(r => r.date <= today)  // 今日以前で最新
-  document.getElementById('visit-date').value  = res ? res.date  : today
-  document.getElementById('visit-menu').value  = res ? res.menu  : ''
-  document.getElementById('visit-price').value = res ? res.price : ''
-  const lastMedicine = _lastVisits.map(v => v.medicine).find(m => m)
-  document.getElementById('visit-medicine').value = lastMedicine || ''
-  document.getElementById('visit-memo').value = ''
-  selectAddPayment('cash'); hideError('visit-error'); openModal('modal-add-visit')
+  const date = res ? res.date : today
+  document.getElementById('visit-date').value = date
+  // 同じ日のカルテが既にあれば「そのカルテの現在の内容」を初期表示（＝追記モード）。
+  // 予約の内容で上書きしてしまい、会計で確定したメニュー・料金が予約に戻る事故を防ぐ。
+  const existing = _lastVisits.find(v => v.visit_date === date)
+  if (existing) {
+    document.getElementById('visit-menu').value     = existing.menu || ''
+    document.getElementById('visit-medicine').value = existing.medicine || ''
+    document.getElementById('visit-price').value    = existing.price || ''
+    document.getElementById('visit-memo').value     = existing.memo || ''
+    selectAddPayment(existing.payment || 'cash')
+  } else {
+    document.getElementById('visit-menu').value  = res ? res.menu  : ''
+    document.getElementById('visit-price').value = res ? res.price : ''
+    const lastMedicine = _lastVisits.map(v => v.medicine).find(m => m)
+    document.getElementById('visit-medicine').value = lastMedicine || ''
+    document.getElementById('visit-memo').value = ''
+    selectAddPayment('cash')
+  }
+  // 開いた時点の内容を記憶（保存時に「実際に変更した項目だけ」を反映するため）
+  _addVisitPrefill = {
+    menu:     document.getElementById('visit-menu').value,
+    medicine: document.getElementById('visit-medicine').value,
+    price:    document.getElementById('visit-price').value,
+    memo:     document.getElementById('visit-memo').value,
+    payment:  addPayment
+  }
+  hideError('visit-error'); openModal('modal-add-visit')
 }
 
 function copyLastKarte() {
@@ -3177,14 +3199,17 @@ async function submitAddVisit() {
   const existing = _lastVisits.find(v => v.visit_date === date)
   let res
   if (existing) {
+    // 「開いた時から実際に変更した項目」だけを反映し、触っていない項目は既存カルテの値を守る。
+    // （自動入力された予約のメニュー・料金が、会計で確定済みのカルテを上書きする事故の防止）
+    const pf = _addVisitPrefill || {}
+    const pick = (formVal, pfVal, exVal) => (formVal !== pfVal) ? formVal : (exVal != null && exVal !== '' ? exVal : formVal)
     res = await api({ action:'updateVisit', id: existing.id,
       visit_date: date,
-      menu:     menu     || existing.menu || '',
-      medicine: medicine || existing.medicine || '',
-      price:    (price !== '' && price != null) ? price : existing.price,
-      memo:     memo     || existing.memo || '',
-      // 支払方法は既存を優先（お会計で決めたカード/QRを、初期値の「現金」で上書きしない）
-      payment:  (addPayment && addPayment !== 'cash') ? addPayment : (existing.payment || addPayment)
+      menu:     pick(menu, pf.menu, existing.menu),
+      medicine: pick(medicine, pf.medicine, existing.medicine),
+      price:    pick(price, pf.price, existing.price),
+      memo:     pick(memo, pf.memo, existing.memo),
+      payment:  (addPayment !== pf.payment) ? addPayment : (existing.payment || addPayment)
     })
   } else {
     res = await api({ action:'addVisit', customer_id:currentCustomer.id,
@@ -3737,16 +3762,27 @@ function openCheckoutFromCard(r) {
   openCheckout()
 }
 
+// 同じ日のカルテを探す（画面表示中のデータ→端末キャッシュの順）
+function _findSameDayKarte(customerId, date) {
+  let list = (currentCustomer && String(currentCustomer.id) === String(customerId)) ? _lastVisits : null
+  if (!list || !list.length) list = _loadLocalCache({ action:'getVisits', customerId }) || []
+  return list.find(v => v.visit_date === date) || null
+}
+
 function openCheckout() {
   const res = allReservations.find(r => r.id === editingResId)
   if (!res) { toast('予約情報が取得できませんでした'); return }
   coRes = res
   coItems = []
-  // 既存メニューを初期アイテムに
-  if (res.menu) {
+  // 当日のカルテがあれば「実際の施術内容（カルテ）」を会計の初期内容にする。
+  // 予約はあくまで予定なので、カルテを直した後の会計が予約の内容に戻らないように。
+  const karte = _findSameDayKarte(res.customer_id, res.date)
+  if (karte && (karte.menu || Number(karte.price))) {
+    coItems.push({ id: Date.now(), name: karte.menu || res.menu || '施術', price: Number(karte.price) || Number(res.price) || 0, type: 'menu' })
+  } else if (res.menu) {
     coItems.push({ id: Date.now(), name: res.menu, price: res.price || 0, type: 'menu' })
   }
-  coPayment = res.payment || 'cash'
+  coPayment = res.payment || (karte && karte.payment) || 'cash'
   closeModal('modal-edit-res')
 
   // 画面描画
@@ -3931,6 +3967,10 @@ async function confirmCheckout() {
   allReservations = allReservations.map(r =>
     r.id === coRes.id ? { ...r, payment: coPayment, status: 'visited' } : r)
   _persistReservations()
+  // 会計はサーバー側で当日カルテを更新するため、端末に残る古いカルテ表示を破棄して次回は必ず取り直す
+  // （古い内容のままカルテを開いて自動保存すると、会計で確定した内容が巻き戻る事故の防止）
+  try { localStorage.removeItem(_cacheKey({ action:'getVisits', customerId: coRes.customer_id })) } catch(e) {}
+  if (currentCustomer && String(currentCustomer.id) === String(coRes.customer_id)) loadVisits(coRes.customer_id)
   closeCheckout()
   showCheckoutComplete(coRes.customer_name, !!(res && res.offline))
   loadAll()
