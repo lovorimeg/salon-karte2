@@ -1430,6 +1430,8 @@ async function flushOfflineQueue() {
       const r = await api(item)
       // タイムアウトはキューに戻らない仕様なので、ここで手動で入れ直す（消失防止）
       if (r && r.error && String(r.error).indexOf('タイムアウト') !== -1) saveOffline(item)
+      // 送信待ちだった会計・カルテがサーバーに届いた＝売上は取り直し対象に
+      if (['checkout','addVisit','updateVisit','deleteVisit'].indexOf(item.action) !== -1) _markSalesDirty()
     }
   } finally { _flushingQueue = false }
   const left = JSON.parse(localStorage.getItem('offlineQueue')||'[]')
@@ -3219,6 +3221,7 @@ async function submitAddVisit() {
   if (res.error) { showError('visit-error',res.error); return }
   closeModal('modal-add-visit')
   toast(existing ? '同じ日のカルテに追記しました（二重になりません）' : 'カルテを保存しました')
+  _markSalesDirty()
   loadVisits(currentCustomer.id)
 }
 
@@ -3268,13 +3271,14 @@ async function closeEditVisit() {
   toast(res && res.offline ? '変更は保存待ちです（電波が戻ると自動送信）' : 'カルテを自動保存しました')
   // 再取得はせず、端末キャッシュも即時更新（次に開いた時も最新表示）
   if (!res.offline && cid) _saveLocalCache({ action:'getVisits', customerId: cid }, _lastVisits)
+  _markSalesDirty()  // 料金・支払方法が変わった可能性があるため売上は取り直し対象に
 }
 
 async function doDeleteVisit() {
   if (!(await uiConfirm('このカルテを削除しますか？', '削除する'))) return
   _editVisitSnapshot = null  // 削除するので自動保存はしない
   await api({ action:'deleteVisit', id:editingVisitId })
-  closeModal('modal-edit-visit'); toast('削除しました'); loadVisits(currentCustomer.id)
+  closeModal('modal-edit-visit'); toast('削除しました'); _markSalesDirty(); loadVisits(currentCustomer.id)
 }
 
 // ═══════════════ 予約 CRUD ═══════════════
@@ -3970,6 +3974,7 @@ async function confirmCheckout() {
   // 会計はサーバー側で当日カルテを更新するため、端末に残る古いカルテ表示を破棄して次回は必ず取り直す
   // （古い内容のままカルテを開いて自動保存すると、会計で確定した内容が巻き戻る事故の防止）
   try { localStorage.removeItem(_cacheKey({ action:'getVisits', customerId: coRes.customer_id })) } catch(e) {}
+  _markSalesDirty()  // 次に売上ページを開いた時は最新を取ってから表示
   if (currentCustomer && String(currentCustomer.id) === String(coRes.customer_id)) loadVisits(coRes.customer_id)
   closeCheckout()
   showCheckoutComplete(coRes.customer_name, !!(res && res.offline))
@@ -4272,13 +4277,19 @@ function setSalesView(v) {
   renderSalesSummary(_salesData)
 }
 
+// 売上に影響する変更（会計・カルテの追加/更新/削除）があった印。
+// 次に売上ページを開いた時は前回表示を使わず、最新を取ってから表示する（古い数字を見せない）
+function _markSalesDirty() { try { localStorage.setItem('salesDirty', '1') } catch(e) {} }
+
 async function loadSalesSummary() {
   const list = document.getElementById('sales-summary-list')
-  // まず端末に保存済みの前回データを即表示（体感速度向上）。裏で最新を取得して差し替える
+  // お金が動いた直後は前回データを出さない（会計直後に古い売上が見える問題の対策）
+  const dirty = localStorage.getItem('salesDirty') === '1'
+  // 普段は前回データを即表示（体感速度向上）。裏で最新を取得して差し替える
   const cachedS = _loadLocalCache({ action:'getSalesSummary' })
   const cachedM = _loadLocalCache({ action:'getSafeMoved' })
   if (Array.isArray(cachedM)) _safeMovedSet = new Set(cachedM)
-  const hasCache = Array.isArray(cachedS) && cachedS.length > 0
+  const hasCache = !dirty && Array.isArray(cachedS) && cachedS.length > 0
   if (hasCache) {
     _salesData = cachedS
     renderSalesSummary(cachedS)
@@ -4291,9 +4302,14 @@ async function loadSalesSummary() {
   ])
   // 金庫フラグはサーバー保存。取得できたら反映（失敗時は前回の状態を維持）
   if (_isFreshArray(moved)) _safeMovedSet = new Set(moved)
-  // 最新が取れなかった時は、既に表示済みの前回データを保持（エラーで消さない）
-  if (!_isFreshArray(data)) { if (!hasCache) list.innerHTML = '<div class="empty">読み込みに失敗しました。もう一度開いてください</div>'; return }
+  // 最新が取れなかった時：表示済みの前回データは保持しつつ、正直に知らせる
+  if (!_isFreshArray(data)) {
+    if (hasCache) toast('最新の売上を取得できませんでした（前回の内容を表示中）')
+    else list.innerHTML = '<div class="empty">読み込みに失敗しました。もう一度開いてください</div>'
+    return
+  }
   if (data.length && data[0]._error) { if (!hasCache) list.innerHTML = `<div class="empty">エラー: ${data[0]._error}</div>`; return }
+  try { localStorage.removeItem('salesDirty') } catch(e) {}  // 最新の取得に成功した時だけ印を消す
   if (!data.length) { _salesData = []; list.innerHTML = '<div class="empty">売上データがありません</div>'; return }
   _salesData = data
   renderSalesSummary(data)
