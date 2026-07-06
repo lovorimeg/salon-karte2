@@ -911,16 +911,16 @@ select.input { appearance:none; }
   <div id="res-action-reslist" style="margin:10px 0 14px;border-top:1px solid #f0f0f5;border-bottom:1px solid #f0f0f5;padding:10px 0;font-size:13px;color:#555;line-height:1.9;"></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
     <button onclick="startNextBook()" style="padding:18px;border-radius:14px;border:none;background:#1c1c1e;font-size:15px;font-weight:700;cursor:pointer;color:#fff;grid-column:1/-1;">📅 次回予約を入れる</button>
-    <button onclick="resActionCheckout()" style="padding:18px;border-radius:14px;border:none;background:#f0f0f5;font-size:15px;font-weight:600;cursor:pointer;color:#1c1c1e;">💳 お会計</button>
+    <button id="res-action-checkout-btn" onclick="resActionCheckout()" style="padding:18px;border-radius:14px;border:none;background:#f0f0f5;font-size:15px;font-weight:600;cursor:pointer;color:#1c1c1e;">💳 お会計</button>
     <button onclick="resActionKarte()" style="padding:18px;border-radius:14px;border:none;background:#f0f0f5;font-size:15px;font-weight:600;cursor:pointer;color:#1c1c1e;">📋 カルテ詳細</button>
-    <button onclick="resActionEdit()" style="padding:18px;border-radius:14px;border:none;background:#f0f0f5;font-size:15px;font-weight:600;cursor:pointer;color:#1c1c1e;">✏️ 予約編集</button>
+    <button id="res-action-edit-btn" onclick="resActionEdit()" style="padding:18px;border-radius:14px;border:none;background:#f0f0f5;font-size:15px;font-weight:600;cursor:pointer;color:#1c1c1e;">✏️ 予約編集</button>
     <button id="res-action-line-btn" onclick="resActionLine()" style="padding:18px;border-radius:14px;border:none;background:#f0fff4;font-size:15px;font-weight:600;cursor:pointer;color:#06c755;">📅 前日確認コピー</button>
     <button id="res-action-newconfirm-btn" onclick="resActionNewConfirm()" style="padding:18px;border-radius:14px;border:none;background:#eafff3;font-size:15px;font-weight:600;cursor:pointer;color:#06955a;grid-column:1/-1;">📩 予約確認コピー（新規）</button>
     <button onclick="resActionNewInquiry()" style="padding:18px;border-radius:14px;border:none;background:#eafff3;font-size:15px;font-weight:600;cursor:pointer;color:#06955a;grid-column:1/-1;">📩 新規予約の問い合わせに返信</button>
     <button id="res-action-change-btn" onclick="resActionChange()" style="padding:18px;border-radius:14px;border:none;background:#fff6e8;font-size:15px;font-weight:600;cursor:pointer;color:#e08e00;grid-column:1/-1;">🔄 変更依頼コピー</button>
     <button id="res-action-confirm-btn" onclick="resActionConfirm()" style="padding:18px;border-radius:14px;border:none;background:#eef7ff;font-size:15px;font-weight:600;cursor:pointer;color:#2278d4;grid-column:1/-1;">✅ 変更確定コピー</button>
     <button id="res-action-listcopy-btn" onclick="resActionListCopy()" style="padding:18px;border-radius:14px;border:none;background:#f0fff4;font-size:15px;font-weight:600;cursor:pointer;color:#06c755;grid-column:1/-1;">📋 予約一覧コピー</button>
-    <button onclick="resActionDelete()" style="padding:18px;border-radius:14px;border:none;background:#fff0f0;font-size:15px;font-weight:600;cursor:pointer;color:#e33;grid-column:1/-1;">🗑️ 削除する</button>
+    <button id="res-action-delete-btn" onclick="resActionDelete()" style="padding:18px;border-radius:14px;border:none;background:#fff0f0;font-size:15px;font-weight:600;cursor:pointer;color:#e33;grid-column:1/-1;">🗑️ 削除する</button>
   </div>
 </div>
 <div id="offline-banner" style="display:none;position:fixed;top:0;left:0;right:0;background:#ff9500;color:#fff;padding:10px 16px;text-align:center;font-size:14px;font-weight:600;z-index:500;letter-spacing:0.5px;">
@@ -1704,9 +1704,30 @@ function resCard(r, hideCheckout) {
 // ═══════════════ 予約アクションポップアップ ═══════════════
 let _resActionTarget = null
 
+// 顧客一覧の「操作」ボタンから開く：そのお客様の直近の予約を対象に操作メニューを表示
+function openResActionById(customerId) {
+  const c = allCustomers.find(x => String(x.id) === String(customerId))
+  if (!c) { toast('顧客情報が見つかりません'); return }
+  const mine = allReservations
+    .filter(r => r.customer_id === c.id && r.status !== 'cancelled' && r.status !== 'no_show')
+    .sort((a,b) => (a.date + a.time).localeCompare(b.date + b.time))
+  const today = todayStr()
+  // 対象は「次の予約」→無ければ「直近の過去の予約」→予約ゼロなら顧客情報だけの仮対象
+  const target = mine.find(r => r.date >= today) || mine[mine.length - 1] || { id: null, customer_id: c.id, customer_name: c.name }
+  if (!target.customer_name) target.customer_name = c.name
+  openResActionMenu(target)
+}
+
 function openResActionMenu(r) {
   _resActionTarget = r
   document.getElementById('res-action-name').textContent = r.customer_name + '様'
+  // 予約が1件もないお客様（仮対象）の場合、予約に紐づく操作は隠す（誤操作防止）
+  const hasRes = !!r.id
+  ;['res-action-checkout-btn','res-action-edit-btn','res-action-line-btn','res-action-newconfirm-btn',
+    'res-action-change-btn','res-action-confirm-btn','res-action-listcopy-btn','res-action-delete-btn'].forEach(id => {
+    const el = document.getElementById(id)
+    if (el) el.style.display = hasRes ? '' : 'none'
+  })
 
   // 同じお客様の予約一覧（今日以降）を表示
   const today = todayStr()
@@ -2906,6 +2927,7 @@ function renderCustomerList(customers) {
         ${nextHtml}
         ${visitCount ? `<div class="card-sub">${lastVisit ? '最終来店: '+lastVisit+' / ' : ''}来店${visitCount}回</div>` : ''}
       </div>
+      <button onclick="event.stopPropagation();openResActionById('${c.id}')" style="border:none;background:#eafff3;color:#06955a;border-radius:14px;padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;margin-left:8px;">操作</button>
       <span class="chevron">›</span>
     </div>`
   }).join('')
