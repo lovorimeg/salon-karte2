@@ -4084,6 +4084,7 @@ function _parseVoiceReservation(text, now) {
 }
 
 let _voiceRec = null
+let _voiceWatchdog = null
 function _voiceOverlayShow() {
   let ov = document.getElementById('voice-overlay')
   if (!ov) {
@@ -4098,35 +4099,101 @@ function _voiceOverlayShow() {
   }
   ov.style.display = 'flex'
 }
-function _voiceOverlayHide() { const ov = document.getElementById('voice-overlay'); if (ov) ov.style.display = 'none' }
+function _voiceOverlayHide() {
+  const ov = document.getElementById('voice-overlay'); if (ov) ov.style.display = 'none'
+  if (_voiceWatchdog) { clearTimeout(_voiceWatchdog); _voiceWatchdog = null }
+}
 function cancelVoiceReservation() { try { if (_voiceRec) _voiceRec.abort() } catch(e) {} _voiceOverlayHide() }
+
+// 聞き取った文章から予約画面を開く（音声認識・キーボード音声入力の両方から使う共通処理）
+function _applyVoiceText(text) {
+  const p = _parseVoiceReservation(text, new Date())
+  if (!p.date && !p.time && !p.customerId) {
+    toast('読み取れませんでした：「明日の14時に佐藤様、リタッチ」のように話してください')
+    return
+  }
+  // 読み取った内容で予約追加画面を開く（登録は目で確認してから）
+  openAddReservation(p.customerId, p.date || todayStr(), p.time || '10:00', p.duration || null)
+  if (p.menu) document.getElementById('res-menu').value = p.menu
+  if (p.price) document.getElementById('res-price').value = p.price
+  toast('読み取り：「' + p.heard + '」— 内容を確認して登録してください')
+}
+
+// 代替：キーボードのマイク（iOS標準の音声入力）で話してもらう方式。
+// ホーム画面アプリで音声認識が動かない端末でも、こちらは確実に使える。
+function openVoiceFallback() {
+  _voiceOverlayHide()
+  let ov = document.getElementById('voice-fb-overlay')
+  if (!ov) {
+    ov = document.createElement('div')
+    ov.id = 'voice-fb-overlay'
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:2100;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:60px 24px 24px;'
+    ov.innerHTML = `<div style="background:#fff;border-radius:18px;padding:20px 18px;width:100%;max-width:400px;">
+      <div style="font-size:15px;font-weight:700;margin-bottom:6px;">🎤 音声で予約（キーボードのマイクを使います）</div>
+      <div style="font-size:13px;color:#888;line-height:1.7;margin-bottom:12px;">下の欄をタップ → キーボードの<b>マイクボタン</b>を押して話してください。<br>例：「明日の14時に佐藤様、リタッチ」</div>
+      <input id="voice-fb-input" class="input" style="width:100%;box-sizing:border-box;font-size:16px;padding:13px;" placeholder="ここをタップして話す" />
+      <div style="display:flex;gap:10px;margin-top:14px;">
+        <button onclick="closeVoiceFallback()" style="flex:1;padding:13px;border-radius:12px;border:none;background:#f0f0f5;font-size:15px;font-weight:600;cursor:pointer;">キャンセル</button>
+        <button onclick="submitVoiceFallback()" style="flex:1;padding:13px;border-radius:12px;border:none;background:#1c1c1e;color:#fff;font-size:15px;font-weight:700;cursor:pointer;">読み取る</button>
+      </div>
+    </div>`
+    document.body.appendChild(ov)
+  }
+  document.getElementById('voice-fb-input').value = ''
+  ov.style.display = 'flex'
+  setTimeout(() => document.getElementById('voice-fb-input').focus(), 150)
+}
+function closeVoiceFallback() { const ov = document.getElementById('voice-fb-overlay'); if (ov) ov.style.display = 'none' }
+function submitVoiceFallback() {
+  const text = document.getElementById('voice-fb-input').value.trim()
+  closeVoiceFallback()
+  if (text) _applyVoiceText(text)
+}
 
 function startVoiceReservation() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition
-  if (!SR) { toast('この端末では音声入力を使えません（iOSの場合はSafariで開くと使えることがあります）'); return }
+  // この端末の判定結果を覚えておき、2回目からは迷わず動く方式で開く
+  if (!SR || localStorage.getItem('voiceMode') === 'fallback') { openVoiceFallback(); return }
   _voiceOverlayShow()
   const rec = new SR()
   _voiceRec = rec
   rec.lang = 'ja-JP'
   rec.interimResults = false
   rec.maxAlternatives = 1
+  let gotSignal = false  // 認識が実際に動き出した合図
+  rec.onstart = () => { gotSignal = true }
+  rec.onaudiostart = () => { gotSignal = true }
   rec.onresult = e => {
+    gotSignal = true
+    localStorage.setItem('voiceMode', 'native')  // この端末では本方式が使えると記録
     _voiceOverlayHide()
-    const text = e.results[0][0].transcript
-    const p = _parseVoiceReservation(text, new Date())
-    if (!p.date && !p.time && !p.customerId) {
-      toast('聞き取れませんでした：「明日の14時に佐藤様、リタッチ」のように話してください')
-      return
-    }
-    // 読み取った内容で予約追加画面を開く（登録は目で確認してから）
-    openAddReservation(p.customerId, p.date || todayStr(), p.time || '10:00', p.duration || null)
-    if (p.menu) document.getElementById('res-menu').value = p.menu
-    if (p.price) document.getElementById('res-price').value = p.price
-    toast('聞き取り：「' + p.heard + '」— 内容を確認して登録してください')
+    _applyVoiceText(e.results[0][0].transcript)
   }
-  rec.onerror = ev => { _voiceOverlayHide(); if (ev.error !== 'aborted') toast('音声を聞き取れませんでした。もう一度お試しください') }
+  rec.onerror = ev => {
+    _voiceOverlayHide()
+    if (ev.error === 'aborted') return
+    if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') {
+      // マイク不許可 or この環境では使えない → キーボード方式に切り替え
+      localStorage.setItem('voiceMode', 'fallback')
+      openVoiceFallback()
+    } else {
+      toast('音声を聞き取れませんでした。もう一度お試しください')
+    }
+  }
   rec.onend = () => _voiceOverlayHide()
-  try { rec.start() } catch(e) { _voiceOverlayHide(); toast('音声入力を開始できませんでした') }
+  // 見張り：数秒たっても認識が始まらない＝「あるフリをして動かない」端末。
+  // その場合はキーボードのマイク方式へ自動で切り替える（画面フリーズ対策）
+  _voiceWatchdog = setTimeout(() => {
+    if (gotSignal) return
+    try { rec.abort() } catch(e) {}
+    localStorage.setItem('voiceMode', 'fallback')
+    openVoiceFallback()
+  }, 4000)
+  try { rec.start() } catch(e) {
+    _voiceOverlayHide()
+    localStorage.setItem('voiceMode', 'fallback')
+    openVoiceFallback()
+  }
 }
 
 // ═══════════════ 空き枠検索 ═══════════════
