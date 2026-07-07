@@ -528,7 +528,7 @@ select.input { appearance:none; }
     </div>
     <div class="field"><label class="label">来店日 *</label><input class="input" id="visit-date" type="date" /></div>
     <div class="field"><label class="label">施術メニュー</label><input class="input" id="visit-menu" placeholder="カット・カラー・パーマ など" /></div>
-    <div class="field"><label class="label">使用薬剤 <button type="button" onclick="openTemplatePicker('visit-medicine')" style="background:#eef6ff;color:#007aff;border:1px solid #cfe3ff;border-radius:10px;padding:2px 10px;font-size:12px;font-weight:700;cursor:pointer;margin-left:6px;">📝 テンプレ</button></label><textarea class="input" id="visit-medicine" placeholder="薬剤名・配合など"></textarea></div>
+    <div class="field"><label class="label">使用薬剤 <button type="button" onclick="openTemplatePicker('visit-medicine')" style="background:#eef6ff;color:#007aff;border:1px solid #cfe3ff;border-radius:10px;padding:2px 10px;font-size:12px;font-weight:700;cursor:pointer;margin-left:6px;">📝 テンプレ</button></label><textarea class="input" id="visit-medicine" placeholder="薬剤名・配合など" onchange="this.value=_normalizeKarteText(this.value)"></textarea></div>
     <div class="field"><label class="label">料金（円）</label><input class="input" id="visit-price" type="number" placeholder="15000" /></div>
     <div class="field">
       <label class="label">支払方法</label>
@@ -556,7 +556,7 @@ select.input { appearance:none; }
     </div>
     <div class="field"><label class="label">来店日</label><input class="input" id="edit-visit-date" type="date" /></div>
     <div class="field"><label class="label">施術メニュー</label><input class="input" id="edit-visit-menu" /></div>
-    <div class="field"><label class="label">使用薬剤 <button type="button" onclick="openTemplatePicker('edit-visit-medicine')" style="background:#eef6ff;color:#007aff;border:1px solid #cfe3ff;border-radius:10px;padding:2px 10px;font-size:12px;font-weight:700;cursor:pointer;margin-left:6px;">📝 テンプレ</button></label><textarea class="input" id="edit-visit-medicine"></textarea></div>
+    <div class="field"><label class="label">使用薬剤 <button type="button" onclick="openTemplatePicker('edit-visit-medicine')" style="background:#eef6ff;color:#007aff;border:1px solid #cfe3ff;border-radius:10px;padding:2px 10px;font-size:12px;font-weight:700;cursor:pointer;margin-left:6px;">📝 テンプレ</button></label><textarea class="input" id="edit-visit-medicine" onchange="this.value=_normalizeKarteText(this.value)"></textarea></div>
     <div class="field"><label class="label">料金（円）</label><input class="input" id="edit-visit-price" type="number" /></div>
     <div class="field">
       <label class="label">支払方法</label>
@@ -4156,15 +4156,21 @@ function _applyVoiceText(text) {
   toast('読み取り：「' + p.heard + '」— ' + timeNote + '内容を確認して登録してください')
 }
 
+// 音声入力の表記ゆれを直す共通変換（🎤経由でも、薬剤欄への直接音声入力でも効く）
+// 「1対2」→「1:2」（連鎖・小数対応）、「3パーセント」→「3%」
+function _normalizeKarteText(s) {
+  return String(s || '')
+    .replace(/(\d(?:\.\d+)?)対(?=\d)/g, '$1:')
+    .replace(/(\d(?:\.\d+)?)パーセント/g, '$1%')
+}
+
 // ── カルテの音声入力 ──
 // 例：「カット・カラー 9900円 カード、薬剤は6GBオキシ3パーセント、メモは次回トリートメント」
 // メニュー・料金・支払方法・薬剤・メモに振り分ける。日付は「今日/昨日/一昨日/X月Y日」に対応。
 function _parseVoiceKarte(text, now) {
   now = now || new Date()
   const out = { date:null, menu:'', price:null, payment:null, medicine:'', memo:'', heard:String(text||'') }
-  let rest = String(text || '').replace(/[　\s]+/g, '')
-  // 配合比の音声対応：「1対2」「1.5対1対2」のような発話を「1:2」「1.5:1:2」に自動変換
-  rest = rest.replace(/(\d(?:\.\d+)?)対(?=\d)/g, '$1:')
+  let rest = _normalizeKarteText(String(text || '').replace(/[　\s]+/g, ''))
   const addDays = n => { const d = new Date(now.getFullYear(), now.getMonth(), now.getDate()); d.setDate(d.getDate()+n); return d }
   let m
   // 日付（カルテは過去もOK）
@@ -4242,7 +4248,7 @@ function openVoiceFallback() {
     ov.innerHTML = `<div style="background:#fff;border-radius:18px;padding:20px 18px;width:100%;max-width:400px;">
       <div style="font-size:15px;font-weight:700;margin-bottom:6px;">🎤 音声で入力（キーボードのマイクを使います）</div>
       <div id="voice-fb-example" style="font-size:13px;color:#888;line-height:1.7;margin-bottom:12px;"></div>
-      <input id="voice-fb-input" class="input" style="width:100%;box-sizing:border-box;font-size:16px;padding:13px;" placeholder="ここをタップして話す" />
+      <input id="voice-fb-input" class="input" style="width:100%;box-sizing:border-box;font-size:16px;padding:13px;" placeholder="ここをタップして話す" onkeydown="if(event.key==='Enter')submitVoiceFallback()" />
       <div style="display:flex;gap:10px;margin-top:14px;">
         <button onclick="closeVoiceFallback()" style="flex:1;padding:13px;border-radius:12px;border:none;background:#f0f0f5;font-size:15px;font-weight:600;cursor:pointer;">キャンセル</button>
         <button onclick="submitVoiceFallback()" style="flex:1;padding:13px;border-radius:12px;border:none;background:#1c1c1e;color:#fff;font-size:15px;font-weight:700;cursor:pointer;">読み取る</button>
