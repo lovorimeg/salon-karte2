@@ -4162,6 +4162,7 @@ function _normalizeKarteText(s) {
   return String(s || '')
     .replace(/(\d(?:\.\d+)?)対(?=\d)/g, '$1:')
     .replace(/(\d(?:\.\d+)?)パーセント/g, '$1%')
+    .replace(/再度/g, 'サイド')  // 「サイド」の音声誤変換（同音の「再度」）を直す
 }
 
 // ── カルテの音声入力 ──
