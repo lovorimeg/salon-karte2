@@ -4105,6 +4105,23 @@ function _voiceOverlayHide() {
 }
 function cancelVoiceReservation() { try { if (_voiceRec) _voiceRec.abort() } catch(e) {} _voiceOverlayHide() }
 
+// その日の最初の空き時間を探す（音声で日付だけ言われた時の初期時刻に使う）
+// 営業10:00〜19:00・30分刻み。予約と予約不可ブロックを埋まり扱いにする。
+function _firstFreeTime(dateStr, durMin) {
+  const dur = durMin || 60
+  const busy = allReservations
+    .filter(r => r.date === dateStr && r.status !== 'cancelled' && r.status !== 'no_show')
+    .map(r => { const [h, m] = (r.time || '00:00').split(':').map(Number); const s = h * 60 + m; return [s, s + (r.duration || 60)] })
+  getTimeBlocks().filter(b => b.date === dateStr).forEach(b => {
+    const [bh, bm] = b.start.split(':').map(Number); const s = bh * 60 + bm; busy.push([s, s + (b.dur || 60)])
+  })
+  for (let t = SLOT_OPEN_MIN; t + dur <= SLOT_CLOSE_MIN; t += 30) {
+    if (!busy.some(([bs, be]) => t < be && (t + dur) > bs))
+      return String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0')
+  }
+  return null
+}
+
 // 聞き取った文章から予約画面を開く（音声認識・キーボード音声入力の両方から使う共通処理）
 function _applyVoiceText(text) {
   const p = _parseVoiceReservation(text, new Date())
@@ -4112,11 +4129,20 @@ function _applyVoiceText(text) {
     toast('読み取れませんでした：「明日の14時に佐藤様、リタッチ」のように話してください')
     return
   }
+  const date = p.date || todayStr()
+  // 時刻を言わなかった場合は、その日の最初の空き時間を自動で入れる
+  let time = p.time
+  let timeNote = ''
+  if (!time) {
+    const free = _firstFreeTime(date, p.duration || 60)
+    if (free) { time = free; timeNote = '空き時間 ' + free + ' を自動入力。' }
+    else { time = '10:00'; timeNote = 'この日は空きが見つかりませんでした（10:00を仮置き）。' }
+  }
   // 読み取った内容で予約追加画面を開く（登録は目で確認してから）
-  openAddReservation(p.customerId, p.date || todayStr(), p.time || '10:00', p.duration || null)
+  openAddReservation(p.customerId, date, time, p.duration || null)
   if (p.menu) document.getElementById('res-menu').value = p.menu
   if (p.price) document.getElementById('res-price').value = p.price
-  toast('読み取り：「' + p.heard + '」— 内容を確認して登録してください')
+  toast('読み取り：「' + p.heard + '」— ' + timeNote + '内容を確認して登録してください')
 }
 
 // 代替：キーボードのマイク（iOS標準の音声入力）で話してもらう方式。
