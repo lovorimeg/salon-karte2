@@ -4163,6 +4163,8 @@ function _parseVoiceKarte(text, now) {
   now = now || new Date()
   const out = { date:null, menu:'', price:null, payment:null, medicine:'', memo:'', heard:String(text||'') }
   let rest = String(text || '').replace(/[　\s]+/g, '')
+  // 配合比の音声対応：「1対2」「1.5対1対2」のような発話を「1:2」「1.5:1:2」に自動変換
+  rest = rest.replace(/(\d(?:\.\d+)?)対(?=\d)/g, '$1:')
   const addDays = n => { const d = new Date(now.getFullYear(), now.getMonth(), now.getDate()); d.setDate(d.getDate()+n); return d }
   let m
   // 日付（カルテは過去もOK）
