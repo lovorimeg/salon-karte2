@@ -1719,6 +1719,8 @@ function openResActionById(customerId) {
 }
 
 function openResActionMenu(r) {
+  // 送信待ち（⏳）の予約はまだサーバーにIDが無く、操作するとエラーになるため案内だけ出す
+  if (r && r._pending) { toast('この予約は送信待ちです。電波が戻って送信されてから操作できます'); return }
   _resActionTarget = r
   document.getElementById('res-action-name').textContent = r.customer_name + '様'
   // 予約が1件もないお客様（仮対象）の場合、予約に紐づく操作は隠す（誤操作防止）
@@ -2184,6 +2186,7 @@ const STATUS_COLOR = { reserved:'#ff6b9d', visited:'#ff9500', cancelled:'#8e8e93
 
 function lpStart(e, r) {
   if (fastMoveMode || moveMode) return
+  if (r && r._pending) return  // 送信待ちの予約はまだ移動できない（サーバーにIDが無い）
   // 前のドラッグ表示が残っていたら必ず片付けてから開始（2本目の指などによる置き去り防止）
   if (drag) _dragCleanup()
   if (e.touches.length > 1) return  // 複数指では開始しない
@@ -2927,7 +2930,7 @@ function renderCustomerList(customers) {
         ${nextHtml}
         ${visitCount ? `<div class="card-sub">${lastVisit ? '最終来店: '+lastVisit+' / ' : ''}来店${visitCount}回</div>` : ''}
       </div>
-      <button onclick="event.stopPropagation();openResActionById('${c.id}')" style="border:none;background:#eafff3;color:#06955a;border-radius:14px;padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;margin-left:8px;">操作</button>
+      <button onclick="event.stopPropagation();openResActionById('${c.id}')" style="border:none;background:#eafff3;color:#06955a;border-radius:14px;padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;margin-left:auto;margin-right:8px;">操作</button>
       <span class="chevron">›</span>
     </div>`
   }).join('')
@@ -2961,14 +2964,6 @@ function renderDetailInfo(c) {
   document.getElementById('detail-info').innerHTML = statsHtml + rows.map(r => `
     <div class="detail-row"><div class="detail-label">${r.label}</div><div class="detail-value">${r.value}</div></div>
   `).join('')
-}
-
-async function loadDetailReservations(customerId) {
-  const el = document.getElementById('detail-res-list')
-  el.innerHTML = '<div class="loading">読み込み中...</div>'
-  const data = await api({ action:'getResByCustomer', customerId })
-  if (!Array.isArray(data) || !data.length) { el.innerHTML = '<div class="empty">予約履歴がありません</div>'; return }
-  el.innerHTML = data.map(r => resCard(r, true)).join('')
 }
 
 // ═══════════════ 顧客 CRUD ═══════════════
@@ -3699,30 +3694,37 @@ function copyLineMsgFromEdit() {
 }
 
 async function submitEditReservation() {
-  const btn = event.target; btn.disabled=true; btn.textContent='更新中...'
-  const res = await api({ action:'updateReservation', id:editingResId,
-    customer_id: document.getElementById('edit-res-customer-id').value,
+  // 楽観的更新：画面は即時反映し、サーバー保存は裏で行う（他の保存処理と同方式）
+  const id = editingResId
+  const cid = document.getElementById('edit-res-customer-id').value
+  const vals = {
+    customer_id: cid,
     date: document.getElementById('edit-res-date').value,
     time: getTimeVal('edit-res-time-h','edit-res-time-m'),
     menu: document.getElementById('edit-res-menu').value,
     duration: Math.round((parseFloat(document.getElementById('edit-res-duration').value)||1) * 60),
     price: document.getElementById('edit-res-price').value||0,
     memo: document.getElementById('edit-res-memo').value,
-    status: null,
     payment: editResPayment
-  })
-  btn.disabled=false; btn.textContent='更新する'
-  if (res.error) { alert(res.error); return }
-  closeModal('modal-edit-res'); toast('更新しました')
-  allReservations = await api({ action:'getReservations', filter:'' }).then(d => _isFreshArray(d)?_withPending(d):allReservations)
-  updateResBadge(); loadHome()
-  renderCalendar()
+  }
+  const cust = allCustomers.find(c => c.id === cid)
+  closeModal('modal-edit-res')
+  allReservations = allReservations
+    .map(r => r.id === id ? { ...r, ...vals, price: Number(vals.price)||0, customer_name: cust ? cust.name : r.customer_name } : r)
+    .sort((a,b) => (a.date+a.time).localeCompare(b.date+b.time))
+  _persistReservations()
+  updateResBadge(); renderCalendar(); loadHome()
+  const res = await api({ action:'updateReservation', id, ...vals, status: null })
+  if (res && res.error) { toast('更新に失敗しました: ' + res.error); loadAll(); return }
+  toast(res && res.offline ? '変更は保存待ちです（電波が戻ると自動送信）' : '更新しました')
 }
 
 async function doDeleteReservation() {
   if (!(await uiConfirm('この予約を削除しますか？', '削除する'))) return
-  await api({ action:'deleteReservation', id:editingResId })
-  closeModal('modal-edit-res'); toast('削除しました')
+  const res = await api({ action:'deleteReservation', id:editingResId })
+  if (res && res.error) { alert('削除に失敗しました: ' + res.error); return }
+  closeModal('modal-edit-res')
+  toast(res && res.offline ? '削除は保存待ちです（電波が戻ると自動送信）' : '削除しました')
   allReservations = allReservations.filter(r => r.id !== editingResId)
   _persistReservations()
   updateResBadge(); renderCalendar()
