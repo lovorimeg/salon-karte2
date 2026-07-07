@@ -522,7 +522,10 @@ select.input { appearance:none; }
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-handle"></div>
     <div class="modal-title">カルテ入力</div>
-    <button onclick="copyLastKarte()" style="width:100%;padding:12px;border-radius:12px;border:1.5px solid #007aff;background:#eef6ff;color:#007aff;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:14px;">📋 前回カルテをコピー</button>
+    <div style="display:flex;gap:8px;margin-bottom:14px;">
+      <button onclick="copyLastKarte()" style="flex:1;padding:12px;border-radius:12px;border:1.5px solid #007aff;background:#eef6ff;color:#007aff;font-size:14px;font-weight:700;cursor:pointer;">📋 前回カルテをコピー</button>
+      <button onclick="startVoiceKarte('add')" style="flex:1;padding:12px;border-radius:12px;border:1.5px solid #e83e8c;background:#fff0f5;color:#e83e8c;font-size:14px;font-weight:700;cursor:pointer;">🎤 話して入力</button>
+    </div>
     <div class="field"><label class="label">来店日 *</label><input class="input" id="visit-date" type="date" /></div>
     <div class="field"><label class="label">施術メニュー</label><input class="input" id="visit-menu" placeholder="カット・カラー・パーマ など" /></div>
     <div class="field"><label class="label">使用薬剤 <button type="button" onclick="openTemplatePicker('visit-medicine')" style="background:#eef6ff;color:#007aff;border:1px solid #cfe3ff;border-radius:10px;padding:2px 10px;font-size:12px;font-weight:700;cursor:pointer;margin-left:6px;">📝 テンプレ</button></label><textarea class="input" id="visit-medicine" placeholder="薬剤名・配合など"></textarea></div>
@@ -547,7 +550,10 @@ select.input { appearance:none; }
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-handle"></div>
     <div class="modal-title">カルテを編集 <span style="font-size:11px;font-weight:500;color:#aaa;">（閉じると自動保存）</span></div>
-    <button onclick="copyLastKarteToEdit()" style="width:100%;padding:12px;border-radius:12px;border:1.5px solid #007aff;background:#eef6ff;color:#007aff;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:14px;">📋 前回カルテをコピー</button>
+    <div style="display:flex;gap:8px;margin-bottom:14px;">
+      <button onclick="copyLastKarteToEdit()" style="flex:1;padding:12px;border-radius:12px;border:1.5px solid #007aff;background:#eef6ff;color:#007aff;font-size:14px;font-weight:700;cursor:pointer;">📋 前回カルテをコピー</button>
+      <button onclick="startVoiceKarte('edit')" style="flex:1;padding:12px;border-radius:12px;border:1.5px solid #e83e8c;background:#fff0f5;color:#e83e8c;font-size:14px;font-weight:700;cursor:pointer;">🎤 話して入力</button>
+    </div>
     <div class="field"><label class="label">来店日</label><input class="input" id="edit-visit-date" type="date" /></div>
     <div class="field"><label class="label">施術メニュー</label><input class="input" id="edit-visit-menu" /></div>
     <div class="field"><label class="label">使用薬剤 <button type="button" onclick="openTemplatePicker('edit-visit-medicine')" style="background:#eef6ff;color:#007aff;border:1px solid #cfe3ff;border-radius:10px;padding:2px 10px;font-size:12px;font-weight:700;cursor:pointer;margin-left:6px;">📝 テンプレ</button></label><textarea class="input" id="edit-visit-medicine"></textarea></div>
@@ -4085,6 +4091,8 @@ function _parseVoiceReservation(text, now) {
 
 let _voiceRec = null
 let _voiceWatchdog = null
+let _voiceHandler = null      // 読み取った文章の届け先（予約用／カルテ用を切り替え）
+let _voiceExample = '例：「明日の14時に佐藤様、リタッチ」<br>「7月20日 午後3時 カット」'
 function _voiceOverlayShow() {
   let ov = document.getElementById('voice-overlay')
   if (!ov) {
@@ -4093,10 +4101,11 @@ function _voiceOverlayShow() {
     ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:2100;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;'
     ov.innerHTML = `<div style="font-size:56px;">🎤</div>
       <div style="color:#fff;font-size:17px;font-weight:700;margin:14px 0 6px;">お話しください</div>
-      <div style="color:#ddd;font-size:14px;text-align:center;line-height:1.8;">例：「明日の14時に佐藤様、リタッチ」<br>「7月20日 午後3時 カット」</div>
+      <div id="voice-ov-example" style="color:#ddd;font-size:14px;text-align:center;line-height:1.8;"></div>
       <button onclick="cancelVoiceReservation()" style="margin-top:22px;padding:12px 34px;border:none;border-radius:22px;background:rgba(255,255,255,0.25);color:#fff;font-size:15px;font-weight:600;cursor:pointer;">キャンセル</button>`
     document.body.appendChild(ov)
   }
+  document.getElementById('voice-ov-example').innerHTML = _voiceExample
   ov.style.display = 'flex'
 }
 function _voiceOverlayHide() {
@@ -4147,6 +4156,78 @@ function _applyVoiceText(text) {
   toast('読み取り：「' + p.heard + '」— ' + timeNote + '内容を確認して登録してください')
 }
 
+// ── カルテの音声入力 ──
+// 例：「カット・カラー 9900円 カード、薬剤は6GBオキシ3パーセント、メモは次回トリートメント」
+// メニュー・料金・支払方法・薬剤・メモに振り分ける。日付は「今日/昨日/一昨日/X月Y日」に対応。
+function _parseVoiceKarte(text, now) {
+  now = now || new Date()
+  const out = { date:null, menu:'', price:null, payment:null, medicine:'', memo:'', heard:String(text||'') }
+  let rest = String(text || '').replace(/[　\s]+/g, '')
+  const addDays = n => { const d = new Date(now.getFullYear(), now.getMonth(), now.getDate()); d.setDate(d.getDate()+n); return d }
+  let m
+  // 日付（カルテは過去もOK）
+  if ((m = rest.match(/(\d{1,2})月(\d{1,2})日/))) { out.date = localDate(new Date(now.getFullYear(), +m[1]-1, +m[2])); rest = rest.replace(m[0],'') }
+  else if ((m = rest.match(/一昨日|おととい/))) { out.date = localDate(addDays(-2)); rest = rest.replace(m[0],'') }
+  else if ((m = rest.match(/昨日|きのう/)))     { out.date = localDate(addDays(-1)); rest = rest.replace(m[0],'') }
+  else if ((m = rest.match(/今日|本日/)))       { out.date = localDate(addDays(0));  rest = rest.replace(m[0],'') }
+  // 料金（「9900円」「9,900円」）
+  if ((m = rest.match(/(\d[\d,]{0,9})円/))) { out.price = Number(m[1].replace(/,/g,'')); rest = rest.replace(m[0],'') }
+  // 支払方法
+  if ((m = rest.match(/カード(払い)?/)))                                { out.payment = 'card'; rest = rest.replace(m[0],'') }
+  else if ((m = rest.match(/(ペイペイ|paypay|QR|きゅーあーる|バーコード)(払い|決済)?/i))) { out.payment = 'qr';   rest = rest.replace(m[0],'') }
+  else if ((m = rest.match(/現金(払い)?/)))                             { out.payment = 'cash'; rest = rest.replace(m[0],'') }
+  // メモ（「メモは◯◯」以降）
+  if ((m = rest.match(/メモ(?:は|:|：)?(.+)$/))) { out.memo = m[1].replace(/^[、。]+/,''); rest = rest.replace(m[0],'') }
+  // 薬剤（「薬剤は◯◯」「カラー材は◯◯」以降）
+  if ((m = rest.match(/(?:薬剤|カラー材|お薬)(?:は|:|：)?(.+)$/))) { out.medicine = m[1].replace(/^[、。]+/,''); rest = rest.replace(m[0],'') }
+  // メニュー（メニューマスタの最長一致・複数可）
+  const menus = (allMenuMaster || []).filter(x => x.name).sort((a,b) => b.name.length - a.name.length)
+  const found = []
+  for (const mm of menus) {
+    if (rest.indexOf(mm.name) !== -1 && !found.some(f => f.name.indexOf(mm.name) !== -1)) {
+      found.push(mm); rest = rest.split(mm.name).join('')
+    }
+  }
+  if (found.length) {
+    out.menu = found.map(f => f.name).join('・')
+    if (out.price == null) { const total = found.reduce((s,f) => s + (Number(f.price)||0), 0); if (total) out.price = total }
+  }
+  // 残った言葉は薬剤欄へ（薬剤マーカーが無かった場合のみ。前後の助詞・句読点は除去）
+  rest = rest.replace(/^[、。・とにでのはがお願いしますです]+|[、。・とにでのはがお願いしますです]+$/g, '')
+  if (!out.medicine && rest.length >= 2) out.medicine = rest
+  return out
+}
+
+// prefix: 'add'（カルテ追加画面）または 'edit'（カルテ編集画面）
+function _applyVoiceKarte(text, prefix) {
+  const p = _parseVoiceKarte(text, new Date())
+  const ids = prefix === 'edit'
+    ? { date:'edit-visit-date', menu:'edit-visit-menu', med:'edit-visit-medicine', price:'edit-visit-price', memo:'edit-visit-memo' }
+    : { date:'visit-date', menu:'visit-menu', med:'visit-medicine', price:'visit-price', memo:'visit-memo' }
+  const filled = []
+  if (p.date)   { document.getElementById(ids.date).value = p.date; filled.push('来店日') }
+  if (p.menu)   { document.getElementById(ids.menu).value = p.menu; filled.push('メニュー') }
+  if (p.price != null) { document.getElementById(ids.price).value = p.price; filled.push('料金') }
+  if (p.payment) { (prefix === 'edit' ? selectEditPayment : selectAddPayment)(p.payment); filled.push('支払方法') }
+  if (p.medicine) {  // 薬剤は上書きせず追記（テンプレやコピー済みの内容を消さない）
+    const el = document.getElementById(ids.med)
+    el.value = el.value ? el.value + '\n' + p.medicine : p.medicine
+    filled.push('薬剤')
+  }
+  if (p.memo) {
+    const el = document.getElementById(ids.memo)
+    el.value = el.value ? el.value + '\n' + p.memo : p.memo
+    filled.push('メモ')
+  }
+  toast(filled.length ? '読み取り：' + filled.join('・') + ' を入力しました。内容をご確認ください'
+                      : '読み取れませんでした。「カット 9900円 カード」のように話してください')
+}
+
+function startVoiceKarte(prefix) {
+  _startVoiceCapture(t => _applyVoiceKarte(t, prefix),
+    '例：「カット・カラー 9900円 カード」<br>「薬剤は6GBオキシ3パーセント」')
+}
+
 // 代替：キーボードのマイク（iOS標準の音声入力）で話してもらう方式。
 // ホーム画面アプリで音声認識が動かない端末でも、こちらは確実に使える。
 function openVoiceFallback() {
@@ -4157,8 +4238,8 @@ function openVoiceFallback() {
     ov.id = 'voice-fb-overlay'
     ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:2100;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:60px 24px 24px;'
     ov.innerHTML = `<div style="background:#fff;border-radius:18px;padding:20px 18px;width:100%;max-width:400px;">
-      <div style="font-size:15px;font-weight:700;margin-bottom:6px;">🎤 音声で予約（キーボードのマイクを使います）</div>
-      <div style="font-size:13px;color:#888;line-height:1.7;margin-bottom:12px;">下の欄をタップ → キーボードの<b>マイクボタン</b>を押して話してください。<br>例：「明日の14時に佐藤様、リタッチ」</div>
+      <div style="font-size:15px;font-weight:700;margin-bottom:6px;">🎤 音声で入力（キーボードのマイクを使います）</div>
+      <div id="voice-fb-example" style="font-size:13px;color:#888;line-height:1.7;margin-bottom:12px;"></div>
       <input id="voice-fb-input" class="input" style="width:100%;box-sizing:border-box;font-size:16px;padding:13px;" placeholder="ここをタップして話す" />
       <div style="display:flex;gap:10px;margin-top:14px;">
         <button onclick="closeVoiceFallback()" style="flex:1;padding:13px;border-radius:12px;border:none;background:#f0f0f5;font-size:15px;font-weight:600;cursor:pointer;">キャンセル</button>
@@ -4167,6 +4248,7 @@ function openVoiceFallback() {
     </div>`
     document.body.appendChild(ov)
   }
+  document.getElementById('voice-fb-example').innerHTML = '下の欄をタップ → キーボードの<b>マイクボタン</b>を押して話してください。<br>' + _voiceExample
   document.getElementById('voice-fb-input').value = ''
   ov.style.display = 'flex'
   setTimeout(() => document.getElementById('voice-fb-input').focus(), 150)
@@ -4175,10 +4257,17 @@ function closeVoiceFallback() { const ov = document.getElementById('voice-fb-ove
 function submitVoiceFallback() {
   const text = document.getElementById('voice-fb-input').value.trim()
   closeVoiceFallback()
-  if (text) _applyVoiceText(text)
+  if (text && _voiceHandler) _voiceHandler(text)
 }
 
 function startVoiceReservation() {
+  _startVoiceCapture(_applyVoiceText, '例：「明日の14時に佐藤様、リタッチ」<br>「7月20日 午後3時 カット」')
+}
+
+// 音声入力の共通入口。handler=読み取った文章の処理先、example=画面に出す例文
+function _startVoiceCapture(handler, example) {
+  _voiceHandler = handler
+  _voiceExample = example
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition
   // iOSのホーム画面アプリでは音声認識が「動かないのにマイクだけ掴む」既知の不具合があるため、
   // 最初からキーボードのマイク方式を使う（録音マークが残る事故の根絶）
@@ -4197,8 +4286,9 @@ function startVoiceReservation() {
   rec.onresult = e => {
     gotSignal = true
     localStorage.setItem('voiceMode', 'native')  // この端末では本方式が使えると記録
+    const text = e.results[0][0].transcript
     _voiceOverlayHide()
-    _applyVoiceText(e.results[0][0].transcript)
+    if (_voiceHandler) _voiceHandler(text)
   }
   rec.onerror = ev => {
     _voiceOverlayHide()
