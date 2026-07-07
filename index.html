@@ -4102,8 +4102,10 @@ function _voiceOverlayShow() {
 function _voiceOverlayHide() {
   const ov = document.getElementById('voice-overlay'); if (ov) ov.style.display = 'none'
   if (_voiceWatchdog) { clearTimeout(_voiceWatchdog); _voiceWatchdog = null }
+  // マイクの掴みっぱなし防止：オーバーレイを閉じる時は必ず認識セッションを終了させる
+  if (_voiceRec) { try { _voiceRec.stop() } catch(e) {} try { _voiceRec.abort() } catch(e) {} _voiceRec = null }
 }
-function cancelVoiceReservation() { try { if (_voiceRec) _voiceRec.abort() } catch(e) {} _voiceOverlayHide() }
+function cancelVoiceReservation() { _voiceOverlayHide() }
 
 // その日の最初の空き時間を探す（音声で日付だけ言われた時の初期時刻に使う）
 // 営業10:00〜19:00・30分刻み。予約と予約不可ブロックを埋まり扱いにする。
@@ -4178,8 +4180,11 @@ function submitVoiceFallback() {
 
 function startVoiceReservation() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+  // iOSのホーム画面アプリでは音声認識が「動かないのにマイクだけ掴む」既知の不具合があるため、
+  // 最初からキーボードのマイク方式を使う（録音マークが残る事故の根絶）
+  const isIosStandalone = (navigator.standalone === true)
   // この端末の判定結果を覚えておき、2回目からは迷わず動く方式で開く
-  if (!SR || localStorage.getItem('voiceMode') === 'fallback') { openVoiceFallback(); return }
+  if (!SR || isIosStandalone || localStorage.getItem('voiceMode') === 'fallback') { openVoiceFallback(); return }
   _voiceOverlayShow()
   const rec = new SR()
   _voiceRec = rec
