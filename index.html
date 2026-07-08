@@ -538,7 +538,7 @@ select.input { appearance:none; }
         <button type="button" class="payment-btn"        id="add-pay-qr"   onclick="selectAddPayment('qr')">QR決済</button>
       </div>
     </div>
-    <div class="field"><label class="label">メモ</label><textarea class="input" id="visit-memo" placeholder="仕上がり・次回提案など"></textarea></div>
+    <div class="field"><label class="label">メモ</label><textarea class="input" id="visit-memo" placeholder="仕上がり・次回提案など" onchange="this.value=_normalizeKarteText(this.value,'memo')"></textarea></div>
     <div id="visit-error" class="error-msg"></div>
     <button class="btn-primary" onclick="submitAddVisit()">保存する</button>
     <button class="btn-secondary" onclick="closeModal('modal-add-visit')">キャンセル</button>
@@ -566,7 +566,7 @@ select.input { appearance:none; }
         <button type="button" class="payment-btn"        id="edit-pay-qr"   onclick="selectEditPayment('qr')">QR決済</button>
       </div>
     </div>
-    <div class="field"><label class="label">メモ</label><textarea class="input" id="edit-visit-memo"></textarea></div>
+    <div class="field"><label class="label">メモ</label><textarea class="input" id="edit-visit-memo" onchange="this.value=_normalizeKarteText(this.value,'memo')"></textarea></div>
     <button class="btn-primary" onclick="closeEditVisit()">閉じる（変更は自動保存）</button>
     <button class="btn-danger" onclick="doDeleteVisit()">このカルテを削除する</button>
   </div>
@@ -950,6 +950,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
+const APP_BUILD = '2026-07-08b'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -1536,9 +1537,9 @@ function showList() { showScreen('screen-list'); loadCustomers(); _renderDeviceA
 function _renderDeviceAuthStatus() {
   const el = document.getElementById('device-auth-status')
   if (!el) return
-  el.textContent = localStorage.getItem('deviceToken')
+  el.textContent = (localStorage.getItem('deviceToken')
     ? '🔑 この端末：登録済み（安全な合鍵で認証中）'
-    : '🔑 この端末：未登録（次回起動時に自動登録されます）'
+    : '🔑 この端末：未登録（次回起動時に自動登録されます）') + ' ・v' + APP_BUILD
 }
 function goSales()  { showScreen('screen-sales'); setMoneyTab('sales'); setSalesView('day'); loadSalesSummary(); loadExpenses(); populateTaxYears() }
 function backFromDetail() {
@@ -3216,9 +3217,10 @@ async function submitAddVisit() {
   if (!date) { showError('visit-error','来店日を入力してください'); return }
   const btn = event.target; btn.disabled=true; btn.textContent='保存中...'
   const menu     = document.getElementById('visit-menu').value
-  const medicine = document.getElementById('visit-medicine').value
+  // 保存時にも必ず表記ゆれ変換をかける（欄から出た瞬間の変換が効かない端末があるための保険）
+  const medicine = _normalizeKarteText(document.getElementById('visit-medicine').value)
   const price    = document.getElementById('visit-price').value
-  const memo     = document.getElementById('visit-memo').value
+  const memo     = _normalizeKarteText(document.getElementById('visit-memo').value, 'memo')
   // 同じ日のカルテが既にあれば「追記（上書き）」にする。
   // お会計が同日カルテを自動作成するため、常に新規作成だと同じ日が2枚になり
   // 支払方法の初期値「現金」で現金会計が二重計上される問題の対策。
@@ -3255,9 +3257,10 @@ function _editVisitValues() {
   return {
     visit_date: document.getElementById('edit-visit-date').value,
     menu:       document.getElementById('edit-visit-menu').value,
-    medicine:   document.getElementById('edit-visit-medicine').value,
+    // 保存時にも必ず表記ゆれ変換をかける（欄から出た瞬間の変換が効かない端末があるための保険）
+    medicine:   _normalizeKarteText(document.getElementById('edit-visit-medicine').value),
     price:      document.getElementById('edit-visit-price').value,
-    memo:       document.getElementById('edit-visit-memo').value,
+    memo:       _normalizeKarteText(document.getElementById('edit-visit-memo').value, 'memo'),
     payment:    editPayment
   }
 }
@@ -4158,21 +4161,23 @@ function _applyVoiceText(text) {
 
 // 音声入力の表記ゆれを直す共通変換（🎤経由でも、薬剤欄への直接音声入力でも効く）
 // 「1対2」→「1:2」（連鎖・小数対応）、「3パーセント」→「3%」
-function _normalizeKarteText(s) {
+// mode='memo' の場合、「再度→サイド」だけは行わない（メモでは「再度○○する」が本物の日本語のため）
+function _normalizeKarteText(s, mode) {
   // 「対」「パーセント」の前後の漢数字を数字に直す（音声変換は一・二…と書くことがあるため）
   const KD = { '〇':'0', '零':'0', '一':'1', '二':'2', '三':'3', '四':'4', '五':'5', '六':'6', '七':'7', '八':'8', '九':'9' }
   const kd = ch => KD[ch] || ch
-  return String(s || '')
+  let r = String(s || '')
     .replace(/[〇零一二三四五六七八九](?=対|パーセント)/g, kd)
     .replace(/対[〇零一二三四五六七八九]/g, m => '対' + kd(m[1]))
     // 「1.5対0」の直後に次の比率が続く場合（0一対1等）、発話の切れ目とみなして読点を入れる
     .replace(/対0(?=[1-9])/g, '対0、')
     .replace(/(\d(?:\.\d+)?)対(?=\d)/g, '$1:')
     .replace(/(\d(?:\.\d+)?)パーセント/g, '$1%')
-    .replace(/再度/g, 'サイド')  // 「サイド」の音声誤変換（同音の「再度」）を直す
     .replace(/後ろ/g, 'うしろ')  // 「うしろ」の漢字変換をひらがなに統一
     // 文頭または句読点の直後の「後」だけ「うしろ」へ（「30分後」「放置後」「午後」等は変換しない）
     .replace(/(^|[、。・\s：:])後(?=[はがをにもとの]|$)/g, '$1うしろ')
+  if (mode !== 'memo') r = r.replace(/再度/g, 'サイド')  // 「サイド」の音声誤変換（同音の「再度」）を直す
+  return r
 }
 
 // ── カルテの音声入力 ──
