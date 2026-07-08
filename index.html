@@ -950,7 +950,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-07-08b'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-07-08c'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -1143,6 +1143,12 @@ window.onload = () => {
   buildHourOptions('edit-res-time-h')
   setTimeVal('res-time-h','res-time-m','10:00')
   calSelectedDate = today
+  // iOSの自動修正による青い点線（スペルチェック下線）を全入力欄で無効化
+  _disableAutoCorrect(document)
+  document.addEventListener('focusin', ev => {
+    const t = ev.target
+    if (t && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT')) _disableAutoCorrect(t.parentNode || t)
+  })
   // Service Worker登録（前回の画面で即起動し、裏で最新版を取得する）
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js').catch(() => {})
@@ -1152,6 +1158,17 @@ window.onload = () => {
   }
   // 暗証番号ロックを確認してからアプリを開始
   pinGate()
+}
+
+// 入力欄のiOS自動修正・スペルチェックを止める（青い点線の下線が残る問題の対策）。
+// 日本語変換（IME）はそのまま使える。動的に作られる入力欄はfocusin側で拾う。
+function _disableAutoCorrect(root) {
+  const els = root.querySelectorAll ? root.querySelectorAll('textarea, input') : []
+  els.forEach(el => {
+    el.setAttribute('spellcheck', 'false')
+    el.setAttribute('autocorrect', 'off')
+    el.setAttribute('autocomplete', 'off')
+  })
 }
 
 // 新しい版が裏で届いた時の処理（sw.js v6 からの通知）。
