@@ -945,7 +945,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-07-08d'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-07-14a'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -1188,6 +1188,8 @@ function _onSwFreshAvailable() {
 function startApp() {
   loadAll()
   loadJpHolidays()
+  syncTimeBlocks()       // 予約不可ブロックをサーバーと同期（初回は端末内の旧データを引っ越し）
+  syncKarteTemplates()   // 薬剤テンプレをサーバーと同期（同上）
   flushOfflineQueue()  // 前回送信できなかった保存待ちデータがあれば起動時に送信
   // 既存端末の移行：PIN保存済みでも合鍵（顔パス）が無ければ一度だけ取得して保存
   if (localStorage.getItem('pinCode') && !localStorage.getItem('deviceToken')) {
@@ -3160,22 +3162,68 @@ function copyLastKarteToEdit() {
   toast(`前回カルテ（${prev.visit_date||''}）をコピーしました`)
 }
 
-// ── 薬剤テンプレート（この端末に保存）──
+// ── 薬剤テンプレート（サーバーに保存）──
+// 以前は端末内（localStorage）だけの保存で、機種変更や別端末で育てたテンプレが見えなかった。
+// 現在はサーバー保存が正で、端末側は即表示用のキャッシュ。起動時に syncKarteTemplates で同期する。
 function _escHtml(s){ return String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])) }
-function getKarteTemplates(){ try { return JSON.parse(localStorage.getItem('karteTemplates')||'[]') } catch(e){ return [] } }
-function saveKarteTemplates(a){ localStorage.setItem('karteTemplates', JSON.stringify(a)) }
+let _karteTemplates = null
+function getKarteTemplates(){
+  if (_karteTemplates) return _karteTemplates
+  try { _karteTemplates = JSON.parse(localStorage.getItem('karteTemplates')||'[]') } catch(e){ _karteTemplates = [] }
+  return _karteTemplates
+}
+function _setKarteTemplatesLocal(a){
+  _karteTemplates = a
+  try { localStorage.setItem('karteTemplates', JSON.stringify(a)) } catch(e) {}
+}
+async function addKarteTemplate(tpl) {
+  _setKarteTemplatesLocal(getKarteTemplates().concat([tpl]))  // まず手元に即反映（楽観的）
+  const res = await api({ action:'setKarteTemplate', op:'add', tpl })
+  if (res && res.error) {
+    _setKarteTemplatesLocal(getKarteTemplates().filter(t => t.id !== tpl.id))
+    toast('テンプレの保存に失敗しました。通信状況をご確認ください')
+  } else if (res && Array.isArray(res.templates)) _setKarteTemplatesLocal(res.templates)
+}
+async function removeKarteTemplate(id) {
+  const removed = getKarteTemplates().find(t => t.id === id)
+  _setKarteTemplatesLocal(getKarteTemplates().filter(t => t.id !== id))
+  const res = await api({ action:'setKarteTemplate', op:'remove', id })
+  if (res && res.error) {
+    if (removed) _setKarteTemplatesLocal(getKarteTemplates().concat([removed]))
+    toast('テンプレ削除の保存に失敗しました。通信状況をご確認ください')
+  } else if (res && Array.isArray(res.templates)) _setKarteTemplatesLocal(res.templates)
+}
 function seedDefaultTemplates(){
   if (localStorage.getItem('karteTemplatesSeeded')) return
+  // 既にテンプレがある（＝サーバー同期済み or 旧データあり）なら種まき不要
+  if (getKarteTemplates().length) { localStorage.setItem('karteTemplatesSeeded', '1'); return }
   const defaults = [
     '9BB:7サンド1:1 4.5%',
     '7BB:7サンド1:1 4.5%',
     '5.6:1.5 30:30 G / サイド 0:1.5 G'
   ]
-  const cur = getKarteTemplates()
-  const have = new Set(cur.map(t => t.text))
-  defaults.forEach(d => { if (!have.has(d)) cur.push({ name: d, text: d }) })
-  saveKarteTemplates(cur)
+  // idを固定にして、複数の端末が同時に種まきしてもサーバー側で重複しないようにする
+  defaults.forEach((d, i) => addKarteTemplate({ id: 'tpl-seed-' + i, name: d, text: d }))
   localStorage.setItem('karteTemplatesSeeded', '1')
+}
+// 起動時にサーバーのテンプレを取り込む。初回だけ、この端末に残っている
+// 旧方式（端末内保存）のテンプレをサーバーへ引っ越しする（同じ内容は二重登録しない）。
+async function syncKarteTemplates() {
+  const server = await api({ action:'getKarteTemplates' })
+  if (!_isFreshArray(server)) return  // 取得失敗時は手元のキャッシュのまま（次回起動で再同期）
+  if (!localStorage.getItem('karteTemplatesMigrated')) {
+    const texts = new Set(server.map(t => t.text))
+    const mine = getKarteTemplates().filter(t => t.text && !texts.has(t.text))
+    let allOk = true
+    for (const t of mine) {
+      const tpl = { id: t.id || ('tpl-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6)), name: t.name || '', text: t.text }
+      const res = await api({ action:'setKarteTemplate', op:'add', tpl })
+      if (res && res.error) allOk = false
+      else server.push(tpl)
+    }
+    if (allOk) try { localStorage.setItem('karteTemplatesMigrated', '1') } catch(e) {}
+  }
+  _setKarteTemplatesLocal(server)
 }
 
 function openTemplatePicker(fieldId){
@@ -3211,15 +3259,16 @@ function openTemplatePicker(fieldId){
   })
   ov.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
     if (await uiConfirm('このテンプレートを削除しますか？','削除する')) {
-      const a = getKarteTemplates(); a.splice(+b.dataset.del, 1); saveKarteTemplates(a)
+      const a = getKarteTemplates(); const t = a[+b.dataset.del]
+      if (t && t.id) removeKarteTemplate(t.id)
+      else if (t) { const rest = a.filter(x => x !== t); _setKarteTemplatesLocal(rest) }  // 旧形式（id無し・同期前）はこの端末から消す
       close(); openTemplatePicker(fieldId)
     }
   })
   ov.querySelector('[data-save]').onclick = () => {
     const f = document.getElementById(fieldId); const txt = (f.value||'').trim()
     if (!txt) { toast('先に「使用薬剤」を入力してください'); return }
-    const a = getKarteTemplates()
-    a.push({ name: txt.split('\n')[0].slice(0,16), text: txt }); saveKarteTemplates(a)
+    addKarteTemplate({ id: 'tpl-' + Date.now(), name: txt.split('\n')[0].slice(0,16), text: txt })
     toast('テンプレに保存しました'); close(); openTemplatePicker(fieldId)
   }
 }
@@ -3492,15 +3541,64 @@ function openAddReservation(customerId, date, time, durationMin) {
   hideError('res-add-error'); openModal('modal-add-res')
 }
 
-// ── 予約不可ブロック（予定）── この端末に保存し、カレンダー表示＆空き案内から除外
-function getTimeBlocks() { try { return JSON.parse(localStorage.getItem('timeBlocks') || '[]') } catch(e) { return [] } }
-function saveTimeBlocks(arr) { localStorage.setItem('timeBlocks', JSON.stringify(arr)) }
-function addTimeBlock(date, start, dur) {
-  const arr = getTimeBlocks()
-  arr.push({ id: 'blk-' + Date.now(), date, start, dur: dur || 60 })
-  saveTimeBlocks(arr)
+// ── 予約不可ブロック（サーバーに保存）── カレンダー表示＆空き案内から除外
+// 以前は端末内（localStorage）だけの保存で、iOSの自動削除や機種変更でブロックが消えると
+// 塞いだはずの時間が「空き」に見えてダブルブッキングの恐れがあった。
+// 現在はサーバー保存が正で、端末側は即表示用のキャッシュ。起動時に syncTimeBlocks で同期する。
+let _timeBlocks = null
+function getTimeBlocks() {
+  if (_timeBlocks) return _timeBlocks
+  try { _timeBlocks = JSON.parse(localStorage.getItem('timeBlocks') || '[]') } catch(e) { _timeBlocks = [] }
+  return _timeBlocks
 }
-function removeTimeBlock(id) { saveTimeBlocks(getTimeBlocks().filter(b => b.id !== id)) }
+function _setTimeBlocksLocal(arr) {
+  _timeBlocks = arr
+  try { localStorage.setItem('timeBlocks', JSON.stringify(arr)) } catch(e) {}
+}
+async function addTimeBlock(date, start, dur) {
+  const b = { id: 'blk-' + Date.now(), date, start, dur: dur || 60 }
+  _setTimeBlocksLocal(getTimeBlocks().concat([b]))  // まず画面に即反映（楽観的）
+  const res = await api({ action: 'setTimeBlock', op: 'add', block: b })
+  if (res && res.error) {  // 保存できなかったら元に戻して知らせる
+    _setTimeBlocksLocal(getTimeBlocks().filter(x => x.id !== b.id))
+    renderCalendar()
+    toast('予約不可の保存に失敗しました。通信状況をご確認ください')
+  } else if (res && Array.isArray(res.blocks)) {
+    _setTimeBlocksLocal(res.blocks)  // サーバーの確定値（他端末で入れたブロックも取り込む）
+  }
+}
+async function removeTimeBlock(id) {
+  const removed = getTimeBlocks().find(b => b.id === id)
+  _setTimeBlocksLocal(getTimeBlocks().filter(b => b.id !== id))
+  const res = await api({ action: 'setTimeBlock', op: 'remove', id })
+  if (res && res.error) {
+    if (removed) _setTimeBlocksLocal(getTimeBlocks().concat([removed]))
+    renderCalendar()
+    toast('解除の保存に失敗しました。通信状況をご確認ください')
+  } else if (res && Array.isArray(res.blocks)) {
+    _setTimeBlocksLocal(res.blocks)
+  }
+}
+// 起動時にサーバーのブロックを取り込む。初回だけ、この端末に残っている
+// 旧方式（端末内保存）のブロックをサーバーへ引っ越しする（機種変更前のデータ救済）。
+async function syncTimeBlocks() {
+  const server = await api({ action: 'getTimeBlocks' })
+  if (!_isFreshArray(server)) return  // 取得失敗時は手元のキャッシュのまま（次回起動で再同期）
+  if (!localStorage.getItem('timeBlocksMigrated')) {
+    const ids = new Set(server.map(b => b.id))
+    const mine = getTimeBlocks().filter(b =>
+      !ids.has(b.id) && !server.some(s => s.date === b.date && s.start === b.start))
+    let allOk = true
+    for (const b of mine) {
+      const res = await api({ action: 'setTimeBlock', op: 'add', block: b })
+      if (res && res.error) allOk = false
+      else server.push(b)
+    }
+    if (allOk) try { localStorage.setItem('timeBlocksMigrated', '1') } catch(e) {}
+  }
+  _setTimeBlocksLocal(server)
+  if (document.getElementById('screen-calendar').style.display !== 'none') renderCalendar()
+}
 async function onBlockClick(id) {
   if (await uiConfirm('この「予約不可」を解除しますか？', '解除する')) { removeTimeBlock(id); renderCalendar() }
 }
