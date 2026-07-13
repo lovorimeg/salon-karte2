@@ -154,6 +154,8 @@ select.input { appearance:none; }
 .week-tg-block.status-visited   { background:#ff9500; color:#fff; }
 .week-tg-block.status-cancelled { background:#c7c7cc; color:#fff; }
 .week-tg-block.status-no_show   { background:#ff3b30; color:#fff; }
+/* カルテ記入済み（薬剤かメモが書かれている）＝緑。ステータス色より優先（後勝ち） */
+.week-tg-block.karte-done       { background:#34c759; color:#fff; }
 .week-tg-block.tg-block-x        { background:#8e8e93; color:#fff; opacity:0.92; }
 .week-tg-bname  { font-weight:600; font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .week-tg-bmenu  { font-size:10px; opacity:.85; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -945,7 +947,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-07-14a'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-07-14b'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -1356,6 +1358,22 @@ function _saveLocalCache(params, data) {
 // 楽観的更新（追加/移動/削除など）を端末キャッシュにも反映。
 // 別タブ・Safari・アプリ再起動の直後でも、新しい予約が消えて見えないようにする。
 function _persistReservations() { _saveLocalCache({ action:'getReservations', filter:'' }, allReservations) }
+
+// カルテ記入状態（has_karte）をカレンダーへ即時反映する（サーバー再取得を待たない）。
+// has_karte はサーバーが予約に付けるフラグで「同日カルテに薬剤かメモの記入がある」の意味。
+function _markKarteWritten(customerId, date, written) {
+  let changed = false
+  allReservations = allReservations.map(r => {
+    if (String(r.customer_id) === String(customerId) && r.date === date && !!r.has_karte !== !!written) {
+      changed = true
+      return { ...r, has_karte: !!written }
+    }
+    return r
+  })
+  if (!changed) return
+  _persistReservations()
+  if (document.getElementById('screen-calendar').style.display !== 'none') renderCalendar()
+}
 function _loadLocalCache(params) {
   try {
     const v = localStorage.getItem(_cacheKey(params))
@@ -2765,8 +2783,10 @@ function renderWeekCalendar() {
       const topPx = ((startMin - HOUR_START * 60) / 60) * HOUR_H
       const hPx   = Math.max((dur / 60) * HOUR_H, 22)
       if (topPx < 0 || topPx >= totalH) return ''
-      const isOrange = /リタ|フル/.test(r.menu || '')
-      const statusCls = 'week-tg-block status-' + (r.status || 'reserved') + (fastMoveMode && fastMovingRes && fastMovingRes.id === r.id ? ' fmove-source' : '')
+      // カルテ記入済み（薬剤かメモあり）は緑で表示。キャンセル系は元の色を守る
+      const karteDone = r.has_karte && (r.status === 'visited' || r.status === 'reserved' || !r.status)
+      const isOrange = /リタ|フル/.test(r.menu || '') && !karteDone
+      const statusCls = 'week-tg-block status-' + (r.status || 'reserved') + (karteDone ? ' karte-done' : '') + (fastMoveMode && fastMovingRes && fastMovingRes.id === r.id ? ' fmove-source' : '')
       const rj = JSON.stringify(r).replace(/"/g,'&quot;')
       const cust = allCustomers.find(c => c.id === r.customer_id)
       const cj = cust ? JSON.stringify(cust).replace(/"/g,'&quot;') : null
@@ -2865,7 +2885,8 @@ function renderDayCalendar() {
     const topPx = ((startMin - START * 60) / 60) * PX
     const hPx = Math.max((dur / 60) * PX, PX * 0.5)
     const rj = JSON.stringify(r).replace(/"/g,'&quot;')
-    const statusCls = 'week-tg-block status-' + (r.status || 'reserved')
+    const karteDone = r.has_karte && (r.status === 'visited' || r.status === 'reserved' || !r.status)
+    const statusCls = 'week-tg-block status-' + (r.status || 'reserved') + (karteDone ? ' karte-done' : '')
     return `<div class="${statusCls}" style="top:${topPx}px;height:${hPx}px;left:52px;right:8px;"
       ontouchstart="lpStart(event,${rj})" ontouchend="lpEnd(event)" ontouchmove="lpMove(event)"
       onclick="openResActionMenu(${rj})">
@@ -3287,17 +3308,20 @@ async function submitAddVisit() {
   // 支払方法の初期値「現金」で現金会計が二重計上される問題の対策。
   const existing = _lastVisits.find(v => v.visit_date === date)
   let res
+  let finalMedicine = medicine, finalMemo = memo  // 実際に保存される値（カレンダー色分け用）
   if (existing) {
     // 「開いた時から実際に変更した項目」だけを反映し、触っていない項目は既存カルテの値を守る。
     // （自動入力された予約のメニュー・料金が、会計で確定済みのカルテを上書きする事故の防止）
     const pf = _addVisitPrefill || {}
     const pick = (formVal, pfVal, exVal) => (formVal !== pfVal) ? formVal : (exVal != null && exVal !== '' ? exVal : formVal)
+    finalMedicine = pick(medicine, pf.medicine, existing.medicine)
+    finalMemo     = pick(memo, pf.memo, existing.memo)
     res = await api({ action:'updateVisit', id: existing.id,
       visit_date: date,
       menu:     pick(menu, pf.menu, existing.menu),
-      medicine: pick(medicine, pf.medicine, existing.medicine),
+      medicine: finalMedicine,
       price:    pick(price, pf.price, existing.price),
-      memo:     pick(memo, pf.memo, existing.memo),
+      memo:     finalMemo,
       payment:  (addPayment !== pf.payment) ? addPayment : (existing.payment || addPayment)
     })
   } else {
@@ -3309,6 +3333,10 @@ async function submitAddVisit() {
   closeModal('modal-add-visit')
   toast(existing ? '同じ日のカルテに追記しました（二重になりません）' : 'カルテを保存しました')
   _markSalesDirty()
+  // カレンダーの色分け（カルテ記入済み＝緑）を即時反映（同じ日の別カルテの記入も考慮）
+  const othersWritten = _lastVisits.some(v => v.visit_date === date && (!existing || v.id !== existing.id) &&
+    (String(v.medicine||'').trim() || String(v.memo||'').trim()))
+  _markKarteWritten(currentCustomer.id, date, othersWritten || !!(String(finalMedicine).trim() || String(finalMemo).trim()))
   loadVisits(currentCustomer.id)
 }
 
@@ -3360,13 +3388,28 @@ async function closeEditVisit() {
   // 再取得はせず、端末キャッシュも即時更新（次に開いた時も最新表示）
   if (!res.offline && cid) _saveLocalCache({ action:'getVisits', customerId: cid }, _lastVisits)
   _markSalesDirty()  // 料金・支払方法が変わった可能性があるため売上は取り直し対象に
+  // カレンダーの色分け（カルテ記入済み＝緑）を即時反映。
+  // 同じ日に他のカルテがある場合はそちらの記入も考慮して判定する
+  if (cid) {
+    const sameDay = _lastVisits.filter(v => v.visit_date === vals.visit_date)
+    const written = sameDay.some(v => String(v.medicine||'').trim() || String(v.memo||'').trim())
+    _markKarteWritten(cid, vals.visit_date, written)
+  }
 }
 
 async function doDeleteVisit() {
   if (!(await uiConfirm('このカルテを削除しますか？', '削除する'))) return
   _editVisitSnapshot = null  // 削除するので自動保存はしない
+  const deleted = _lastVisits.find(v => v.id === editingVisitId)
   await api({ action:'deleteVisit', id:editingVisitId })
-  closeModal('modal-edit-visit'); toast('削除しました'); _markSalesDirty(); loadVisits(currentCustomer.id)
+  closeModal('modal-edit-visit'); toast('削除しました'); _markSalesDirty()
+  // 削除でその日の記入が無くなったらカレンダーの緑を戻す（同じ日の別カルテの記入は考慮）
+  if (deleted) {
+    const others = _lastVisits.filter(v => v.id !== deleted.id && v.visit_date === deleted.visit_date)
+    const written = others.some(v => String(v.medicine||'').trim() || String(v.memo||'').trim())
+    _markKarteWritten(currentCustomer.id, deleted.visit_date, written)
+  }
+  loadVisits(currentCustomer.id)
 }
 
 // ═══════════════ 予約 CRUD ═══════════════
