@@ -947,7 +947,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-07-14c'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-07-14d'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -3140,8 +3140,9 @@ function openAddVisit() {
   } else {
     document.getElementById('visit-menu').value  = res ? res.menu  : ''
     document.getElementById('visit-price').value = res ? res.price : ''
-    const lastMedicine = _lastVisits.map(v => v.medicine).find(m => m)
-    document.getElementById('visit-medicine').value = lastMedicine || ''
+    // 薬剤は自動で入れない。以前は前回の薬剤を初期入力していたが、触らず保存すると
+    // 前回の内容がそのまま新しいカルテに書き込まれてしまうため廃止（必要なら「前回カルテをコピー」）
+    document.getElementById('visit-medicine').value = ''
     document.getElementById('visit-memo').value = ''
     selectAddPayment('cash')
   }
