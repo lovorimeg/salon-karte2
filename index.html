@@ -947,7 +947,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-07-17a'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-07-19a'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -1398,6 +1398,11 @@ window.addEventListener('online',  _hideOfflineBanner)
 
 // ── API ──
 async function api(params) {
+  // 新規登録（add系）は端末側でIDを採番して付ける。サーバーは同じIDの二重登録を無視するので、
+  // タイムアウト（届いたか不明）でも安全に自動再送できる（「入れたはずの予約が無い」対策）
+  if (params.action.startsWith('add') && !params.id) {
+    params = { ...params, id: 'c-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8) }
+  }
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 20000)
   // 端末に保存された合鍵（顔パス）とPINを毎回の通信に添付（checkPin/setPinは各自のpinを優先）
@@ -1434,7 +1439,14 @@ async function api(params) {
         if (cached) { if (!navigator.onLine) _showOfflineBanner(); return _markStale(cached) }
         return _markStale([])
       }
-      return { error: 'タイムアウトしました。再度お試しください。' }
+      // 認証系だけはその場でエラー（勝手に再送しない）。それ以外の書き込みは送信待ちキューへ。
+      // 以前はタイムアウト＝全てエラー（保存されない）だったが、add系はID採番で二重登録が
+      // 防げるようになり、update/delete/checkout は同じ内容の再実行が無害なため再送できる。
+      if (params.action === 'checkPin' || params.action === 'setPin') {
+        return { error: 'タイムアウトしました。再度お試しください。' }
+      }
+      saveOffline(params)
+      return { offline: true }
     }
     // オフライン：GETはキャッシュ、書き込みはキュー
     if (!navigator.onLine) _showOfflineBanner()  // 本当に圏外のときだけ表示（GASの一時不調では出さない）
@@ -1468,8 +1480,7 @@ async function flushOfflineQueue() {
   try {
     for (const item of q) {
       const r = await api(item)
-      // タイムアウトはキューに戻らない仕様なので、ここで手動で入れ直す（消失防止）
-      if (r && r.error && String(r.error).indexOf('タイムアウト') !== -1) saveOffline(item)
+      // タイムアウト・圏外の失敗分は api() 内の saveOffline が自動でキューに入れ直す
       // 送信待ちだった会計・カルテがサーバーに届いた＝売上は取り直し対象に
       if (['checkout','addVisit','updateVisit','deleteVisit'].indexOf(item.action) !== -1) _markSalesDirty()
     }
