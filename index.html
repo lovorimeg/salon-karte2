@@ -947,7 +947,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-07-19a'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-07-19b'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -3132,12 +3132,15 @@ function selectEditPayment(m) {
 let _addVisitPrefill = null
 function openAddVisit() {
   const today = todayStr()
-  // 該当顧客の予約から来店日を自動入力
+  // 来店日は常に「今日」。メニュー・料金の自動入力も「今日の予約」からだけ行う。
+  // （以前は「今日以前で最新の予約」の日付を使っていたため、今日の予約が無いお客様だと
+  //   前回来店日になり、追記モードが前回カルテの内容を表示＝「前回の内容が入っている」誤動作。
+  //   気づかず保存すると前回のカルテに追記されてしまう危険もあった）
   const res = allReservations
-    .filter(r => r.customer_id === currentCustomer.id)
-    .sort((a,b) => b.date.localeCompare(a.date))  // 直近順
-    .find(r => r.date <= today)  // 今日以前で最新
-  const date = res ? res.date : today
+    .filter(r => r.customer_id === currentCustomer.id && r.date === today
+      && r.status !== 'cancelled' && r.status !== 'no_show')
+    .sort((a,b) => (a.time || '').localeCompare(b.time || ''))[0]
+  const date = today
   document.getElementById('visit-date').value = date
   // 同じ日のカルテが既にあれば「そのカルテの現在の内容」を初期表示（＝追記モード）。
   // 予約の内容で上書きしてしまい、会計で確定したメニュー・料金が予約に戻る事故を防ぐ。
