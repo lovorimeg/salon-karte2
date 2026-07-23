@@ -969,7 +969,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-07-24c'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-07-24d'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -3109,13 +3109,22 @@ function loadCustomers() {
   // キャッシュ済みの来店統計があれば即反映
   const cachedStats = _loadLocalCache({ action:'getVisitStats' })
   if (cachedStats) _visitStats = cachedStats
-  renderCustomerList(allCustomers)
+  refreshCustomerList()
   api({ action:'getCustomers' }).then(d => {
-    if (_isFreshArray(d)) { allCustomers = d; renderCustomerList(allCustomers) }
+    if (_isFreshArray(d)) { allCustomers = d; refreshCustomerList() }
   })
   api({ action:'getVisitStats' }).then(d => {
-    if (d && typeof d === 'object' && !Array.isArray(d)) { _visitStats = d; renderCustomerList(allCustomers) }
+    if (d && typeof d === 'object' && !Array.isArray(d)) { _visitStats = d; refreshCustomerList() }
   })
+}
+
+// 検索欄に文字が残っていればその絞り込みを保ったまま再描画する。
+// （カルテを見て戻った時に「く」の検索が消えて全件（あ行）に戻る問題の対策）
+function refreshCustomerList() {
+  const box = document.querySelector('#screen-list .search')
+  const q = box ? box.value.trim() : ''
+  if (q) filterCustomers(q)
+  else renderCustomerList(allCustomers)
 }
 
 function renderCustomerList(customers) {
