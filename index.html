@@ -934,6 +934,10 @@ select.input { appearance:none; }
 <div id="offline-banner" style="display:none;position:fixed;top:0;left:0;right:0;background:#ff9500;color:#fff;padding:10px 16px;text-align:center;font-size:14px;font-weight:600;z-index:500;letter-spacing:0.5px;">
   📵 オフライン中 — キャッシュデータを表示しています
 </div>
+<!-- 未送信（保存待ち）が残っている間は、閉じても分かるように常に出し続ける。タップで再送を試す。 -->
+<div id="unsent-banner" onclick="flushOfflineQueue()" style="display:none;position:fixed;top:0;left:0;right:0;background:#e0392b;color:#fff;padding:10px 16px;text-align:center;font-size:14px;font-weight:700;z-index:501;letter-spacing:0.3px;cursor:pointer;">
+  ⏳ 未送信の予約が <span id="unsent-count">0</span>件あります — タップで再送（電波の良い場所で開き直してください）
+</div>
 
 <!-- お会計完了画面 -->
 <div id="checkout-complete" style="display:none;position:fixed;inset:0;background:#1c1c1e;z-index:300;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px;">
@@ -951,7 +955,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-07-23b'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-07-24a'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -1196,6 +1200,9 @@ function startApp() {
   loadJpHolidays()
   syncTimeBlocks()       // 予約不可ブロックをサーバーと同期（初回は端末内の旧データを引っ越し）
   syncKarteTemplates()   // 薬剤テンプレをサーバーと同期（同上）
+  // iOSが保存領域を勝手に消すのを防ぐ（対応ブラウザのみ・非対応でも無害）＝未送信キューが消えにくくなる
+  if (navigator.storage && navigator.storage.persist) { try { navigator.storage.persist() } catch(e) {} }
+  _updateUnsentBanner()  // 未送信が残っていれば起動直後から赤バナーを出す
   flushOfflineQueue()  // 前回送信できなかった保存待ちデータがあれば起動時に送信
   // 既存端末の移行：PIN保存済みでも合鍵（顔パス）が無ければ一度だけ取得して保存
   if (localStorage.getItem('pinCode') && !localStorage.getItem('deviceToken')) {
@@ -1401,7 +1408,8 @@ window.addEventListener('offline', _showOfflineBanner)
 window.addEventListener('online',  _hideOfflineBanner)
 
 // ── API ──
-async function api(params) {
+async function api(params, opts) {
+  opts = opts || {}   // opts.noQueue=true のときは失敗してもキューに入れ直さない（再送ループが二重登録しないため）
   // 新規登録（add系）は端末側でIDを採番して付ける。サーバーは同じIDの二重登録を無視するので、
   // タイムアウト（届いたか不明）でも安全に自動再送できる（「入れたはずの予約が無い」対策）
   if (params.action.startsWith('add') && !params.id) {
@@ -1449,23 +1457,47 @@ async function api(params) {
       if (params.action === 'checkPin' || params.action === 'setPin') {
         return { error: 'タイムアウトしました。再度お試しください。' }
       }
-      saveOffline(params)
-      return { offline: true }
+      if (opts.noQueue) return { offline: true }
+      // キューに入れられたら保存待ち、入れられなければ（容量満杯など）正直にエラーを返す＝黙って消さない
+      return saveOffline(params) ? { offline: true } : { error: '保存できませんでした。端末の空き容量を確認して、もう一度お試しください。' }
     }
     // オフライン：GETはキャッシュ、書き込みはキュー
     if (!navigator.onLine) _showOfflineBanner()  // 本当に圏外のときだけ表示（GASの一時不調では出さない）
     if (params.action.startsWith('get')) {
       return _markStale(_loadLocalCache(params) || [])
     }
-    saveOffline(params)
-    return { offline: true }
+    if (opts.noQueue) return { offline: true }
+    return saveOffline(params) ? { offline: true } : { error: '保存できませんでした。端末の空き容量を確認して、もう一度お試しください。' }
   }
 }
 
+function _unsentQueueLen() {
+  try { return JSON.parse(localStorage.getItem('offlineQueue')||'[]').length } catch(e) { return 0 }
+}
+// 未送信が1件でも残っていれば赤バナーを出し続ける（トーストは消えても気づけるように）
+function _updateUnsentBanner() {
+  const el = document.getElementById('unsent-banner')
+  if (!el) return
+  const n = _unsentQueueLen()
+  if (n > 0) {
+    const c = document.getElementById('unsent-count'); if (c) c.textContent = n
+    el.style.display = 'block'
+  } else {
+    el.style.display = 'none'
+  }
+}
+
+// 保存待ちキューへの追加。setItemが失敗（保存容量満杯など）したら握りつぶさず false を返す＝呼び出し側が正直にエラー表示する。
 function saveOffline(data) {
-  const q = JSON.parse(localStorage.getItem('offlineQueue')||'[]')
-  q.push({ ...data, timestamp: Date.now() })
-  localStorage.setItem('offlineQueue', JSON.stringify(q))
+  try {
+    const q = JSON.parse(localStorage.getItem('offlineQueue')||'[]')
+    q.push({ ...data, timestamp: Date.now() })
+    localStorage.setItem('offlineQueue', JSON.stringify(q))
+    _updateUnsentBanner()
+    return true
+  } catch(e) {
+    return false
+  }
 }
 
 // ── 送信待ちキューの再送 ──
@@ -1473,26 +1505,42 @@ function saveOffline(data) {
 // さらに再送中に1件失敗すると removeItem で失敗分ごと消えるバグがあった。
 // → 起動時・画面復帰時・電波復帰時に必ず再送を試み、失敗分はキューに残す方式に修正。
 let _flushingQueue = false
+// クラッシュに強い再送：1件ずつ「送信できたことを確認してから」キューの先頭を消す。
+// 送信の途中でアプリが強制終了されても、未送信の項目はキューに残る（サーバーは同一IDの二重登録を無視）。
+// 以前は先にキューを空にしてから送っていたため、途中で落ちると残りが消える穴があった。
 async function flushOfflineQueue() {
   if (_flushingQueue || !navigator.onLine) return
-  const q = JSON.parse(localStorage.getItem('offlineQueue')||'[]')
-  if (!q.length) return
+  if (!_unsentQueueLen()) { _updateUnsentBanner(); return }
   _flushingQueue = true
-  // 先にキューを空にしてから再送。失敗した分は api() 内の saveOffline が自動で入れ直す
-  localStorage.removeItem('offlineQueue')
   toast('保存待ちのデータを送信中...')
+  let sentAny = false
+  const errored = []
   try {
-    for (const item of q) {
-      const r = await api(item)
-      // タイムアウト・圏外の失敗分は api() 内の saveOffline が自動でキューに入れ直す
-      // 送信待ちだった会計・カルテがサーバーに届いた＝売上は取り直し対象に
+    let guard = 0
+    while (navigator.onLine && guard++ < 200) {
+      const q = JSON.parse(localStorage.getItem('offlineQueue')||'[]')
+      if (!q.length) break
+      const item = q[0]
+      const r = await api(item, { noQueue: true })  // 失敗してもキューへ入れ直さない＝二重化しない
+      if (r && r.offline) break                      // まだ送れない → 先頭を残して中断（次の機会に自動再送）
+      // 送信できた（成功／サーバーが受理してエラー返し）→ キューの先頭を1件だけ削除
+      const q2 = JSON.parse(localStorage.getItem('offlineQueue')||'[]')
+      if (q2.length && q2[0].timestamp === item.timestamp && q2[0].action === item.action) {
+        q2.shift(); localStorage.setItem('offlineQueue', JSON.stringify(q2))
+      } else break  // キューが想定外に変化したら安全のため中断
+      sentAny = true
+      if (r && r.error) errored.push(item)  // サーバーに届いたが拒否された分は黙らず後で知らせる
       if (['checkout','addVisit','updateVisit','deleteVisit'].indexOf(item.action) !== -1) _markSalesDirty()
     }
   } finally { _flushingQueue = false }
-  const left = JSON.parse(localStorage.getItem('offlineQueue')||'[]')
-  if (left.length) toast('一部送信できませんでした。電波の良い場所で自動再送します')
-  else toast('保存待ちデータの送信が完了しました')
-  loadAll()
+  _updateUnsentBanner()
+  const left = _unsentQueueLen()
+  if (errored.length) {
+    try { alert('⚠️ ' + errored.length + '件の保存待ちデータがサーバーに拒否されました。お手数ですが、該当の予約・カルテを入れ直してください。') } catch(e) {}
+  }
+  if (left) toast('一部送信できませんでした。電波の良い場所で自動再送します')
+  else if (sentAny) toast('保存待ちデータの送信が完了しました')
+  if (sentAny) loadAll()
 }
 
 window.addEventListener('online', () => {
