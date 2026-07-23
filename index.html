@@ -391,7 +391,8 @@ select.input { appearance:none; }
   </div>
   <div class="list" id="customer-list"><div class="loading">読み込み中...</div></div>
   <div id="device-auth-status" style="text-align:center;font-size:12px;color:#aaa;padding:6px 0 10px;"></div>
-  <div style="text-align:center;padding:0 0 90px;">
+  <div style="text-align:center;padding:0 0 90px;display:flex;flex-direction:column;gap:10px;align-items:center;">
+    <button onclick="openDupCheck()" style="padding:9px 22px;border-radius:18px;border:1.5px solid #ddd;background:#fff;color:#888;font-size:13px;font-weight:600;cursor:pointer;">🔁 重複予約をチェック</button>
     <button onclick="openPinChange()" style="padding:9px 22px;border-radius:18px;border:1.5px solid #ddd;background:#fff;color:#888;font-size:13px;font-weight:600;cursor:pointer;">暗証番号を変更する</button>
   </div>
 </div>
@@ -668,6 +669,19 @@ select.input { appearance:none; }
     <div id="menu-picker-list"></div>
     <button id="menu-picker-confirm" class="btn-primary" style="margin-top:12px" onclick="confirmMenuSelection()" disabled>選択してください</button>
     <button class="btn-secondary" style="margin-top:8px" onclick="_selectedMenuIds.clear();closeModal('modal-menu-picker');openModal(menuPickerTarget==='edit'?'modal-edit-res':'modal-add-res')">キャンセル</button>
+  </div>
+</div>
+
+<!-- ═══════════════ モーダル：重複予約チェック ═══════════════ -->
+<div class="overlay" id="modal-dup-check" onclick="closeModal('modal-dup-check')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+      <div class="modal-title" style="margin:0">重複予約をチェック</div>
+    </div>
+    <div style="font-size:13px;color:#888;margin-bottom:14px;line-height:1.6;">同じお客様・同じ日時の予約が2件以上あるものを表示します。残す1件以外の「削除」を押してください。</div>
+    <div id="dup-check-list"></div>
+    <button class="btn-secondary" style="margin-top:14px" onclick="closeModal('modal-dup-check')">閉じる</button>
   </div>
 </div>
 
@@ -955,7 +969,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-07-24b'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-07-24c'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -1961,6 +1975,69 @@ async function resActionDelete() {
   if (res && res.error) { toast('削除に失敗しました: ' + res.error); return }
   toast('予約を削除しました')
   await loadAll()
+}
+
+// ═══════════════ 重複予約チェック ═══════════════
+// 同じお客様・同じ日時（cancelled/no_show・送信待ちは除外）の予約が2件以上あるものを集める
+function _findDuplicateGroups() {
+  const groups = {}
+  allReservations.forEach(r => {
+    if (r._pending) return
+    if (r.status === 'cancelled' || r.status === 'no_show') return
+    if (!r.id) return
+    const key = String(r.customer_id) + '|' + r.date + '|' + r.time
+    ;(groups[key] = groups[key] || []).push(r)
+  })
+  return Object.keys(groups).map(k => groups[k]).filter(g => g.length > 1)
+    .sort((a,b) => (a[0].date + a[0].time).localeCompare(b[0].date + b[0].time))
+}
+
+function openDupCheck() {
+  renderDupCheck()
+  openModal('modal-dup-check')
+}
+
+function renderDupCheck() {
+  const el = document.getElementById('dup-check-list')
+  const dups = _findDuplicateGroups()
+  if (!dups.length) {
+    el.innerHTML = '<div style="text-align:center;color:#34c759;font-size:15px;font-weight:600;padding:24px 0;">✓ 重複予約はありません</div>'
+    return
+  }
+  el.innerHTML = dups.map(g => {
+    const c = allCustomers.find(x => String(x.id) === String(g[0].customer_id))
+    const name = (c && c.name) || g[0].customer_name || '（不明なお客様）'
+    const dt = new Date(g[0].date + 'T00:00:00')
+    const dow = isNaN(dt) ? '' : '（' + DAY_JP[dt.getDay()] + '）'
+    const rows = g.map((r, i) => `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;${i>0?'border-top:1px solid #f0f0f5;':''}">
+        <div style="font-size:13px;color:#555;">${i+1}件目：${r.menu||'—'}${r.duration?' · '+fmtDur(r.duration):''}${r.price?' · ¥'+Number(r.price).toLocaleString():''}</div>
+        <button onclick="deleteDupReservation('${r.id}')" style="flex-shrink:0;background:#fff0f0;color:#e33;border:1px solid #fcc;border-radius:8px;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer;">削除</button>
+      </div>`).join('')
+    return `<div style="border:1.5px solid #ffd8d8;border-radius:12px;padding:12px 14px;margin-bottom:12px;">
+      <div style="font-size:15px;font-weight:700;margin-bottom:4px;">${name}　${g[0].date.slice(5)}${dow} ${g[0].time}<span style="font-size:12px;color:#e33;font-weight:600;margin-left:6px;">${g.length}件重複</span></div>
+      ${rows}
+    </div>`
+  }).join('')
+}
+
+async function deleteDupReservation(id) {
+  const r = allReservations.find(x => String(x.id) === String(id))
+  if (!r) { toast('対象が見つかりません'); return }
+  if (!(await uiConfirm(`この予約（${r.date} ${r.time}）を削除しますか？\nこの操作は元に戻せません。`, '削除する'))) return
+  const res = await api({ action: 'deleteReservation', id: r.id })
+  if (res && res.error) { toast('削除に失敗しました: ' + res.error); return }
+  if (res && res.offline) { toast('電波が不安定です。電波が戻ってから削除されます'); return }
+  // ローカルからも即座に除去して再描画（サーバー再取得を待たず一覧を更新）
+  allReservations = allReservations.filter(x => String(x.id) !== String(id))
+  _persistReservations()
+  toast('予約を削除しました')
+  renderDupCheck()
+  updateResBadge(); renderCalendar()
+  // 背景で正確なデータに更新
+  api({ action:'getReservations', filter:'' }).then(d => {
+    if (_isFreshArray(d)) { allReservations = _withPending(d); renderDupCheck(); updateResBadge(); renderCalendar() }
+  })
 }
 
 // ═══════════════ カレンダー ═══════════════
