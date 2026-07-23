@@ -947,7 +947,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-07-19b'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-07-23a'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -2727,6 +2727,38 @@ async function executeMove() {
   loadHome()
 }
 
+// 時間が重なる予約を横に並べるための桁割り。
+// list（時刻順）を受け取り、各予約の {col: 何列目, cols: その塊の総列数} を同じ順で返す。
+// 連続予約（10-11と11-12など）は重ならないので分割せず全幅のまま。
+function _packOverlaps(list) {
+  const iv = list.map(r => {
+    const [h, m] = (r.time || '0:0').split(':').map(Number)
+    const s = h * 60 + m
+    return { s, e: s + (r.duration || 60) }
+  })
+  const out = new Array(list.length)
+  let i = 0
+  while (i < list.length) {
+    let j = i
+    let clusterEnd = iv[i].e
+    const colEnds = []  // 各列の最終終了時刻
+    while (j < list.length && iv[j].s < clusterEnd) {
+      let placed = -1
+      for (let c = 0; c < colEnds.length; c++) {
+        if (iv[j].s >= colEnds[c]) { colEnds[c] = iv[j].e; placed = c; break }
+      }
+      if (placed === -1) { placed = colEnds.length; colEnds.push(iv[j].e) }
+      out[j] = { col: placed }
+      if (iv[j].e > clusterEnd) clusterEnd = iv[j].e
+      j++
+    }
+    const nCols = colEnds.length
+    for (let k = i; k < j; k++) out[k].cols = nCols
+    i = j
+  }
+  return out
+}
+
 function renderWeekCalendar() {
   const today = todayStr()
   const d = new Date(calDate)
@@ -2787,13 +2819,19 @@ function renderWeekCalendar() {
       .filter(r => r.date === ds)
       .sort((a,b) => a.time.localeCompare(b.time))
 
-    const blocks = dayRes.map(r => {
+    const dayLay = _packOverlaps(dayRes)
+    const blocks = dayRes.map((r, ri) => {
       const [rh, rm] = r.time.split(':').map(Number)
       const startMin = rh * 60 + rm
       const dur = r.duration || 60
       const topPx = ((startMin - HOUR_START * 60) / 60) * HOUR_H
       const hPx   = Math.max((dur / 60) * HOUR_H, 22)
       if (topPx < 0 || topPx >= totalH) return ''
+      // 時間が重なる予約は横に並べる（重ならなければ全幅）
+      const nCols = dayLay[ri].cols, ci = dayLay[ri].col
+      const posCss = nCols > 1
+        ? `left:calc(${(ci*100/nCols).toFixed(3)}% + 1px);width:calc(${(100/nCols).toFixed(3)}% - 2px)`
+        : ''
       // カルテ記入済み（薬剤かメモあり）は緑で表示。キャンセル系は元の色を守る
       const karteDone = r.has_karte && (r.status === 'visited' || r.status === 'reserved' || !r.status)
       const isOrange = /リタ|フル/.test(r.menu || '') && !karteDone
@@ -2801,7 +2839,7 @@ function renderWeekCalendar() {
       const rj = JSON.stringify(r).replace(/"/g,'&quot;')
       const cust = allCustomers.find(c => c.id === r.customer_id)
       const cj = cust ? JSON.stringify(cust).replace(/"/g,'&quot;') : null
-      return `<div class="${statusCls}" style="top:${topPx}px;height:${hPx}px${isOrange ? ';background:#ff9500' : ''}"
+      return `<div class="${statusCls}" style="top:${topPx}px;height:${hPx}px${posCss ? ';'+posCss : ''}${isOrange ? ';background:#ff9500' : ''}"
         ontouchstart="lpStart(event,${rj})" ontouchend="lpEnd(event)" ontouchmove="lpMove(event)"
         onclick="openResActionMenu(${rj})">
         <div class="week-tg-bname" ${cj ? `onclick="event.stopPropagation();showDetail(${cj},'reservations')"` : ''} style="${cj ? 'text-decoration:underline;text-underline-offset:2px;text-decoration-color:rgba(255,255,255,0.6);cursor:pointer;' : ''}">${r.customer_name}</div>
@@ -2889,7 +2927,8 @@ function renderDayCalendar() {
   }).join('')
 
   // 予約ブロック（施術時間分の高さ）
-  const blocks = dayRes.map(r => {
+  const dayLay = _packOverlaps(dayRes)
+  const blocks = dayRes.map((r, ri) => {
     const [rh, rm] = r.time.split(':').map(Number)
     const startMin = rh * 60 + rm
     const dur = r.duration || 60
@@ -2898,7 +2937,12 @@ function renderDayCalendar() {
     const rj = JSON.stringify(r).replace(/"/g,'&quot;')
     const karteDone = r.has_karte && (r.status === 'visited' || r.status === 'reserved' || !r.status)
     const statusCls = 'week-tg-block status-' + (r.status || 'reserved') + (karteDone ? ' karte-done' : '')
-    return `<div class="${statusCls}" style="top:${topPx}px;height:${hPx}px;left:52px;right:8px;"
+    // 時間が重なる予約は横に並べる（gutter: 左52px/右8px）
+    const nCols = dayLay[ri].cols, ci = dayLay[ri].col
+    const posCss = nCols > 1
+      ? `left:calc(52px + (100% - 60px) * ${ci} / ${nCols});width:calc((100% - 60px) / ${nCols} - 2px);`
+      : `left:52px;right:8px;`
+    return `<div class="${statusCls}" style="top:${topPx}px;height:${hPx}px;${posCss}"
       ontouchstart="lpStart(event,${rj})" ontouchend="lpEnd(event)" ontouchmove="lpMove(event)"
       onclick="openResActionMenu(${rj})">
       <div style="font-size:13px;font-weight:700;">${r.time} ${r.customer_name}</div>
