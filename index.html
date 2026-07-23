@@ -955,7 +955,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-07-24a'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-07-24b'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -3943,7 +3943,16 @@ async function submitAddReservation() {
   if (!date||!time) { showError('res-add-error','予約日と時刻を入力してください'); return }
   const cid = document.getElementById('res-customer-id').value
   if (!cid) { showError('res-add-error','顧客を選択してください'); return }
-  const btn = event.target; btn.disabled=true; btn.textContent='登録中...'
+  const btn = event.target
+  // 二重登録ガード：同じお客様・同じ日時の予約が既にあれば確認する（誤って2件入る事故を防ぐ）
+  const dupExists = allReservations.some(r =>
+    String(r.customer_id) === String(cid) && r.date === date && r.time === time &&
+    r.status !== 'cancelled' && r.status !== 'no_show')
+  if (dupExists) {
+    const go = await uiConfirm('同じお客様の同じ日時の予約が既に入っています。\nそれでも追加しますか？', '追加する')
+    if (!go) return
+  }
+  btn.disabled=true; btn.textContent='登録中...'
   const res = await api({ action:'addReservation', customer_id:cid, date, time,
     menu:document.getElementById('res-menu').value,
     duration: Math.round((parseFloat(document.getElementById('res-duration').value)||1) * 60),
