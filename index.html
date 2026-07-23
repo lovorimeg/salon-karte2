@@ -408,6 +408,10 @@ select.input { appearance:none; }
   <div class="list">
     <div id="detail-info"></div>
     <div class="section-header">
+      <div class="section-title">予約一覧</div>
+    </div>
+    <div id="detail-res-list"></div>
+    <div class="section-header">
       <div class="section-title">来店カルテ</div>
       <button class="btn-blue" onclick="openAddVisit()">＋カルテ追加</button>
     </div>
@@ -947,7 +951,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-07-23a'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-07-23b'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -3046,7 +3050,49 @@ async function showDetail(customer, from) {
   showScreen('screen-detail')
   document.getElementById('detail-name').textContent = customer.name
   renderDetailInfo(customer)
+  renderDetailReservations(customer)
   loadVisits(customer.id)
+}
+
+// 顧客ページに「この人の予約」を日付順で一覧表示（今後→過去）。
+// 手元のallReservations（カレンダーと同じデータ）から絞り込むだけなので通信不要。
+function renderDetailReservations(customer) {
+  const el = document.getElementById('detail-res-list')
+  if (!el) return
+  const today = todayStr()
+  const STATUS = {
+    reserved:  { label:'予約',       bg:'#ffe6ef', fg:'#d6336c' },
+    visited:   { label:'来店済み',   bg:'#fff1e0', fg:'#e08e00' },
+    cancelled: { label:'キャンセル', bg:'#eeeeef', fg:'#8e8e93' },
+    no_show:   { label:'無断キャンセル', bg:'#ffecec', fg:'#e33' }
+  }
+  const mine = allReservations
+    .filter(r => String(r.customer_id) === String(customer.id))
+    .sort((a,b) => (b.date + b.time).localeCompare(a.date + a.time)) // 新しい順
+  if (!mine.length) {
+    el.innerHTML = '<div class="empty" style="padding:14px 4px;color:#aaa;font-size:14px;">予約はありません</div>'
+    return
+  }
+  const upcoming = mine.filter(r => r.date >= today).reverse() // 今後は日付が近い順
+  const past     = mine.filter(r => r.date < today)            // 過去は新しい順
+  const card = r => {
+    const st = STATUS[r.status || 'reserved'] || STATUS.reserved
+    const rj = JSON.stringify(r).replace(/"/g,'&quot;')
+    const dt = new Date(r.date + 'T00:00:00')
+    const dow = isNaN(dt) ? '' : '（' + DAY_JP[dt.getDay()] + '）'
+    const pend = r._pending ? ' <span style="color:#e08e00;">⏳送信待ち</span>' : ''
+    return `<div class="res-card" style="padding:12px 14px;margin-bottom:8px;" onclick="openResActionMenu(${rj})">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+        <span style="font-size:15px;font-weight:700;">${r.date.slice(5)}${dow} ${r.time}${pend}</span>
+        <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:${st.bg};color:${st.fg};flex-shrink:0;">${st.label}</span>
+      </div>
+      <div style="font-size:13px;color:#666;margin-top:3px;">${r.menu||'—'}${r.duration ? ' · '+fmtDur(r.duration) : ''}${r.price ? ' · ¥'+r.price.toLocaleString() : ''}</div>
+    </div>`
+  }
+  let html = ''
+  if (upcoming.length) html += '<div class="date-label">今後の予約</div>' + upcoming.map(card).join('')
+  if (past.length)     html += '<div class="date-label">過去の予約</div>' + past.map(card).join('')
+  el.innerHTML = html
 }
 
 function renderDetailInfo(c) {
