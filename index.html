@@ -392,6 +392,7 @@ select.input { appearance:none; }
   <div class="list" id="customer-list"><div class="loading">読み込み中...</div></div>
   <div id="device-auth-status" style="text-align:center;font-size:12px;color:#aaa;padding:6px 0 10px;"></div>
   <div style="text-align:center;padding:0 0 90px;display:flex;flex-direction:column;gap:10px;align-items:center;">
+    <button onclick="openUnsentList()" style="padding:9px 22px;border-radius:18px;border:1.5px solid #ddd;background:#fff;color:#888;font-size:13px;font-weight:600;cursor:pointer;">📡 送信状況を確認</button>
     <button onclick="openDupCheck()" style="padding:9px 22px;border-radius:18px;border:1.5px solid #ddd;background:#fff;color:#888;font-size:13px;font-weight:600;cursor:pointer;">🔁 重複予約をチェック</button>
     <button onclick="openPinChange()" style="padding:9px 22px;border-radius:18px;border:1.5px solid #ddd;background:#fff;color:#888;font-size:13px;font-weight:600;cursor:pointer;">暗証番号を変更する</button>
   </div>
@@ -676,8 +677,8 @@ select.input { appearance:none; }
 <div class="overlay" id="modal-unsent" onclick="closeModal('modal-unsent')">
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-handle"></div>
-    <div class="modal-title" style="margin:0 0 6px">未送信のデータ</div>
-    <div style="font-size:13px;color:#888;margin-bottom:14px;line-height:1.6;">まだサーバーに届いていない内容です。電波の良い場所で「今すぐ送信」を押してください。送信できれば消えます。</div>
+    <div class="modal-title" style="margin:0 0 6px">送信状況</div>
+    <div style="font-size:13px;color:#888;margin-bottom:14px;line-height:1.6;">未送信のデータと、最近送信できたデータを表示します。未送信があれば電波の良い場所で「今すぐ送信」を押してください。</div>
     <div id="unsent-list"></div>
     <button class="btn-primary" id="unsent-send-btn" style="margin-top:14px" onclick="sendUnsentNow()">今すぐ送信</button>
     <button class="btn-secondary" style="margin-top:8px" onclick="closeModal('modal-unsent')">閉じる</button>
@@ -981,7 +982,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-07-24e'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-07-24f'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -1470,6 +1471,14 @@ async function api(params, opts) {
     return result
   } catch(e) {
     clearTimeout(timer)
+    // 電波はあるのにGoogle(GAS)側が一瞬だけ不調で即エラーになる時の空振りを減らす：
+    // 書き込みは一度だけ即リトライしてからキューへ回す。
+    // （タイムアウト=AbortErrorは待ち時間が延びるうえ、届いている可能性もあるのでリトライせずキューへ）
+    const _isWrite = !params.action.startsWith('get')
+    const _isAuth  = params.action === 'checkPin' || params.action === 'setPin'
+    if (e.name !== 'AbortError' && _isWrite && !_isAuth && !opts._retried && !opts.noQueue && navigator.onLine) {
+      return await api(params, { ...opts, _retried: true })
+    }
     if (e.name === 'AbortError') {
       // タイムアウトもキャッシュで代替
       if (params.action.startsWith('get')) {
@@ -1556,6 +1565,7 @@ async function flushOfflineQueue() {
       } else break  // キューが想定外に変化したら安全のため中断
       sentAny = true
       if (r && r.error) errored.push(item)  // サーバーに届いたが拒否された分は黙らず後で知らせる
+      else _pushSentLog(item)               // 送信できた分は「最近送信済み」に記録（後から確認できるように）
       if (['checkout','addVisit','updateVisit','deleteVisit'].indexOf(item.action) !== -1) _markSalesDirty()
     }
   } finally { _flushingQueue = false }
@@ -2012,28 +2022,49 @@ function _describeUnsent(item) {
   }
 }
 
+// 送信できた保存待ちデータを記録（バナーが消えた後でも「ちゃんと送れた」と確認できるように）。直近20件保持。
+function _pushSentLog(item) {
+  try {
+    const log = JSON.parse(localStorage.getItem('sentLog')||'[]')
+    log.unshift({
+      action:item.action, customer_id:item.customer_id, customer_name:item.customer_name,
+      date:item.date, time:item.time, menu:item.menu, name:item.name, title:item.title,
+      memo:item.memo, amount:item.amount, at: Date.now()
+    })
+    localStorage.setItem('sentLog', JSON.stringify(log.slice(0, 20)))
+  } catch(e) {}
+}
+
 function openUnsentList() { renderUnsentList(); openModal('modal-unsent') }
 
 function renderUnsentList() {
   const el = document.getElementById('unsent-list')
   const sendBtn = document.getElementById('unsent-send-btn')
-  let q = []
-  try { q = JSON.parse(localStorage.getItem('offlineQueue')||'[]') } catch(e) { q = [] }
-  if (!q.length) {
-    el.innerHTML = '<div style="text-align:center;color:#34c759;font-size:15px;font-weight:600;padding:20px 0;">✓ 未送信のデータはありません</div>'
-    if (sendBtn) sendBtn.style.display = 'none'
-    return
-  }
-  if (sendBtn) sendBtn.style.display = 'block'
-  const offlineNote = navigator.onLine ? ''
-    : '<div style="text-align:center;color:#e33;font-size:13px;font-weight:600;padding:0 0 10px;">📵 今は電波がありません。電波が戻ってから送信できます。</div>'
-  el.innerHTML = offlineNote + q.map(item => {
-    const d = _describeUnsent(item)
-    return `<div style="display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid #f0f0f5;">
-      <div style="font-size:18px;line-height:1.4;">${d.icon}</div>
+  let q = [], log = []
+  try { q   = JSON.parse(localStorage.getItem('offlineQueue')||'[]') } catch(e) { q = [] }
+  try { log = JSON.parse(localStorage.getItem('sentLog')||'[]') }      catch(e) { log = [] }
+  const row = (d, sent) => `<div style="display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid #f0f0f5;${sent?'opacity:0.8;':''}">
+      <div style="font-size:18px;line-height:1.4;">${sent?'✓':d.icon}</div>
       <div><div style="font-size:15px;font-weight:600;">${d.title}</div>${d.detail ? `<div style="font-size:13px;color:#666;margin-top:2px;">${d.detail}</div>` : ''}</div>
     </div>`
-  }).join('')
+  let html = ''
+  if (q.length) {
+    if (sendBtn) sendBtn.style.display = 'block'
+    if (!navigator.onLine) html += '<div style="text-align:center;color:#e33;font-size:13px;font-weight:600;padding:0 0 10px;">📵 今は電波がありません。電波が戻ってから送信できます。</div>'
+    html += '<div class="date-label">未送信</div>' + q.map(item => row(_describeUnsent(item), false)).join('')
+  } else {
+    if (sendBtn) sendBtn.style.display = 'none'
+    html += '<div style="text-align:center;color:#34c759;font-size:15px;font-weight:600;padding:18px 0;">✓ 未送信のデータはありません</div>'
+  }
+  if (log.length) {
+    html += '<div class="date-label" style="margin-top:8px;">最近送信できたもの</div>' + log.slice(0, 10).map(item => {
+      const d = _describeUnsent(item)
+      const t = new Date(item.at || 0)
+      const ts = isNaN(t.getTime()) ? '' : `${t.getMonth()+1}/${t.getDate()} ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')} 送信`
+      return row({ icon:'✓', title:d.title, detail:[d.detail, ts].filter(Boolean).join('　') }, true)
+    }).join('')
+  }
+  el.innerHTML = html
 }
 
 async function sendUnsentNow() {
