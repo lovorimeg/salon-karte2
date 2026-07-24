@@ -672,6 +672,18 @@ select.input { appearance:none; }
   </div>
 </div>
 
+<!-- ═══════════════ モーダル：未送信データ一覧 ═══════════════ -->
+<div class="overlay" id="modal-unsent" onclick="closeModal('modal-unsent')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title" style="margin:0 0 6px">未送信のデータ</div>
+    <div style="font-size:13px;color:#888;margin-bottom:14px;line-height:1.6;">まだサーバーに届いていない内容です。電波の良い場所で「今すぐ送信」を押してください。送信できれば消えます。</div>
+    <div id="unsent-list"></div>
+    <button class="btn-primary" id="unsent-send-btn" style="margin-top:14px" onclick="sendUnsentNow()">今すぐ送信</button>
+    <button class="btn-secondary" style="margin-top:8px" onclick="closeModal('modal-unsent')">閉じる</button>
+  </div>
+</div>
+
 <!-- ═══════════════ モーダル：重複予約チェック ═══════════════ -->
 <div class="overlay" id="modal-dup-check" onclick="closeModal('modal-dup-check')">
   <div class="modal" onclick="event.stopPropagation()">
@@ -949,8 +961,8 @@ select.input { appearance:none; }
   📵 オフライン中 — キャッシュデータを表示しています
 </div>
 <!-- 未送信（保存待ち）が残っている間は、閉じても分かるように常に出し続ける。タップで再送を試す。 -->
-<div id="unsent-banner" onclick="flushOfflineQueue()" style="display:none;position:fixed;top:0;left:0;right:0;background:#e0392b;color:#fff;padding:10px 16px;text-align:center;font-size:14px;font-weight:700;z-index:501;letter-spacing:0.3px;cursor:pointer;">
-  ⏳ 未送信の予約が <span id="unsent-count">0</span>件あります — タップで再送（電波の良い場所で開き直してください）
+<div id="unsent-banner" onclick="openUnsentList()" style="display:none;position:fixed;top:0;left:0;right:0;background:#e0392b;color:#fff;padding:10px 16px;text-align:center;font-size:14px;font-weight:700;z-index:501;letter-spacing:0.3px;cursor:pointer;">
+  ⏳ 未送信の予約が <span id="unsent-count">0</span>件あります — タップで内容を確認
 </div>
 
 <!-- お会計完了画面 -->
@@ -969,7 +981,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-07-24d'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-07-24e'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -1975,6 +1987,63 @@ async function resActionDelete() {
   if (res && res.error) { toast('削除に失敗しました: ' + res.error); return }
   toast('予約を削除しました')
   await loadAll()
+}
+
+// ═══════════════ 未送信データ一覧 ═══════════════
+// 保存待ちキューの各項目を、お客様名・日時つきの分かりやすい文言に変換する
+function _describeUnsent(item) {
+  const cust = allCustomers.find(c => String(c.id) === String(item.customer_id))
+  const cname = (cust && cust.name) || item.customer_name || ''
+  const who = cname ? cname + '様' : ''
+  const dt = item.date ? item.date.slice(5) + (item.time ? ' ' + item.time : '') : ''
+  const join = (...xs) => xs.filter(Boolean).join('　')
+  switch (item.action) {
+    case 'addReservation':    return { icon:'📅', title:'予約の追加', detail: join(who, dt, item.menu) }
+    case 'updateReservation': return { icon:'✏️', title:'予約の変更', detail: join(who, dt) }
+    case 'deleteReservation': return { icon:'🗑️', title:'予約の削除', detail: join(who, dt) }
+    case 'checkout':          return { icon:'💰', title:'お会計',     detail: join(who, dt) }
+    case 'addVisit':
+    case 'updateVisit':       return { icon:'📝', title:'カルテの保存', detail: who }
+    case 'deleteVisit':       return { icon:'🗑️', title:'カルテの削除', detail: who }
+    case 'addCustomer':       return { icon:'👤', title:'顧客の追加',   detail: item.name || '' }
+    case 'addExpense':        return { icon:'🧾', title:'経費の追加',   detail: join(item.memo, item.amount ? '¥'+Number(item.amount).toLocaleString() : '') }
+    case 'addEvent':          return { icon:'📌', title:'予定の追加',   detail: join(item.title, item.date ? item.date.slice(5) : '') }
+    default:                  return { icon:'💾', title:'データの保存', detail: '' }
+  }
+}
+
+function openUnsentList() { renderUnsentList(); openModal('modal-unsent') }
+
+function renderUnsentList() {
+  const el = document.getElementById('unsent-list')
+  const sendBtn = document.getElementById('unsent-send-btn')
+  let q = []
+  try { q = JSON.parse(localStorage.getItem('offlineQueue')||'[]') } catch(e) { q = [] }
+  if (!q.length) {
+    el.innerHTML = '<div style="text-align:center;color:#34c759;font-size:15px;font-weight:600;padding:20px 0;">✓ 未送信のデータはありません</div>'
+    if (sendBtn) sendBtn.style.display = 'none'
+    return
+  }
+  if (sendBtn) sendBtn.style.display = 'block'
+  const offlineNote = navigator.onLine ? ''
+    : '<div style="text-align:center;color:#e33;font-size:13px;font-weight:600;padding:0 0 10px;">📵 今は電波がありません。電波が戻ってから送信できます。</div>'
+  el.innerHTML = offlineNote + q.map(item => {
+    const d = _describeUnsent(item)
+    return `<div style="display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid #f0f0f5;">
+      <div style="font-size:18px;line-height:1.4;">${d.icon}</div>
+      <div><div style="font-size:15px;font-weight:600;">${d.title}</div>${d.detail ? `<div style="font-size:13px;color:#666;margin-top:2px;">${d.detail}</div>` : ''}</div>
+    </div>`
+  }).join('')
+}
+
+async function sendUnsentNow() {
+  if (!navigator.onLine) { toast('今は電波がありません。電波が戻ってからお試しください'); return }
+  const btn = document.getElementById('unsent-send-btn')
+  if (btn) { btn.disabled = true; btn.textContent = '送信中...' }
+  await flushOfflineQueue()   // 成功/失敗のトーストはこの中で出る
+  if (btn) { btn.disabled = false; btn.textContent = '今すぐ送信' }
+  renderUnsentList()
+  if (_unsentQueueLen() === 0) closeModal('modal-unsent')  // 全部送れたら閉じる
 }
 
 // ═══════════════ 重複予約チェック ═══════════════
