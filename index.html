@@ -982,7 +982,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-07-24f'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-07-24g'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -1550,25 +1550,49 @@ async function flushOfflineQueue() {
   toast('保存待ちのデータを送信中...')
   let sentAny = false
   const errored = []
+  const giveUp = []
+  const _same = (a, b) => a && b && a.timestamp === b.timestamp && a.action === b.action
+  const _readQ  = () => { try { return JSON.parse(localStorage.getItem('offlineQueue')||'[]') } catch(e) { return [] } }
+  const _writeQ = a  => { try { localStorage.setItem('offlineQueue', JSON.stringify(a)) } catch(e) {} }
+  const MAX_TRIES = 5   // これ以上送れない項目は隔離して、後続をブロックしないようにする
   try {
-    let guard = 0
-    while (navigator.onLine && guard++ < 200) {
-      const q = JSON.parse(localStorage.getItem('offlineQueue')||'[]')
-      if (!q.length) break
-      const item = q[0]
-      const r = await api(item, { noQueue: true })  // 失敗してもキューへ入れ直さない＝二重化しない
-      if (r && r.offline) break                      // まだ送れない → 先頭を残して中断（次の機会に自動再送）
-      // 送信できた（成功／サーバーが受理してエラー返し）→ キューの先頭を1件だけ削除
-      const q2 = JSON.parse(localStorage.getItem('offlineQueue')||'[]')
-      if (q2.length && q2[0].timestamp === item.timestamp && q2[0].action === item.action) {
-        q2.shift(); localStorage.setItem('offlineQueue', JSON.stringify(q2))
-      } else break  // キューが想定外に変化したら安全のため中断
+    // 今キューにある分だけを1周する。1件が送れなくても**次の項目に進む**のが要点。
+    // 以前は先頭が送れないと break していたため、送れない1件が後続を永久に止めていた（＝毎回「未送信」が残る原因）。
+    const snapshot = _readQ()
+    for (const item of snapshot) {
+      if (!navigator.onLine) break                       // 本当に圏外なら中断（次の機会に自動再送）
+      const cur = _readQ()
+      if (!cur.some(x => _same(x, item))) continue       // 既に送信済み等で消えていればスキップ
+      const r = await api(item, { noQueue: true })       // 失敗してもキューへ入れ直さない＝二重化しない
+      if (r && r.offline) {
+        // 送れなかった：試行回数を数えて末尾へ回す。上限を超えたら隔離してユーザーに知らせる。
+        const q2 = _readQ()
+        const i2 = q2.findIndex(x => _same(x, item))
+        if (i2 !== -1) {
+          const it = q2.splice(i2, 1)[0]
+          it._tries = (it._tries || 0) + 1
+          if (it._tries >= MAX_TRIES) giveUp.push(it)    // キューから外す（後続を止めない）
+          else q2.push(it)                               // 末尾へ回して後続を先に処理
+          _writeQ(q2)
+        }
+        continue
+      }
+      // 送信できた（成功／サーバーが受理してエラー返し）→ その項目だけをキューから削除
+      const q3 = _readQ()
+      const i3 = q3.findIndex(x => _same(x, item))
+      if (i3 !== -1) { q3.splice(i3, 1); _writeQ(q3) }
       sentAny = true
       if (r && r.error) errored.push(item)  // サーバーに届いたが拒否された分は黙らず後で知らせる
       else _pushSentLog(item)               // 送信できた分は「最近送信済み」に記録（後から確認できるように）
       if (['checkout','addVisit','updateVisit','deleteVisit'].indexOf(item.action) !== -1) _markSalesDirty()
     }
   } finally { _flushingQueue = false }
+  if (giveUp.length) {
+    try {
+      const names = giveUp.map(i => { const d = _describeUnsent(i); return '・' + d.title + (d.detail ? '（' + d.detail + '）' : '') }).join('\n')
+      alert('⚠️ 次のデータが何度も送信できなかったため、送信を諦めました。\nお手数ですが入れ直してください。\n\n' + names)
+    } catch(e) {}
+  }
   _updateUnsentBanner()
   const left = _unsentQueueLen()
   if (errored.length) {
