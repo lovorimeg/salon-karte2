@@ -795,7 +795,24 @@ select.input { appearance:none; }
     <button class="btn-primary" onclick="submitAddEvent()">追加する</button>
     <button class="btn-secondary" onclick="closeModal('modal-add-event')">キャンセル</button>
     <div style="border-top:1px solid #f0f0f5;margin-top:20px;padding-top:16px;">
-      <div class="section-title" style="margin-bottom:10px">登録済みの予定</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;">
+        <div class="section-title" style="margin:0">登録済みの予定</div>
+        <button type="button" id="ev-past-toggle" onclick="toggleEvPast()" style="flex-shrink:0;background:#f0f0f5;border:none;border-radius:10px;padding:5px 12px;font-size:12px;font-weight:600;color:#666;cursor:pointer;">過去も表示</button>
+      </div>
+      <!-- 予定の編集フォーム（「編集」ボタンで表示） -->
+      <div id="ev-edit-form" style="display:none;border:2px solid #007aff;border-radius:12px;padding:14px;margin-bottom:12px;">
+        <div style="font-size:13px;font-weight:600;color:#007aff;margin-bottom:10px;">予定を編集</div>
+        <div class="payment-group" style="margin-bottom:8px;">
+          <button type="button" class="payment-btn" id="ev-edit-type-holiday" onclick="selectEditEventType('holiday')">定休日</button>
+          <button type="button" class="payment-btn" id="ev-edit-type-other"   onclick="selectEditEventType('other')">その他</button>
+        </div>
+        <input class="input" id="ev-edit-date" type="date" style="margin-bottom:8px"/>
+        <input class="input" id="ev-edit-title" placeholder="タイトル" style="margin-bottom:8px"/>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <button class="btn-primary"   style="margin-top:0" onclick="submitEditEvent()">更新する</button>
+          <button class="btn-secondary" style="margin-top:0" onclick="cancelEditEvent()">キャンセル</button>
+        </div>
+      </div>
       <div id="ev-list"><div style="color:#aaa;font-size:14px">なし</div></div>
     </div>
   </div>
@@ -984,7 +1001,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-08-07b'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-09-09a'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -4755,6 +4772,8 @@ function openAddEvent(date) {
   document.getElementById('ev-title').value = ''
   _pendingEventDates = []
   selectEventType('holiday')
+  _evShowPast = false      // 開くたびに「今日以降だけ」の短い一覧に戻す
+  cancelEditEvent()        // 前回の編集フォームが開いたままにならないように
   renderEventCalendar()
   renderEvList()
   openModal('modal-add-event')
@@ -4807,18 +4826,99 @@ function renderEventCalendar() {
   document.getElementById('ev-pending-count').textContent = cnt ? `${cnt}日選択中` : 'タップで休む日を選択（火曜と登録済みは自動でお休み）'
 }
 
+// 予定一覧は使い込むほど過去分が積み上がって長くなるので、既定は「今日以降」だけ。
+// 過去はボタンで開閉（件数つき）。月ごとの見出しで探しやすくする。
+let _evShowPast = false
+
+function toggleEvPast() { _evShowPast = !_evShowPast; renderEvList() }
+
+function _evRow(ev) {
+  const d = new Date(ev.date + 'T00:00:00')
+  const dow = isNaN(d.getTime()) ? '' : '（' + DAY_JP[d.getDay()] + '）'
+  return `<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:8px 0;border-bottom:1px solid #f0f0f5">
+      <div style="min-width:0;flex:1;">
+        <span class="event-chip ${ev.type==='holiday'?'event-holiday':'event-other'}" style="display:inline-block;margin-right:6px">${ev.type==='holiday'?'定休日':'その他'}</span>
+        <span style="font-size:14px;font-weight:600">${ev.date.slice(5)}${dow}　${ev.title||'定休日'}</span>
+      </div>
+      <button onclick="openEditEvent('${ev.id}')" style="flex-shrink:0;background:#e8f0fe;color:#007aff;border:1px solid #c0d4fb;border-radius:8px;padding:4px 10px;font-size:13px;cursor:pointer">編集</button>
+      <button onclick="deleteEventItem('${ev.id}')" style="flex-shrink:0;background:#fff0f0;color:#e33;border:1px solid #fcc;border-radius:8px;padding:4px 10px;font-size:13px;cursor:pointer">削除</button>
+    </div>`
+}
+
+function _evRowsByMonth(list) {
+  let html = '', curMonth = ''
+  list.forEach(ev => {
+    const mk = (ev.date || '').slice(0, 7)
+    if (mk !== curMonth) {
+      curMonth = mk
+      html += `<div style="font-size:12px;font-weight:700;color:#888;margin:10px 0 2px;">${mk.slice(0,4)}年${Number(mk.slice(5,7))}月</div>`
+    }
+    html += _evRow(ev)
+  })
+  return html
+}
+
 function renderEvList() {
   const el = document.getElementById('ev-list')
+  const toggle = document.getElementById('ev-past-toggle')
+  const today = todayStr()
+  const upcoming = allEvents.filter(e => e.date >= today).sort((a,b) => a.date.localeCompare(b.date))
+  const past     = allEvents.filter(e => e.date <  today).sort((a,b) => b.date.localeCompare(a.date))
+  if (toggle) {
+    toggle.style.display = past.length ? '' : 'none'
+    toggle.textContent = _evShowPast ? '過去を隠す' : `過去も表示（${past.length}）`
+  }
   if (!allEvents.length) { el.innerHTML = '<div style="color:#aaa;font-size:14px">なし</div>'; return }
-  const sorted = [...allEvents].sort((a,b) => a.date.localeCompare(b.date))
-  el.innerHTML = sorted.map(ev => `
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f0f5">
-      <div>
-        <span class="event-chip ${ev.type==='holiday'?'event-holiday':'event-other'}" style="display:inline-block;margin-right:6px">${ev.type==='holiday'?'定休日':'その他'}</span>
-        <span style="font-size:14px;font-weight:600">${ev.date}　${ev.title||'定休日'}</span>
-      </div>
-      <button onclick="deleteEventItem('${ev.id}')" style="background:#fff0f0;color:#e33;border:1px solid #fcc;border-radius:8px;padding:4px 10px;font-size:13px;cursor:pointer">削除</button>
-    </div>`).join('')
+  let html = upcoming.length
+    ? _evRowsByMonth(upcoming)
+    : '<div style="color:#aaa;font-size:14px;padding:6px 0;">今後の予定はありません</div>'
+  if (_evShowPast && past.length) {
+    html += '<div class="date-label" style="margin-top:12px;">過去の予定</div>' + _evRowsByMonth(past)
+  }
+  el.innerHTML = html
+}
+
+// ── 予定の編集 ──
+let _editingEventId = null
+let _editEventType  = 'holiday'
+
+function selectEditEventType(t) {
+  _editEventType = t
+  document.getElementById('ev-edit-type-holiday').classList.toggle('active', t === 'holiday')
+  document.getElementById('ev-edit-type-other').classList.toggle('active',   t === 'other')
+}
+
+function openEditEvent(id) {
+  const ev = allEvents.find(e => String(e.id) === String(id))
+  if (!ev) { toast('予定が見つかりません'); return }
+  _editingEventId = id
+  document.getElementById('ev-edit-date').value  = ev.date || ''
+  document.getElementById('ev-edit-title').value = ev.title || ''
+  selectEditEventType(ev.type === 'holiday' ? 'holiday' : 'other')
+  const f = document.getElementById('ev-edit-form')
+  f.style.display = 'block'
+  f.scrollIntoView({ behavior:'smooth', block:'nearest' })
+}
+
+function cancelEditEvent() {
+  _editingEventId = null
+  document.getElementById('ev-edit-form').style.display = 'none'
+}
+
+async function submitEditEvent() {
+  if (!_editingEventId) return
+  const date = document.getElementById('ev-edit-date').value
+  if (!date) { toast('日付を入れてください'); return }
+  const title = document.getElementById('ev-edit-title').value.trim() || (_editEventType === 'holiday' ? '定休日' : 'その他')
+  const btn = event.target; btn.disabled = true; btn.textContent = '更新中...'
+  const res = await api({ action:'updateEvent', id:_editingEventId, date, title, type:_editEventType })
+  btn.disabled = false; btn.textContent = '更新する'
+  if (res && res.error) { toast('更新に失敗しました: ' + res.error); return }
+  // 手元も即更新（送信待ちでも画面には反映し、キューが後で送る）
+  allEvents = allEvents.map(e => String(e.id) === String(_editingEventId) ? { ...e, date, title, type:_editEventType } : e)
+  cancelEditEvent()
+  renderEvList(); renderEventCalendar(); renderCalendar()
+  toast(res && res.offline ? '電波が不安定のため保存待ちです' : '予定を更新しました')
 }
 
 async function submitAddEvent() {
@@ -4842,11 +4942,14 @@ async function submitAddEvent() {
 
 async function deleteEventItem(id) {
   if (!(await uiConfirm('この予定を削除しますか？', '削除する'))) return
-  await api({ action:'deleteEvent', id })
-  allEvents = allEvents.filter(ev => ev.id !== id)
+  const res = await api({ action:'deleteEvent', id })
+  if (res && res.error) { toast('削除に失敗しました: ' + res.error); return }
+  if (String(_editingEventId) === String(id)) cancelEditEvent()  // 編集中のものを消したらフォームも閉じる
+  allEvents = allEvents.filter(ev => String(ev.id) !== String(id))
   renderEvList()
+  renderEventCalendar()
   renderCalendar()
-  toast('削除しました')
+  toast(res && res.offline ? '電波が不安定のため保存待ちです' : '削除しました')
 }
 
 // ═══════════════ 売上集計 ═══════════════
