@@ -1001,7 +1001,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-09-09a'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-09-09b'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -2301,7 +2301,7 @@ function renderMonthCalendar() {
     const jphHtml = jph ? `<span class="event-chip" style="background:#fdeef0;color:#d6336c;">${jph}</span>` : ''
     const numStyle = jph ? ' style="color:#d6336c;"' : ''
     const evHtml = jphHtml + regularHolidayChip(s) + dayEvts.map(ev =>
-      `<span class="event-chip ${ev.type==='holiday'?'event-holiday':'event-other'}" onclick="event.stopPropagation();openAddEvent('${s}')">${ev.title||'定休日'}</span>`
+      `<span class="event-chip ${ev.type==='holiday'?'event-holiday':'event-other'}" onclick="event.stopPropagation();editEventFromCalendar('${ev.id}','${s}')">${ev.title||'定休日'}</span>`
     ).join('')
     return `<div class="${cls}" data-mdate="${s}" onclick="selectMonthDay('${s}')">
       <div class="month-num"${numStyle}>${d}</div>${dots}${evHtml}
@@ -3146,7 +3146,7 @@ function renderWeekCalendar() {
     const jphChip = jph ? `<span class="event-chip" style="background:#fdeef0;color:#d6336c;">${jph}</span>` : ''
     if (dayEvts.length || autoChip || jphChip) hasWeekEvent = true
     document.getElementById('wad'+i).innerHTML = jphChip + autoChip + dayEvts.map(ev =>
-      `<span class="event-chip ${ev.type==='holiday'?'event-holiday':'event-other'}" onclick="openAddEvent('${ds}')">${ev.title||'定休日'}</span>`
+      `<span class="event-chip ${ev.type==='holiday'?'event-holiday':'event-other'}" onclick="event.stopPropagation();editEventFromCalendar('${ev.id}','${ds}')">${ev.title||'定休日'}</span>`
     ).join('')
   })
   document.getElementById('week-allday-row').style.display = hasWeekEvent ? 'grid' : 'none'
@@ -3180,7 +3180,7 @@ function renderDayCalendar() {
   const jph = jpHoliday(ds)
   const jphChip = jph ? `<span class="event-chip" style="background:#fdeef0;color:#d6336c;display:inline-block;margin-right:4px;">${jph}</span>` : ''
   const evInner = jphChip + autoChip + dayEvts.map(ev =>
-    `<span class="event-chip ${ev.type==='holiday'?'event-holiday':'event-other'}" style="display:inline-block;margin-right:4px" onclick="openAddEvent('${ds}')">${ev.title||'定休日'}</span>`
+    `<span class="event-chip ${ev.type==='holiday'?'event-holiday':'event-other'}" style="display:inline-block;margin-right:4px" onclick="event.stopPropagation();editEventFromCalendar('${ev.id}','${ds}')">${ev.title||'定休日'}</span>`
   ).join('')
   const evBanner = evInner ? `<div style="padding:6px 16px 4px">${evInner}</div>` : ''
 
@@ -4903,6 +4903,16 @@ function openEditEvent(id) {
 function cancelEditEvent() {
   _editingEventId = null
   document.getElementById('ev-edit-form').style.display = 'none'
+}
+
+// カレンダー上の予定チップをタップ→その予定の編集フォームを直接開く
+// （以前は日付だけ渡して「追加」画面が開いていたので、既存の予定を直せなかった）
+function editEventFromCalendar(id, ds) {
+  const ev = allEvents.find(e => String(e.id) === String(id))
+  openAddEvent(ds)               // 予定モーダルをその日の月で開く（中で編集フォームは一旦閉じる）
+  if (!ev) { toast('予定が見つかりません'); return }
+  if (ev.date < todayStr()) { _evShowPast = true; renderEvList() }  // 過去の予定なら一覧にも出す
+  openEditEvent(id)              // 続けてその予定の編集フォームを開く
 }
 
 async function submitEditEvent() {
