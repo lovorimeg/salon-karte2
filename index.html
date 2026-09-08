@@ -15,6 +15,10 @@ body { font-family:-apple-system,'Hiragino Sans',sans-serif; background:#f5f5f7;
 
 /* ── ヘッダー ── */
 .header { background:#fff; padding:12px 16px; border-bottom:1px solid #e5e5ea; position:sticky; top:0; z-index:10; }
+/* 未送信バナー表示中は、その高さ分だけ中身を下げる（バナーが日付やボタンを覆わないように） */
+body.has-unsent { padding-top:38px; }
+body.has-unsent .header,
+body.has-unsent #cal-sticky-header { top:38px; }
 .header-row { display:flex; align-items:center; justify-content:space-between; }
 .header h1 { font-size:20px; font-weight:700; }
 .search { width:100%; margin-top:10px; padding:10px 14px; border-radius:10px; border:none; background:#f0f0f5; font-size:16px; }
@@ -326,7 +330,7 @@ select.input { appearance:none; }
 
 <!-- ═══════════════ カレンダー画面 ═══════════════ -->
 <div id="screen-calendar" style="display:none" ontouchstart="calSwipeStart(event)" ontouchend="calSwipeEnd(event)">
-  <div style="background:#fff; border-bottom:1px solid #e5e5ea; position:sticky; top:0; z-index:10;">
+  <div id="cal-sticky-header" style="background:#fff; border-bottom:1px solid #e5e5ea; position:sticky; top:0; z-index:10;">
     <div class="cal-nav">
       <button class="cal-nav-btn" onclick="calPrev()">‹</button>
       <div class="cal-nav-title" id="cal-title"></div>
@@ -1002,7 +1006,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-09-09c'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-09-09d'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -1514,7 +1518,9 @@ async function api(params, opts) {
       }
       if (opts.noQueue) return { offline: true }
       // キューに入れられたら保存待ち、入れられなければ（容量満杯など）正直にエラーを返す＝黙って消さない
-      return saveOffline(params) ? { offline: true } : { error: '保存できませんでした。端末の空き容量を確認して、もう一度お試しください。' }
+      if (!saveOffline(params)) return { error: '保存できませんでした。端末の空き容量を確認して、もう一度お試しください。' }
+      _scheduleQueueFlush()
+      return { offline: true }
     }
     // オフライン：GETはキャッシュ、書き込みはキュー
     if (!navigator.onLine) _showOfflineBanner()  // 本当に圏外のときだけ表示（GASの一時不調では出さない）
@@ -1522,8 +1528,17 @@ async function api(params, opts) {
       return _markStale(_loadLocalCache(params) || [])
     }
     if (opts.noQueue) return { offline: true }
-    return saveOffline(params) ? { offline: true } : { error: '保存できませんでした。端末の空き容量を確認して、もう一度お試しください。' }
+    if (!saveOffline(params)) return { error: '保存できませんでした。端末の空き容量を確認して、もう一度お試しください。' }
+    _scheduleQueueFlush()
+    return { offline: true }
   }
+}
+
+// 保存待ちになったら少し待って自動で送り直す。
+// タイムアウトでも実際はサーバーに届いていることが多く、その場合は再送が即「登録済み」と返るため、
+// ユーザーが何もしなくても赤いバナーが数秒で消える（＝「未送信」が残りっぱなしになりにくい）。
+function _scheduleQueueFlush(delay) {
+  setTimeout(() => { try { flushOfflineQueue() } catch(e) {} }, delay || 1500)
 }
 
 function _unsentQueueLen() {
@@ -1540,6 +1555,7 @@ function _updateUnsentBanner() {
   } else {
     el.style.display = 'none'
   }
+  document.body.classList.toggle('has-unsent', n > 0)  // バナーの高さ分だけ中身を下げる
 }
 
 // 保存待ちキューへの追加。setItemが失敗（保存容量満杯など）したら握りつぶさず false を返す＝呼び出し側が正直にエラー表示する。
