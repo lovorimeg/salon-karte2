@@ -812,6 +812,7 @@ select.input { appearance:none; }
           <button class="btn-primary"   style="margin-top:0" onclick="submitEditEvent()">更新する</button>
           <button class="btn-secondary" style="margin-top:0" onclick="cancelEditEvent()">キャンセル</button>
         </div>
+        <button type="button" onclick="deleteEditingEvent()" style="width:100%;margin-top:8px;background:#fff0f0;color:#e33;border:1px solid #fcc;border-radius:10px;padding:10px;font-size:14px;font-weight:600;cursor:pointer;">🗑️ この予定を削除（休みをやめる）</button>
       </div>
       <div id="ev-list"><div style="color:#aaa;font-size:14px">なし</div></div>
     </div>
@@ -1001,7 +1002,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-09-09b'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-09-09c'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -4814,16 +4815,22 @@ function renderEventCalendar() {
     if (isTue) { bg = '#ffecec'; color = '#e33'; sub = '休' }       // 火曜は自動定休
     if (registered) { bg = '#ffecec'; color = '#e33'; sub = '休' }   // 登録済み
     if (selected) { bg = '#e33'; color = '#fff'; border = '1px solid #e33'; sub = '✓' }
-    const tappable = !isTue && !registered
-    const onclick = tappable ? `onclick="toggleEvDay('${ds}')"` : ''
-    html += `<div ${onclick} style="aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:8px;background:${bg};color:${color};border:${border};font-size:14px;cursor:${tappable?'pointer':'default'};opacity:${tappable||selected?'1':'0.55'};">
+    // 登録済みの日＝タップで「編集」／未登録の非火曜＝タップで「追加の選択」
+    // （以前は登録済みも火曜も onclick 無しで、休みの日を触ることすらできなかった）
+    const canEdit   = registered
+    const canSelect = !isTue && !registered
+    const onclick = canEdit   ? `onclick="editEventFromEvCal('${ds}')"`
+                  : canSelect ? `onclick="toggleEvDay('${ds}')"` : ''
+    const interactive = canEdit || canSelect
+    if (canEdit) border = '1px solid #f3aaaa'
+    html += `<div ${onclick} style="aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:8px;background:${bg};color:${color};border:${border};font-size:14px;cursor:${interactive?'pointer':'default'};opacity:${interactive||selected?'1':'0.55'};">
       <span>${day}</span>${sub?`<span style="font-size:9px;line-height:1;">${sub}</span>`:''}
     </div>`
   }
   document.getElementById('ev-cal-grid').innerHTML = html
 
   const cnt = _pendingEventDates.length
-  document.getElementById('ev-pending-count').textContent = cnt ? `${cnt}日選択中` : 'タップで休む日を選択（火曜と登録済みは自動でお休み）'
+  document.getElementById('ev-pending-count').textContent = cnt ? `${cnt}日選択中` : 'タップで休む日を選択／「休」の日はタップで変更・削除（火曜は自動でお休み）'
 }
 
 // 予定一覧は使い込むほど過去分が積み上がって長くなるので、既定は「今日以降」だけ。
@@ -4903,6 +4910,22 @@ function openEditEvent(id) {
 function cancelEditEvent() {
   _editingEventId = null
   document.getElementById('ev-edit-form').style.display = 'none'
+}
+
+// 予定モーダル内のミニカレンダーで「休」の日をタップ→その日の予定を編集
+function editEventFromEvCal(ds) {
+  const evs = allEvents.filter(e => e.date === ds).sort((a,b) => String(a.id).localeCompare(String(b.id)))
+  if (!evs.length) { toast('この日の予定が見つかりません'); return }
+  if (ds < todayStr()) { _evShowPast = true; renderEvList() }  // 過去の予定なら一覧にも出す
+  if (evs.length > 1) toast(`この日は予定が${evs.length}件あります（1件目を開きました）`)
+  openEditEvent(evs[0].id)
+}
+
+// 編集フォームからそのまま削除する（「休みをやめる」を1画面で完結させる）
+async function deleteEditingEvent() {
+  const id = _editingEventId
+  if (!id) return
+  await deleteEventItem(id)   // 確認・通信・再描画・フォーム閉じは既存処理に任せる
 }
 
 // カレンダー上の予定チップをタップ→その予定の編集フォームを直接開く
