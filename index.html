@@ -1006,7 +1006,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-09-09e'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-09-15a'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -1578,13 +1578,18 @@ function saveOffline(data) {
 // さらに再送中に1件失敗すると removeItem で失敗分ごと消えるバグがあった。
 // → 起動時・画面復帰時・電波復帰時に必ず再送を試み、失敗分はキューに残す方式に修正。
 let _flushingQueue = false
+let _flushStartedAt = 0
 // クラッシュに強い再送：1件ずつ「送信できたことを確認してから」キューの先頭を消す。
 // 送信の途中でアプリが強制終了されても、未送信の項目はキューに残る（サーバーは同一IDの二重登録を無視）。
 // 以前は先にキューを空にしてから送っていたため、途中で落ちると残りが消える穴があった。
 async function flushOfflineQueue() {
-  if (_flushingQueue || !navigator.onLine) return
+  // 万一「送信中」フラグが立ちっぱなしになっても2分で解除する
+  // （立ったままだと以後の再送が全て素通りし、項目が永久に送られなくなるため）
+  if (_flushingQueue && (Date.now() - _flushStartedAt) < 120000) return
+  if (!navigator.onLine) return
   if (!_unsentQueueLen()) { _updateUnsentBanner(); return }
   _flushingQueue = true
+  _flushStartedAt = Date.now()
   toast('保存待ちのデータを送信中...')
   let sentAny = false
   const errored = []
@@ -1601,7 +1606,11 @@ async function flushOfflineQueue() {
       if (!navigator.onLine) break                       // 本当に圏外なら中断（次の機会に自動再送）
       const cur = _readQ()
       if (!cur.some(x => _same(x, item))) continue       // 既に送信済み等で消えていればスキップ
-      const r = await api(item, { noQueue: true })       // 失敗してもキューへ入れ直さない＝二重化しない
+      // 例外が出ても「送信失敗」として試行回数に数える。
+      // 以前は例外でforループごと抜けてしまい、試行回数が増えないまま項目が永久に残る穴があった。
+      let r
+      try { r = await api(item, { noQueue: true }) }     // 失敗してもキューへ入れ直さない＝二重化しない
+      catch (e) { r = { offline: true } }
       if (r && r.offline) {
         // 送れなかった：試行回数を数えて末尾へ回す。上限を超えたら隔離してユーザーに知らせる。
         const q2 = _readQ()
@@ -2109,11 +2118,29 @@ function renderUnsentList() {
       <div style="font-size:18px;line-height:1.4;">${sent?'✓':d.icon}</div>
       <div><div style="font-size:15px;font-weight:600;">${d.title}</div>${d.detail ? `<div style="font-size:13px;color:#666;margin-top:2px;">${d.detail}</div>` : ''}</div>
     </div>`
+  const stamp = ms => {
+    const t = new Date(ms || 0)
+    return isNaN(t.getTime()) || !ms ? '' : `${t.getMonth()+1}/${t.getDate()} ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`
+  }
   let html = ''
   if (q.length) {
     if (sendBtn) sendBtn.style.display = 'block'
     if (!navigator.onLine) html += '<div style="text-align:center;color:#e33;font-size:13px;font-weight:600;padding:0 0 10px;">📵 今は電波がありません。電波が戻ってから送信できます。</div>'
-    html += '<div class="date-label">未送信</div>' + q.map(item => row(_describeUnsent(item), false)).join('')
+    html += '<div class="date-label">未送信</div>' + q.map(item => {
+      const d = _describeUnsent(item)
+      const since = stamp(item.timestamp)
+      const stale = item.timestamp && (Date.now() - item.timestamp > 86400000)  // 1日以上詰まっている
+      const sub = [d.detail, since ? since + ' から未送信' : ''].filter(Boolean).join('　')
+      return `<div style="display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid #f0f0f5;">
+        <div style="font-size:18px;line-height:1.4;">${d.icon}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:15px;font-weight:600;">${d.title}</div>
+          ${sub ? `<div style="font-size:13px;color:${stale?'#e33':'#666'};margin-top:2px;">${sub}</div>` : ''}
+          ${stale ? '<div style="font-size:12px;color:#e33;margin-top:2px;">何度も送信できていません。取りやめても構いません。</div>' : ''}
+        </div>
+        <button onclick="discardUnsentItem('${item.timestamp}','${item.action}')" style="flex-shrink:0;background:#fff0f0;color:#e33;border:1px solid #fcc;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer;">取りやめ</button>
+      </div>`
+    }).join('')
   } else {
     if (sendBtn) sendBtn.style.display = 'none'
     html += '<div style="text-align:center;color:#34c759;font-size:15px;font-weight:600;padding:18px 0;">✓ 未送信のデータはありません</div>'
@@ -2127,6 +2154,25 @@ function renderUnsentList() {
     }).join('')
   }
   el.innerHTML = html
+}
+
+// 何度送っても送れない項目を、ユーザーの判断で送信待ちから外す。
+// （原因が何であれ、赤いバナーが永久に消えない状態から自力で抜け出せるようにする）
+async function discardUnsentItem(ts, action) {
+  const d = _describeUnsent({ action })
+  const ok = await uiConfirm(
+    `「${d.title}」の送信を取りやめますか？\n\nこの変更はサーバーに反映されず、元の内容のままになります。必要ならもう一度やり直してください。`,
+    '取りやめる')
+  if (!ok) return
+  try {
+    const q = JSON.parse(localStorage.getItem('offlineQueue')||'[]')
+    const i = q.findIndex(x => String(x.timestamp) === String(ts) && x.action === action)
+    if (i !== -1) { q.splice(i, 1); localStorage.setItem('offlineQueue', JSON.stringify(q)) }
+  } catch(e) {}
+  _updateUnsentBanner()
+  renderUnsentList()
+  toast('送信待ちから外しました')
+  loadAll()   // 画面をサーバーの実際の内容に戻す（手元だけの未反映表示を残さない）
 }
 
 async function sendUnsentNow() {
