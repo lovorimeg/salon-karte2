@@ -1006,7 +1006,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-09-15a'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-09-16a'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -5079,16 +5079,34 @@ async function loadSalesSummary() {
   } else {
     list.innerHTML = '<div class="loading">読み込み中...</div>'
   }
-  const [data, moved] = await Promise.all([
-    api({ action:'getSalesSummary' }),
-    api({ action:'getSafeMoved' })
-  ])
-  // 金庫フラグはサーバー保存。取得できたら反映（失敗時は前回の状態を維持）
-  if (_isFreshArray(moved)) _safeMovedSet = new Set(moved)
-  // 最新が取れなかった時：表示済みの前回データは保持しつつ、正直に知らせる
-  if (!_isFreshArray(data)) {
+  // GASは久しぶりの起動だと10秒以上かかることがあり（実測11.4秒）、1回の失敗で諦めると
+  // 「読み込みに失敗しました」の行き止まりになる。最大3回まで自動でやり直す。
+  let data = null
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) {
+      if (!hasCache) list.innerHTML = `<div class="loading">読み込み中...（再試行 ${attempt}/2）</div>`
+      await new Promise(r => setTimeout(r, 1200))
+    }
+    if (attempt === 0) {
+      const [d, moved] = await Promise.all([
+        api({ action:'getSalesSummary' }),
+        api({ action:'getSafeMoved' })
+      ])
+      // 金庫フラグはサーバー保存。取得できたら反映（失敗時は前回の状態を維持）
+      if (_isFreshArray(moved)) _safeMovedSet = new Set(moved)
+      if (_isFreshArray(d)) { data = d; break }
+    } else {
+      const d = await api({ action:'getSalesSummary' })
+      if (_isFreshArray(d)) { data = d; break }
+    }
+  }
+  // 3回とも取れなかった時：前回データがあれば保持、無ければ1タップで再読み込みできるようにする
+  if (!data) {
     if (hasCache) toast('最新の売上を取得できませんでした（前回の内容を表示中）')
-    else list.innerHTML = '<div class="empty">読み込みに失敗しました。もう一度開いてください</div>'
+    else list.innerHTML = `<div class="empty" style="padding:28px 16px;line-height:1.8;">
+        売上を読み込めませんでした<br><span style="font-size:13px;color:#aaa;">通信が混み合っているようです</span><br>
+        <button onclick="loadSalesSummary()" style="margin-top:16px;padding:11px 26px;border-radius:12px;border:none;background:#1c1c1e;color:#fff;font-size:14px;font-weight:600;cursor:pointer;">再読み込み</button>
+      </div>`
     return
   }
   if (data.length && data[0]._error) { if (!hasCache) list.innerHTML = `<div class="empty">エラー: ${data[0]._error}</div>`; return }
@@ -5208,10 +5226,26 @@ let _editingExpenseId = null
 async function loadExpenses() {
   const list = document.getElementById('expense-list')
   const cached = _loadLocalCache({ action:'getExpenses' })
-  if (cached) { _allExpenses = cached; renderExpenses() }
+  const hasCache = Array.isArray(cached)
+  if (hasCache) { _allExpenses = cached; renderExpenses() }
   else list.innerHTML = '<div class="loading">読み込み中...</div>'
-  const data = await api({ action:'getExpenses' })
-  _allExpenses = Array.isArray(data) ? data : []
+  // 売上と同じく最大3回まで自動でやり直す
+  let data = null
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await new Promise(r => setTimeout(r, 1200))
+    const d = await api({ action:'getExpenses' })
+    if (_isFreshArray(d)) { data = d; break }
+  }
+  // 取得に失敗した時に空配列で上書きすると「経費ゼロ」に見えてしまうので、前回の内容を保持する
+  if (!data) {
+    if (hasCache) toast('最新の経費を取得できませんでした（前回の内容を表示中）')
+    else list.innerHTML = `<div class="empty" style="padding:28px 16px;line-height:1.8;">
+        経費を読み込めませんでした<br><span style="font-size:13px;color:#aaa;">通信が混み合っているようです</span><br>
+        <button onclick="loadExpenses()" style="margin-top:16px;padding:11px 26px;border-radius:12px;border:none;background:#1c1c1e;color:#fff;font-size:14px;font-weight:600;cursor:pointer;">再読み込み</button>
+      </div>`
+    return
+  }
+  _allExpenses = data
   renderExpenses()
 }
 
