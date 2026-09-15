@@ -1007,7 +1007,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-09-16b'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-09-16c'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -1248,14 +1248,19 @@ function _onSwFreshAvailable() {
 }
 
 function startApp() {
-  loadAll()
+  // 起動直後にGASへ何本も同時に投げないこと。まとめ取得(getBootstrap)を先に終わらせ、
+  // 残りはその後に回す。書き込み(未送信の再送)も行列の後ろに並ばないよう loadAll の完了後に行う。
+  loadAll().then(() => {
+    // 予約不可ブロック・薬剤テンプレはまとめ取得に含まれる。
+    // まとめ取得が使えなかった時と、初回の引っ越しが未完了の端末だけ個別に同期する。
+    if (!_bootstrapDone || !localStorage.getItem('timeBlocksMigrated'))     syncTimeBlocks()
+    if (!_bootstrapDone || !localStorage.getItem('karteTemplatesMigrated')) syncKarteTemplates()
+    flushOfflineQueue()  // 前回送信できなかった保存待ちデータを、読み込みが落ち着いてから送る
+  })
   loadJpHolidays()
-  syncTimeBlocks()       // 予約不可ブロックをサーバーと同期（初回は端末内の旧データを引っ越し）
-  syncKarteTemplates()   // 薬剤テンプレをサーバーと同期（同上）
   // iOSが保存領域を勝手に消すのを防ぐ（対応ブラウザのみ・非対応でも無害）＝未送信キューが消えにくくなる
   if (navigator.storage && navigator.storage.persist) { try { navigator.storage.persist() } catch(e) {} }
-  _updateUnsentBanner()  // 未送信が残っていれば起動直後から赤バナーを出す
-  flushOfflineQueue()  // 前回送信できなかった保存待ちデータがあれば起動時に送信
+  _updateUnsentBanner()  // 未送信が残っていれば起動直後から赤バナーを出す（再送は loadAll 完了後）
   // 既存端末の移行：PIN保存済みでも合鍵（顔パス）が無ければ一度だけ取得して保存
   if (localStorage.getItem('pinCode') && !localStorage.getItem('deviceToken')) {
     api({ action:'checkPin', pin: localStorage.getItem('pinCode') }).then(r => {
@@ -1580,6 +1585,7 @@ function saveOffline(data) {
 // → 起動時・画面復帰時・電波復帰時に必ず再送を試み、失敗分はキューに残す方式に修正。
 let _flushingQueue = false
 let _flushStartedAt = 0
+let _bootstrapDone = false   // 起動時のまとめ取得(getBootstrap)が成功したか
 // クラッシュに強い再送：1件ずつ「送信できたことを確認してから」キューの先頭を消す。
 // 送信の途中でアプリが強制終了されても、未送信の項目はキューに残る（サーバーは同一IDの二重登録を無視）。
 // 以前は先にキューを空にしてから送っていたため、途中で落ちると残りが消える穴があった。
@@ -1771,13 +1777,32 @@ async function loadAll() {
     updateResBadge()
     showCalendar()
   }
-  // バックグラウンドで最新データ取得
-  const [custs, ress, menus, evts] = await Promise.all([
-    api({ action:'getCustomers' }),
-    api({ action:'getReservations', filter:'' }),
-    api({ action:'getMenuMaster' }),
-    api({ action:'getEvents' })
-  ])
+  // 最新データは「1回のまとめ取得」で。GASは実行が順番待ちになるため、起動時に何本も投げると
+  // 全部揃うまで時間がかかり、その直後の書き込みが行列の後ろでタイムアウト＝未送信になっていた。
+  let custs, ress, menus, evts
+  const boot = await api({ action:'getBootstrap' })
+  if (boot && typeof boot === 'object' && !Array.isArray(boot) && !boot.error &&
+      (boot.customers || boot.reservations || boot.menu || boot.events)) {
+    custs = boot.customers; ress = boot.reservations; menus = boot.menu; evts = boot.events
+    // まとめ取得の応答はオブジェクトなので api() の自動キャッシュ（配列のみ）に乗らない。
+    // 次回起動の「キャッシュで即表示」が効かなくなるため、ここで個別に保存しておく。
+    if (Array.isArray(custs)) _saveLocalCache({ action:'getCustomers' }, custs)
+    if (Array.isArray(ress))  _saveLocalCache({ action:'getReservations', filter:'' }, ress)
+    if (Array.isArray(menus)) _saveLocalCache({ action:'getMenuMaster' }, menus)
+    if (Array.isArray(evts))  _saveLocalCache({ action:'getEvents' }, evts)
+    // 予約不可ブロック・薬剤テンプレも同じ応答に入っているので、別途取りに行かない
+    if (Array.isArray(boot.timeBlocks))     _setTimeBlocksLocal(boot.timeBlocks)
+    if (Array.isArray(boot.karteTemplates)) _setKarteTemplatesLocal(boot.karteTemplates)
+    _bootstrapDone = true
+  } else {
+    // まとめ取得が使えない場合（古いサーバー等）は従来どおり個別に取得
+    ;[custs, ress, menus, evts] = await Promise.all([
+      api({ action:'getCustomers' }),
+      api({ action:'getReservations', filter:'' }),
+      api({ action:'getMenuMaster' }),
+      api({ action:'getEvents' })
+    ])
+  }
   _applyAllData(custs, ress, menus, evts)
   updateResBadge()
   if (!hasCache) showCalendar()
