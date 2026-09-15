@@ -448,6 +448,7 @@ select.input { appearance:none; }
       <button class="cal-view-btn active" id="sales-btn-month" onclick="setSalesView('month')">月別</button>
       <button class="cal-view-btn" id="sales-btn-day" onclick="setSalesView('day')">日別</button>
     </div>
+    <div id="sales-notice" style="display:none;margin:8px 16px 0;padding:8px 12px;border-radius:10px;background:#fff8e6;color:#a06800;font-size:12px;font-weight:600;text-align:center;"></div>
     <div class="list" id="sales-summary-list"><div class="loading">読み込み中...</div></div>
   </div>
 
@@ -1006,7 +1007,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-09-16a'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-09-16b'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -5072,19 +5073,31 @@ async function loadSalesSummary() {
   const cachedS = _loadLocalCache({ action:'getSalesSummary' })
   const cachedM = _loadLocalCache({ action:'getSafeMoved' })
   if (Array.isArray(cachedM)) _safeMovedSet = new Set(cachedM)
-  const hasCache = !dirty && Array.isArray(cachedS) && cachedS.length > 0
+  // 会計直後(dirty)でも、真っ白なまま何十秒も待たせるより「前回の内容＋更新中の注意書き」を出す。
+  // （前回はdirty時に何も表示せず、通信が遅いと「読み込み中...」で固まって見えた）
+  const hasCache = Array.isArray(cachedS) && cachedS.length > 0
   if (hasCache) {
     _salesData = cachedS
     renderSalesSummary(cachedS)
+    _setSalesNotice(dirty ? '⏳ 最新を取得中です（表示は前回の内容）' : '⏳ 最新を確認中…')
   } else {
     list.innerHTML = '<div class="loading">読み込み中...</div>'
   }
+  // 待たせっぱなしにしない：前回データが無い時は8秒で「やり直す」導線を出す
+  let slowTimer = null
+  if (!hasCache) {
+    slowTimer = setTimeout(() => {
+      list.innerHTML = `<div class="empty" style="padding:28px 16px;line-height:1.8;">
+        読み込みに時間がかかっています…<br><span style="font-size:13px;color:#aaa;">サーバーが混み合っているようです。<br>そのままお待ちいただくか、やり直せます。</span><br>
+        <button onclick="loadSalesSummary()" style="margin-top:16px;padding:11px 26px;border-radius:12px;border:none;background:#1c1c1e;color:#fff;font-size:14px;font-weight:600;cursor:pointer;">再読み込み</button>
+      </div>`
+    }, 8000)
+  }
   // GASは久しぶりの起動だと10秒以上かかることがあり（実測11.4秒）、1回の失敗で諦めると
-  // 「読み込みに失敗しました」の行き止まりになる。最大3回まで自動でやり直す。
+  // 行き止まりになる。2回までやり直す（3回は待ち時間が長すぎた）。
   let data = null
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < 2; attempt++) {
     if (attempt > 0) {
-      if (!hasCache) list.innerHTML = `<div class="loading">読み込み中...（再試行 ${attempt}/2）</div>`
       await new Promise(r => setTimeout(r, 1200))
     }
     if (attempt === 0) {
@@ -5100,20 +5113,33 @@ async function loadSalesSummary() {
       if (_isFreshArray(d)) { data = d; break }
     }
   }
-  // 3回とも取れなかった時：前回データがあれば保持、無ければ1タップで再読み込みできるようにする
+  if (slowTimer) clearTimeout(slowTimer)
+  // 取れなかった時：前回データがあれば残したまま知らせ、無ければ1タップで再読み込みできるようにする
   if (!data) {
-    if (hasCache) toast('最新の売上を取得できませんでした（前回の内容を表示中）')
+    if (hasCache) _setSalesNotice('⚠️ 最新を取得できませんでした（表示は前回の内容）', true)
     else list.innerHTML = `<div class="empty" style="padding:28px 16px;line-height:1.8;">
         売上を読み込めませんでした<br><span style="font-size:13px;color:#aaa;">通信が混み合っているようです</span><br>
         <button onclick="loadSalesSummary()" style="margin-top:16px;padding:11px 26px;border-radius:12px;border:none;background:#1c1c1e;color:#fff;font-size:14px;font-weight:600;cursor:pointer;">再読み込み</button>
       </div>`
     return
   }
-  if (data.length && data[0]._error) { if (!hasCache) list.innerHTML = `<div class="empty">エラー: ${data[0]._error}</div>`; return }
+  if (data.length && data[0]._error) { _setSalesNotice(''); if (!hasCache) list.innerHTML = `<div class="empty">エラー: ${data[0]._error}</div>`; return }
   try { localStorage.removeItem('salesDirty') } catch(e) {}  // 最新の取得に成功した時だけ印を消す
+  _setSalesNotice('')   // 最新が出せたので注意書きを消す
   if (!data.length) { _salesData = []; list.innerHTML = '<div class="empty">売上データがありません</div>'; return }
   _salesData = data
   renderSalesSummary(data)
+}
+
+// 売上一覧の上に出す小さな注意書き（更新中／取得失敗）。空文字で消す。
+function _setSalesNotice(text, isError) {
+  const el = document.getElementById('sales-notice')
+  if (!el) return
+  if (!text) { el.style.display = 'none'; el.textContent = ''; return }
+  el.textContent = text
+  el.style.background = isError ? '#ffecec' : '#fff8e6'
+  el.style.color      = isError ? '#c0392b' : '#a06800'
+  el.style.display = 'block'
 }
 
 // 現金を金庫に移したか（サーバーに保存：iOSの自動削除や端末違いの影響を受けない）
@@ -5229,13 +5255,24 @@ async function loadExpenses() {
   const hasCache = Array.isArray(cached)
   if (hasCache) { _allExpenses = cached; renderExpenses() }
   else list.innerHTML = '<div class="loading">読み込み中...</div>'
-  // 売上と同じく最大3回まで自動でやり直す
+  // 待たせっぱなしにしない：前回データが無い時は8秒で「やり直す」導線を出す
+  let slowTimer = null
+  if (!hasCache) {
+    slowTimer = setTimeout(() => {
+      list.innerHTML = `<div class="empty" style="padding:28px 16px;line-height:1.8;">
+        読み込みに時間がかかっています…<br><span style="font-size:13px;color:#aaa;">そのままお待ちいただくか、やり直せます。</span><br>
+        <button onclick="loadExpenses()" style="margin-top:16px;padding:11px 26px;border-radius:12px;border:none;background:#1c1c1e;color:#fff;font-size:14px;font-weight:600;cursor:pointer;">再読み込み</button>
+      </div>`
+    }, 8000)
+  }
+  // 売上と同じく2回まで自動でやり直す
   let data = null
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < 2; attempt++) {
     if (attempt > 0) await new Promise(r => setTimeout(r, 1200))
     const d = await api({ action:'getExpenses' })
     if (_isFreshArray(d)) { data = d; break }
   }
+  if (slowTimer) clearTimeout(slowTimer)
   // 取得に失敗した時に空配列で上書きすると「経費ゼロ」に見えてしまうので、前回の内容を保持する
   if (!data) {
     if (hasCache) toast('最新の経費を取得できませんでした（前回の内容を表示中）')
