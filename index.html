@@ -1007,7 +1007,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-09-16d'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-09-17a'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -1673,7 +1673,8 @@ function _pendingResList() {
   try {
     const q = JSON.parse(localStorage.getItem('offlineQueue')||'[]')
     return q.filter(i => i.action === 'addReservation').map((i, idx) => ({
-      id: 'pending-' + idx + '-' + (i.timestamp||0),
+      // 端末採番IDをそのまま使う＝サーバーに届いた後の行と同じIDになり、二重表示を判定できる
+      id: i.id || ('pending-' + idx + '-' + (i.timestamp||0)),
       customer_id: i.customer_id,
       customer_name: '⏳' + ((allCustomers.find(c => c.id === i.customer_id)||{}).name || ''),
       date: i.date, time: i.time, menu: i.menu||'',
@@ -1684,7 +1685,11 @@ function _pendingResList() {
 }
 function _withPending(list) {
   const p = _pendingResList()
-  return p.length ? [...list, ...p].sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)) : list
+  if (!p.length) return list
+  // 既に一覧に入っているものは足さない（送信済みなのにキューにまだ残っている間の二重表示を防ぐ）
+  const have = new Set((list || []).map(r => String(r.id)))
+  const add = p.filter(x => !have.has(String(x.id)))
+  return add.length ? [...list, ...add].sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)) : list
 }
 
 // ── 確認ダイアログ（iOSのホーム画面アプリで confirm() が出ない問題に対応）──
@@ -4263,7 +4268,6 @@ async function submitAddReservation() {
   if (!date||!time) { showError('res-add-error','予約日と時刻を入力してください'); return }
   const cid = document.getElementById('res-customer-id').value
   if (!cid) { showError('res-add-error','顧客を選択してください'); return }
-  const btn = event.target
   // 二重登録ガード：同じお客様・同じ日時の予約が既にあれば確認する（誤って2件入る事故を防ぐ）
   const dupExists = allReservations.some(r =>
     String(r.customer_id) === String(cid) && r.date === date && r.time === time &&
@@ -4272,40 +4276,45 @@ async function submitAddReservation() {
     const go = await uiConfirm('同じお客様の同じ日時の予約が既に入っています。\nそれでも追加しますか？', '追加する')
     if (!go) return
   }
-  btn.disabled=true; btn.textContent='登録中...'
-  const res = await api({ action:'addReservation', customer_id:cid, date, time,
-    menu:document.getElementById('res-menu').value,
-    duration: Math.round((parseFloat(document.getElementById('res-duration').value)||1) * 60),
-    price:document.getElementById('res-price').value||0,
-    memo:document.getElementById('res-memo').value, status:'reserved'
-  })
-  btn.disabled=false; btn.textContent='登録する'
-  if (res.error) { showError('res-add-error',res.error); return }
+  // 入力値をここで確定させる（画面を先に閉じるため）
+  const menu     = document.getElementById('res-menu').value
+  const duration = Math.round((parseFloat(document.getElementById('res-duration').value)||1) * 60)
+  const price    = Number(document.getElementById('res-price').value) || 0
+  const memo     = document.getElementById('res-memo').value
+  const cust     = allCustomers.find(c => c.id === cid)
+  // サーバーに渡すIDを先に決めておく＝画面に出す予約と、保存される行が必ず同じものになる
+  const newId = 'c-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8)
+
+  // ── 待たせない：先に画面へ反映して閉じる（送信は裏で行う。予約編集と同じ方式）──
   closeModal('modal-add-res')
-  // 送信待ちになった場合は正直に伝える（「登録しました」と言って実は未送信、を防ぐ）
-  if (res.offline) toast('電波が不安定のため保存待ちです（⏳表示）。電波が戻ると自動送信されます')
-  else toast('予約を登録しました')
   cancelNextBook()
-  // 楽観的更新：即座に画面に反映
-  const cust = allCustomers.find(c => c.id === cid)
-  const newRes = {
-    id: res.id || ('tmp-' + Date.now()),
-    customer_id: cid,
-    customer_name: cust?.name || '',
-    date, time,
-    menu: document.getElementById('res-menu').value,
-    duration: Math.round((parseFloat(document.getElementById('res-duration').value)||1) * 60),
-    price: Number(document.getElementById('res-price').value)||0,
-    memo: document.getElementById('res-memo').value,
-    status: 'reserved'
-  }
+  const newRes = { id:newId, customer_id:cid, customer_name: cust?.name || '',
+                   date, time, menu, duration, price, memo, status:'reserved' }
   allReservations = [...allReservations, newRes].sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time))
   _persistReservations()
   updateResBadge(); renderCalendar(); loadHome()
-  // バックグラウンドで正確なデータに更新
-  api({ action:'getReservations', filter:'' }).then(d => {
-    if (_isFreshArray(d)) { allReservations = _withPending(d); updateResBadge(); renderCalendar(); loadHome() }
-  })
+  toast('予約を追加しました')
+
+  // ── 送信は裏で。結果に応じて画面を正す ──
+  const res = await api({ action:'addReservation', id:newId, customer_id:cid, date, time,
+                          menu, duration, price, memo, status:'reserved' })
+  if (res && res.error) {
+    // 保存できなかったので画面からも取り消す（登録できたように見せない）
+    allReservations = allReservations.filter(r => String(r.id) !== String(newId))
+    _persistReservations()
+    updateResBadge(); renderCalendar(); loadHome()
+    toast('登録できませんでした: ' + res.error)
+    return
+  }
+  if (res && res.offline) {
+    // まだ送れていないことを画面でも分かるようにする（⏳＋上の赤バナー）
+    allReservations = allReservations.map(r => String(r.id) === String(newId)
+      ? { ...r, _pending:true, customer_name: '⏳' + (cust?.name || '') } : r)
+    _persistReservations()
+    renderCalendar()
+    toast('電波が不安定のため保存待ちです（⏳表示）。電波が戻ると自動送信されます')
+  }
+  // 成功時はサーバーの行＝newId で一致しているので、予約の全件再取得（1往復）は不要
 }
 
 function selectStatus(s) {
