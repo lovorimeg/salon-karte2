@@ -1037,7 +1037,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-09-30i'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-09-30j'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -4756,17 +4756,14 @@ let _storyMonth = null   // 表示中の月（その月の1日）
 
 // その日が「空き◯／残りわずか△／満席×／休み」のどれかを返す。
 // 判定は空き枠検索と同じ材料（予約・予約不可ブロック・定休日・臨時休業）を使う。
-// 休業とみなすイベントか。種類を「その他」にして登録した「休み」を取りこぼしていたので、
-// タイトルに「休」が入っていれば種類に関わらず休業として扱う（文化祭などの予定は対象外）。
-function _isClosureEvent(e) {
-  return e && (e.type === 'holiday' || /休/.test(e.title || ''))
-}
-
 function _storyDayState(ds, dur) {
   dur = dur || 60
   const d = new Date(ds + 'T00:00:00')
-  if (d.getDay() === 2) return 'closed'                                          // 火曜定休
-  if (allEvents.some(e => e.date === ds && _isClosureEvent(e))) return 'closed'   // 登録した休み
+  if (d.getDay() === 2) return 'closed'                          // 火曜定休
+  // 「予定」に登録がある日は休業として扱う＝予定画面のミニカレンダーが「休」と出すのと同じ基準。
+  // 以前は種類やタイトルで絞っていたため、予定画面では「休」なのに空き状況では「○」になり
+  // 食い違っていた（お客様に休みの日を空きとして案内してしまう危険もあった）。
+  if (allEvents.some(e => e.date === ds)) return 'closed'
   const busy = allReservations
     .filter(r => r.date === ds && r.status !== 'cancelled' && r.status !== 'no_show')
     .map(r => { const [h,m] = (r.time||'00:00').split(':').map(Number); const s = h*60+m; return [s, s + (r.duration||60)] })
@@ -4876,8 +4873,8 @@ function runSlotSearch() {
   const monthEnd = new Date(ty, tm, 0)  // 終了月の月末日
   const today = new Date(); today.setHours(0,0,0,0)
 
-  // 休業日の日付セット（「その他」で登録した「休み」も休業として扱う）
-  const holidaySet = new Set(allEvents.filter(_isClosureEvent).map(e => e.date))
+  // 休業日の日付セット（「予定」が登録されている日は種類を問わず休業＝予定画面の表示と同じ基準）
+  const holidaySet = new Set(allEvents.map(e => e.date))
 
   _slotDays = []
   for (let d = new Date(monthStart); d <= monthEnd; d.setDate(d.getDate()+1)) {
