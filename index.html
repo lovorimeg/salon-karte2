@@ -1007,7 +1007,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-09-30a'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-09-30b'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -2064,7 +2064,7 @@ function resActionListCopy() {
     const label = `${d.getMonth()+1}月${d.getDate()}日（${dayNames[d.getDay()]}）${(cr.time||'').slice(0,5)}`
     return `・${label}　${cr.menu||''}`
   }).join('\n')
-  const text = `${r.customer_name}様\n\n現在ご予約いただいているお日にちは下記の通りです。\n\n${lines}\n\nご確認のほどよろしくお願いいたします✨\n（ご確認のためですので返信は不要です）`
+  const text = `${r.customer_name}様\n\n現在ご予約いただいているお日にちは下記の通りです。\n\n${lines}\n\nご確認のほどよろしくお願いいたします✨\n（ご返信は不要です🙇‍♀️）`
   const btn = document.getElementById('res-action-listcopy-btn')
   navigator.clipboard.writeText(text).then(() => {
     toast('予約一覧をコピーしました')
