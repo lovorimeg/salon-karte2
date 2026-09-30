@@ -1037,7 +1037,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-09-30f'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-09-30g'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -4823,11 +4823,12 @@ function renderStoryCalendar() {
     closed: { t:'休', c:'#cfc7c0' },
     past:   { t:'',  c:'#d8d1cb' }
   }
-  const DOW = ['日','月','火','水','木','金','土']
+  // 月曜始まり（アプリの月表示と同じ並び）。5番目が土、6番目が日。
+  const DOW = ['月','火','水','木','金','土','日']
   let html = DOW.map((w,i) =>
-    `<div style="text-align:center;font-size:1.6vh;letter-spacing:0.1em;color:${i===0?'#c49a9a':i===6?'#9aa8bd':'#b5a89e'};padding-bottom:0.8vh;">${w}</div>`
+    `<div style="text-align:center;font-size:1.6vh;letter-spacing:0.1em;color:${i===6?'#c49a9a':i===5?'#9aa8bd':'#b5a89e'};padding-bottom:0.8vh;">${w}</div>`
   ).join('')
-  const firstDow = new Date(y, m, 1).getDay()
+  const firstDow = (new Date(y, m, 1).getDay() + 6) % 7   // 日=0→6, 月=1→0 …
   const days = new Date(y, m+1, 0).getDate()
   for (let i = 0; i < firstDow; i++) html += '<div></div>'
   const pad = n => String(n).padStart(2,'0')
