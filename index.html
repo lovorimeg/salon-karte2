@@ -1007,7 +1007,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-09-30b'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-09-30c'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -1100,7 +1100,7 @@ function fmtResDatetime(date, time) {
 function copyLineMsg(r, btn) {
   const dt = fmtResDatetime(r.date, r.time)
   const menu = r.menu ? `【${r.menu}】` : ''
-  const text = `${r.customer_name}様\n\n明日${dt}に\n${menu}のご予約をいただいております。\n\nご来店をお待ちしております✨\n（確認ですので返信不要です）`
+  const text = `${r.customer_name}様\n\n明日${dt}に\n${menu}のご予約をいただいております。\n\nご来店をお待ちしております✨\n（ご返信は不要です🙇‍♀️）`
   navigator.clipboard.writeText(text).then(() => {
     toast('LINEメッセージをコピーしました')
     if (btn) {
@@ -2079,7 +2079,7 @@ function resActionConfirm() {
   const r = _resActionTarget
   if (!r) return
   const dt = fmtResDatetime(r.date, r.time)
-  const text = `${r.customer_name}様\n\nご返信ありがとうございます🙇‍♀️\nそれでは、${dt}〜で\nご予約をお取りいたしました。\n\nご都合を合わせていただき、ありがとうございます。\n当日お会いできるのを楽しみにしております✨\n（ご確認のためですので返信は不要です）`
+  const text = `${r.customer_name}様\n\nご返信ありがとうございます🙇‍♀️\nそれでは、${dt}〜で\nご予約をお取りいたしました。\n\nご都合を合わせていただき、ありがとうございます。\n当日お会いできるのを楽しみにしております✨\n（ご返信は不要です🙇‍♀️）`
   const btn = document.getElementById('res-action-confirm-btn')
   navigator.clipboard.writeText(text).then(() => {
     toast('変更確定メッセージをコピーしました')
