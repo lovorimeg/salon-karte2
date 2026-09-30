@@ -1037,7 +1037,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-09-30e'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-09-30f'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -4776,9 +4776,23 @@ function _storyDayState(ds, dur) {
   return 'open'
 }
 
-function openStoryCalendar() {
+// 最初に見せる月を決める。月末に開くと今月はほぼ過去日で空っぽに見えるため、
+// 「残りが少ない」または「今月はもう空きが無い」なら翌月から表示する（‹ で今月にも戻れる）。
+function _storyInitialMonth() {
   const now = new Date()
-  _storyMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+  const y = now.getFullYear(), m = now.getMonth()
+  const daysInMonth = new Date(y, m + 1, 0).getDate()
+  if (daysInMonth - now.getDate() + 1 < 7) return new Date(y, m + 1, 1)   // 残り7日未満
+  const pad = n => String(n).padStart(2, '0')
+  for (let d = now.getDate(); d <= daysInMonth; d++) {
+    const st = _storyDayState(`${y}-${pad(m+1)}-${pad(d)}`)
+    if (st === 'open' || st === 'few') return new Date(y, m, 1)           // まだ空きがある＝今月
+  }
+  return new Date(y, m + 1, 1)                                            // 今月は満席/休みのみ
+}
+
+function openStoryCalendar() {
+  _storyMonth = _storyInitialMonth()
   document.getElementById('story-overlay').style.display = 'block'
   document.getElementById('story-controls').style.display = 'flex'
   renderStoryCalendar()
