@@ -1037,7 +1037,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-09-30m'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-09-30n'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -4817,7 +4817,7 @@ function storyShoot() {
 function renderStoryCalendar() {
   const y = _storyMonth.getFullYear(), m = _storyMonth.getMonth()
   const today = todayStr()
-  document.getElementById('story-month').textContent = `${y} . ${String(m+1).padStart(2,'0')}`
+  document.getElementById('story-month').textContent = `${y}.${m+1}月`
   document.getElementById('story-ctl-label').textContent = `${y}年${m+1}月`
   const MARK = {
     open:   { t:'○', c:'#c98f8f' },
