@@ -292,6 +292,24 @@ select.input { appearance:none; }
 .nav-btn.active svg { stroke:#2ec4b6; }
 .nav-badge { position:absolute; top:-4px; right:-6px; background:#ff3b30; color:#fff; font-size:10px; border-radius:10px; padding:1px 5px; min-width:18px; text-align:center; font-weight:700; }
 .nav-btn-wrap { position:relative; display:flex; align-items:center; justify-content:center; }
+
+/* ── パソコン等の広い画面では、スマホ幅の1列にして中央に置く ──
+   position:fixed の要素は画面幅いっぱいに広がってしまうので、同じ幅・同じ位置に揃える。
+   モーダル(.modal)・操作ポップアップ・トーストは元から480px中央寄せなので対象外。
+   640px未満（スマホ・タブレット縦）は今まで通り全幅で、見た目は一切変わらない。 */
+@media (min-width: 640px) {
+  html { background:#e4e4e9; }
+  body { max-width:480px; margin:0 auto; min-height:100vh; box-shadow:0 0 28px rgba(0,0,0,0.10); }
+  .bottom-nav,
+  #offline-banner,
+  #unsent-banner,
+  .fmove-banner,
+  .checkout-overlay,
+  #co-menu-picker-panel,
+  #co-menu-picker-panel > div[style*="position:fixed"] {
+    left:50%; right:auto; width:480px; max-width:100vw; transform:translateX(-50%);
+  }
+}
 </style>
 </head>
 <body oncontextmenu="return false">
@@ -1037,7 +1055,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-09-30n'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-09-30o'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
