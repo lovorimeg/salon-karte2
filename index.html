@@ -1037,7 +1037,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-09-30l'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-09-30m'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -4759,7 +4759,7 @@ let _storyMonth = null   // 表示中の月（その月の1日）
 function _storyDayState(ds, dur) {
   dur = dur || 60
   const d = new Date(ds + 'T00:00:00')
-  if (d.getDay() === 2) return 'regular'                         // 毎週火曜の定休日（表示は「定休」）
+  if (d.getDay() === 2) return 'closed'                          // 火曜定休
   // 「予定」に登録がある日は休業として扱う＝予定画面のミニカレンダーが「休」と出すのと同じ基準。
   // 以前は種類やタイトルで絞っていたため、予定画面では「休」なのに空き状況では「○」になり
   // 食い違っていた（お客様に休みの日を空きとして案内してしまう危険もあった）。
@@ -4822,10 +4822,9 @@ function renderStoryCalendar() {
   const MARK = {
     open:   { t:'○', c:'#c98f8f' },
     few:    { t:'△', c:'#cfa77c' },
-    full:    { t:'満',   c:'#c9c0b8' },
-    regular: { t:'定休', c:'#cfc7c0' },   // 毎週火曜
-    closed:  { t:'休',   c:'#cfc7c0' },   // 個別に登録した休み
-    past:    { t:'',     c:'#d8d1cb' }
+    full:   { t:'満', c:'#c9c0b8' },
+    closed: { t:'休', c:'#cfc7c0' },   // 火曜定休・登録した休み とも「休」
+    past:   { t:'',  c:'#d8d1cb' }
   }
   // 月曜始まり（アプリの月表示と同じ並び）。5番目が土、6番目が日。
   const DOW = ['月','火','水','木','金','土','日']
@@ -4843,7 +4842,7 @@ function renderStoryCalendar() {
     const dim = state === 'past' ? 'opacity:0.35;' : ''
     html += `<div style="text-align:center;padding:0.35vh 0;${dim}">
       <div style="font-size:1.95vh;letter-spacing:0.04em;color:#6b6058;">${day}</div>
-      <div style="font-size:${mk.t.length > 1 ? '1.45vh' : '2.05vh'};line-height:1.25;white-space:nowrap;color:${mk.c};">${mk.t || '&nbsp;'}</div>
+      <div style="font-size:2.05vh;line-height:1.25;white-space:nowrap;color:${mk.c};">${mk.t || '&nbsp;'}</div>
     </div>`
   }
   document.getElementById('story-grid').innerHTML = html
