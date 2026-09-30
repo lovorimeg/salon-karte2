@@ -995,7 +995,7 @@ select.input { appearance:none; }
       <div style="text-align:center;letter-spacing:0.5em;font-size:3.1vh;margin-bottom:0.4vh;">空き状況</div>
       <div id="story-month" style="text-align:center;letter-spacing:0.18em;font-size:2.2vh;color:#a4968b;margin-bottom:3.4vh;"></div>
       <div id="story-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:0.9vh 0;"></div>
-      <div id="story-legend" style="margin-top:4vh;display:flex;justify-content:center;gap:1.6em;font-size:1.65vh;letter-spacing:0.12em;color:#a4968b;"></div>
+      <div id="story-legend" style="margin-top:4vh;display:flex;justify-content:center;flex-wrap:nowrap;gap:1.3em;font-size:1.65vh;letter-spacing:0.08em;color:#a4968b;"></div>
       <div id="story-foot" style="position:absolute;left:0;right:0;bottom:7%;text-align:center;font-size:1.55vh;letter-spacing:0.22em;color:#bdb0a6;"></div>
     </div>
   </div>
@@ -1037,7 +1037,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-09-30d'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-09-30e'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -4828,10 +4828,12 @@ function renderStoryCalendar() {
     </div>`
   }
   document.getElementById('story-grid').innerHTML = html
+  // 記号と文字を1セット(nowrap)にまとめる。バラバラだとflexの項目が個別に折り返して
+  // 「空きあ／り」のように途中で改行されてしまう。
+  const leg = (sym, color, label) =>
+    `<span style="white-space:nowrap;"><span style="color:${color};">${sym}</span>&nbsp;${label}</span>`
   document.getElementById('story-legend').innerHTML =
-    `<span style="color:#c98f8f;">○</span>&nbsp;空きあり` +
-    `<span style="color:#cfa77c;margin-left:1.4em;">△</span>&nbsp;わずか` +
-    `<span style="color:#c9c0b8;margin-left:1.4em;">×</span>&nbsp;満席`
+    leg('○', '#c98f8f', '空きあり') + leg('△', '#cfa77c', 'わずか') + leg('×', '#c9c0b8', '満席')
   document.getElementById('story-foot').textContent = `10:00 − 19:00　/　火曜定休`
 }
 
