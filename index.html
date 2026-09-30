@@ -1037,7 +1037,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-09-30j'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-09-30k'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -4852,7 +4852,7 @@ function renderStoryCalendar() {
     `<span style="white-space:nowrap;"><span style="color:${color};">${sym}</span>&nbsp;${label}</span>`
   document.getElementById('story-legend').innerHTML =
     leg('○', '#c98f8f', '空きあり') + leg('△', '#cfa77c', 'わずか') + leg('満', '#c9c0b8', '満席')
-  document.getElementById('story-foot').textContent = `10:00 − 19:00　/　火曜定休`
+  document.getElementById('story-foot').textContent = `10:00 − 19:00　/　毎週火曜日 定休`
 }
 
 function setSlotDow(v) {
