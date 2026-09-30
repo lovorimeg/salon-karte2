@@ -264,6 +264,7 @@ select.input { appearance:none; }
 .event-chip { font-size:10px; border-radius:4px; padding:1px 5px; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer; display:block; max-width:100%; }
 .event-holiday { background:#ff3b30; color:#fff; }
 .event-other   { background:#8b5cf6; color:#fff; }
+.event-full    { background:#5b6270; color:#fff; }   /* 満席（これ以上予約を入れない日） */
 .week-allday   { display:grid; grid-template-columns:44px repeat(7,1fr); border-bottom:1px solid #e5e5ea; background:#fafafa; flex-shrink:0; }
 .week-allday-label { display:flex; align-items:center; justify-content:flex-end; padding-right:5px; font-size:9px; color:#aaa; min-height:18px; }
 /* min-width:0 が無いとグリッド列の既定 min-width:auto で「中身が長い＝列が広がる」となり、
@@ -820,6 +821,7 @@ select.input { appearance:none; }
       <label class="label">種類</label>
       <div class="payment-group">
         <button type="button" class="payment-btn active" id="ev-type-holiday" onclick="selectEventType('holiday')">定休日</button>
+        <button type="button" class="payment-btn"        id="ev-type-full"    onclick="selectEventType('full')">満席</button>
         <button type="button" class="payment-btn"        id="ev-type-other"   onclick="selectEventType('other')">その他</button>
       </div>
     </div>
@@ -847,6 +849,7 @@ select.input { appearance:none; }
         <div style="font-size:13px;font-weight:600;color:#007aff;margin-bottom:10px;">予定を編集</div>
         <div class="payment-group" style="margin-bottom:8px;">
           <button type="button" class="payment-btn" id="ev-edit-type-holiday" onclick="selectEditEventType('holiday')">定休日</button>
+          <button type="button" class="payment-btn" id="ev-edit-type-full"    onclick="selectEditEventType('full')">満席</button>
           <button type="button" class="payment-btn" id="ev-edit-type-other"   onclick="selectEditEventType('other')">その他</button>
         </div>
         <input class="input" id="ev-edit-date" type="date" style="margin-bottom:8px"/>
@@ -1072,7 +1075,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-09-30p'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-09-30q'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -2462,7 +2465,7 @@ function renderMonthCalendar() {
     const jphHtml = jph ? `<span class="event-chip" style="background:#fdeef0;color:#d6336c;">${jph}</span>` : ''
     const numStyle = jph ? ' style="color:#d6336c;"' : ''
     const evHtml = jphHtml + regularHolidayChip(s) + dayEvts.map(ev =>
-      `<span class="event-chip ${ev.type==='holiday'?'event-holiday':'event-other'}" onclick="event.stopPropagation();editEventFromCalendar('${ev.id}','${s}')">${ev.title||'定休日'}</span>`
+      `<span class="event-chip ${_evChipClass(ev.type)}" onclick="event.stopPropagation();editEventFromCalendar('${ev.id}','${s}')">${ev.title||'定休日'}</span>`
     ).join('')
     return `<div class="${cls}" data-mdate="${s}" onclick="selectMonthDay('${s}')">
       <div class="month-num"${numStyle}>${d}</div>${dots}${evHtml}
@@ -3307,7 +3310,7 @@ function renderWeekCalendar() {
     const jphChip = jph ? `<span class="event-chip" style="background:#fdeef0;color:#d6336c;">${jph}</span>` : ''
     if (dayEvts.length || autoChip || jphChip) hasWeekEvent = true
     document.getElementById('wad'+i).innerHTML = jphChip + autoChip + dayEvts.map(ev =>
-      `<span class="event-chip ${ev.type==='holiday'?'event-holiday':'event-other'}" onclick="event.stopPropagation();editEventFromCalendar('${ev.id}','${ds}')">${ev.title||'定休日'}</span>`
+      `<span class="event-chip ${_evChipClass(ev.type)}" onclick="event.stopPropagation();editEventFromCalendar('${ev.id}','${ds}')">${ev.title||'定休日'}</span>`
     ).join('')
   })
   document.getElementById('week-allday-row').style.display = hasWeekEvent ? 'grid' : 'none'
@@ -3341,7 +3344,7 @@ function renderDayCalendar() {
   const jph = jpHoliday(ds)
   const jphChip = jph ? `<span class="event-chip" style="background:#fdeef0;color:#d6336c;display:inline-block;margin-right:4px;">${jph}</span>` : ''
   const evInner = jphChip + autoChip + dayEvts.map(ev =>
-    `<span class="event-chip ${ev.type==='holiday'?'event-holiday':'event-other'}" style="display:inline-block;margin-right:4px" onclick="event.stopPropagation();editEventFromCalendar('${ev.id}','${ds}')">${ev.title||'定休日'}</span>`
+    `<span class="event-chip ${_evChipClass(ev.type)}" style="display:inline-block;margin-right:4px" onclick="event.stopPropagation();editEventFromCalendar('${ev.id}','${ds}')">${ev.title||'定休日'}</span>`
   ).join('')
   const evBanner = evInner ? `<div style="padding:6px 16px 4px">${evInner}</div>` : ''
 
@@ -4848,13 +4851,17 @@ let _storyMonth = null   // 表示中の月（その月の1日）
 
 // その日が「空き◯／残りわずか△／満席×／休み」のどれかを返す。
 // 判定は空き枠検索と同じ材料（予約・予約不可ブロック・定休日・臨時休業）を使う。
+// 予定の種類 → チップの色 / 表示ラベル
+function _evChipClass(t) { return t === 'holiday' ? 'event-holiday' : t === 'full' ? 'event-full' : 'event-other' }
+function _evTypeLabel(t) { return t === 'holiday' ? '定休日'      : t === 'full' ? '満席'       : 'その他' }
+
 function _storyDayState(ds, dur) {
   dur = dur || 60
   const d = new Date(ds + 'T00:00:00')
   if (d.getDay() === 2) return 'closed'                          // 火曜定休
-  // 「予定」に登録がある日は休業として扱う＝予定画面のミニカレンダーが「休」と出すのと同じ基準。
-  // 以前は種類やタイトルで絞っていたため、予定画面では「休」なのに空き状況では「○」になり
-  // 食い違っていた（お客様に休みの日を空きとして案内してしまう危険もあった）。
+  // 「満席」で登録した日は、空きが残っていても「満」と出す（これ以上予約を入れたくない日）
+  if (allEvents.some(e => e.date === ds && e.type === 'full')) return 'full'
+  // それ以外の「予定」がある日は休業として扱う＝予定画面のミニカレンダーが「休」と出すのと同じ基準。
   if (allEvents.some(e => e.date === ds)) return 'closed'
   const busy = allReservations
     .filter(r => r.date === ds && r.status !== 'cancelled' && r.status !== 'no_show')
@@ -5085,7 +5092,7 @@ function copySlotReply(btn) {
 // ═══════════════ イベント ═══════════════
 function selectEventType(t) {
   addEventType = t
-  ;['holiday','other'].forEach(x => document.getElementById('ev-type-'+x).classList.toggle('active', x===t))
+  ;['holiday','full','other'].forEach(x => document.getElementById('ev-type-'+x).classList.toggle('active', x===t))
 }
 
 let _pendingEventDates = []
@@ -5121,6 +5128,7 @@ function renderEventCalendar() {
   const daysInMonth = new Date(y, m+1, 0).getDate()
   const holidaySet = new Set(allEvents.filter(e => e.type === 'holiday').map(e => e.date))
   const otherSet = new Set(allEvents.filter(e => e.type !== 'holiday').map(e => e.date))
+  const fullSet = new Set(allEvents.filter(e => e.type === 'full').map(e => e.date))   // 満席にした日
 
   let html = ''
   // 曜日見出し
@@ -5137,8 +5145,9 @@ function renderEventCalendar() {
     const selected = _pendingEventDates.includes(ds)
     let bg = '#fff', color = dow===0?'#e33':dow===6?'#007aff':'#1c1c1e', border = '1px solid #eee'
     let sub = ''
-    if (isTue) { bg = '#ffecec'; color = '#e33'; sub = '休' }       // 火曜は自動定休
-    if (registered) { bg = '#ffecec'; color = '#e33'; sub = '休' }   // 登録済み
+    if (isTue) { bg = '#ffecec'; color = '#e33'; sub = '休' }        // 火曜は自動定休
+    if (registered) { bg = '#ffecec'; color = '#e33'; sub = '休' }    // 登録済み
+    if (fullSet.has(ds)) { bg = '#eceef2'; color = '#5b6270'; sub = '満' }  // 満席にした日
     if (selected) { bg = '#e33'; color = '#fff'; border = '1px solid #e33'; sub = '✓' }
     // 登録済みの日＝タップで「編集」／未登録の非火曜＝タップで「追加の選択」
     // （以前は登録済みも火曜も onclick 無しで、休みの日を触ることすらできなかった）
@@ -5155,7 +5164,9 @@ function renderEventCalendar() {
   document.getElementById('ev-cal-grid').innerHTML = html
 
   const cnt = _pendingEventDates.length
-  document.getElementById('ev-pending-count').textContent = cnt ? `${cnt}日選択中` : 'タップで休む日を選択／「休」の日はタップで変更・削除（火曜は自動でお休み）'
+  document.getElementById('ev-pending-count').textContent = cnt
+    ? `${cnt}日選択中`
+    : '上で種類を選び、日付をタップ（満席にしたい日は「満席」を選ぶ）／登録済みの日はタップで変更・削除'
 }
 
 // 予定一覧は使い込むほど過去分が積み上がって長くなるので、既定は「今日以降」だけ。
@@ -5169,7 +5180,7 @@ function _evRow(ev) {
   const dow = isNaN(d.getTime()) ? '' : '（' + DAY_JP[d.getDay()] + '）'
   return `<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:8px 0;border-bottom:1px solid #f0f0f5">
       <div style="min-width:0;flex:1;">
-        <span class="event-chip ${ev.type==='holiday'?'event-holiday':'event-other'}" style="display:inline-block;margin-right:6px">${ev.type==='holiday'?'定休日':'その他'}</span>
+        <span class="event-chip ${_evChipClass(ev.type)}" style="display:inline-block;margin-right:6px">${_evTypeLabel(ev.type)}</span>
         <span style="font-size:14px;font-weight:600">${ev.date.slice(5)}${dow}　${ev.title||'定休日'}</span>
       </div>
       <button onclick="openEditEvent('${ev.id}')" style="flex-shrink:0;background:#e8f0fe;color:#007aff;border:1px solid #c0d4fb;border-radius:8px;padding:4px 10px;font-size:13px;cursor:pointer">編集</button>
@@ -5216,8 +5227,8 @@ let _editEventType  = 'holiday'
 
 function selectEditEventType(t) {
   _editEventType = t
-  document.getElementById('ev-edit-type-holiday').classList.toggle('active', t === 'holiday')
-  document.getElementById('ev-edit-type-other').classList.toggle('active',   t === 'other')
+  ;['holiday','full','other'].forEach(x =>
+    document.getElementById('ev-edit-type-' + x).classList.toggle('active', x === t))
 }
 
 function openEditEvent(id) {
@@ -5267,7 +5278,7 @@ async function submitEditEvent() {
   if (!_editingEventId) return
   const date = document.getElementById('ev-edit-date').value
   if (!date) { toast('日付を入れてください'); return }
-  const title = document.getElementById('ev-edit-title').value.trim() || (_editEventType === 'holiday' ? '定休日' : 'その他')
+  const title = document.getElementById('ev-edit-title').value.trim() || _evTypeLabel(_editEventType)
   const btn = event.target; btn.disabled = true; btn.textContent = '更新中...'
   const res = await api({ action:'updateEvent', id:_editingEventId, date, title, type:_editEventType })
   btn.disabled = false; btn.textContent = '更新する'
@@ -5283,7 +5294,7 @@ async function submitAddEvent() {
   // 複数日リストがあればそれを、なければ日付入力欄の1日を登録
   const dates = _pendingEventDates.slice()
   if (!dates.length) { toast('休む日をタップで選んでください'); return }
-  const title = document.getElementById('ev-title').value.trim() || (addEventType==='holiday' ? '定休日' : 'その他')
+  const title = document.getElementById('ev-title').value.trim() || _evTypeLabel(addEventType)
   const btn = event.target; btn.disabled=true; btn.textContent='追加中...'
   for (const date of dates) {
     const res = await api({ action:'addEvent', date, title, type: addEventType })
