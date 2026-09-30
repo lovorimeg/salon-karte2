@@ -1075,7 +1075,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-09-30q'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-09-30r'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -3217,8 +3217,15 @@ function renderWeekCalendar() {
     const isToday = ds === today
     const col = dd.getDay() // 0=日,6=土
     const numCls = ['week-tg-hnum', isToday ? 'today-num' : col===0 ? 'sun-num' : col===6 ? 'sat-num' : ''].filter(Boolean).join(' ')
-    document.getElementById('wh'+i).innerHTML =
-      `<div class="week-tg-hday${isToday ? ' today-hday' : ''}">${DAY_JP[dd.getDay()]}</div><div class="${numCls}">${dd.getDate()}</div>`
+    const isFull = allEvents.some(e => e.date === ds && e.type === 'full')
+    const el = document.getElementById('wh'+i)
+    el.innerHTML =
+      `<div class="week-tg-hday${isToday ? ' today-hday' : ''}">${DAY_JP[dd.getDay()]}</div><div class="${numCls}">${dd.getDate()}</div>` +
+      `<div style="font-size:9px;line-height:1.5;margin-top:1px;padding:0 4px;border-radius:7px;display:inline-block;` +
+      `background:${isFull ? '#5b6270' : 'transparent'};color:${isFull ? '#fff' : '#d0d0d6'};font-weight:${isFull ? '700' : '400'};">満</div>`
+    // 日付をタップでその日を満席にする／解除する（カレンダーを見ながらその場で決められるように）
+    el.style.cursor = 'pointer'
+    el.onclick = () => toggleFullDay(ds)
   })
 
   // タイムグリッド本体
@@ -4851,6 +4858,39 @@ let _storyMonth = null   // 表示中の月（その月の1日）
 
 // その日が「空き◯／残りわずか△／満席×／休み」のどれかを返す。
 // 判定は空き枠検索と同じ材料（予約・予約不可ブロック・定休日・臨時休業）を使う。
+// 週カレンダーの日付タップで、その日を「満席」にする／解除する。
+// （空き状況を見ながらその場で決められるように。予定画面を開かなくて済む）
+async function toggleFullDay(ds) {
+  if (moveMode || fastMoveMode) return   // 移動操作中の誤タップを防ぐ
+  const d = new Date(ds + 'T00:00:00')
+  const label = `${d.getMonth()+1}月${d.getDate()}日（${DAY_JP[d.getDay()]}）`
+  const existing = allEvents.find(e => e.date === ds && e.type === 'full')
+
+  if (existing) {
+    if (!(await uiConfirm(`${label}の「満席」を解除しますか？`, '解除する'))) return
+    const res = await api({ action:'deleteEvent', id: existing.id })
+    if (res && res.error) { toast('解除できませんでした: ' + res.error); return }
+    allEvents = allEvents.filter(e => String(e.id) !== String(existing.id))
+    renderCalendar()
+    toast(res && res.offline ? '電波が不安定のため保存待ちです' : '満席を解除しました')
+    return
+  }
+
+  if (!(await uiConfirm(`${label}を満席にしますか？\n（空きが残っていても「満」と表示されます）`, '満席にする'))) return
+  // 送信前にIDを決めておく＝画面に出すものとサーバーの行が必ず一致する
+  const id = 'c-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6)
+  allEvents = [...allEvents, { id, date: ds, title: '満席', type: 'full' }]
+  renderCalendar()
+  const res = await api({ action:'addEvent', id, date: ds, title: '満席', type: 'full' })
+  if (res && res.error) {
+    allEvents = allEvents.filter(e => String(e.id) !== String(id))   // 保存できなければ取り消す
+    renderCalendar()
+    toast('満席にできませんでした: ' + res.error)
+    return
+  }
+  toast(res && res.offline ? '電波が不安定のため保存待ちです' : `${label}を満席にしました`)
+}
+
 // 予定の種類 → チップの色 / 表示ラベル
 function _evChipClass(t) { return t === 'holiday' ? 'event-holiday' : t === 'full' ? 'event-full' : 'event-other' }
 function _evTypeLabel(t) { return t === 'holiday' ? '定休日'      : t === 'full' ? '満席'       : 'その他' }
