@@ -701,6 +701,23 @@ select.input { appearance:none; }
   </div>
 </div>
 
+<!-- ═══════════════ モーダル：予約不可の編集 ═══════════════ -->
+<div class="overlay" id="modal-edit-block" onclick="closeModal('modal-edit-block')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title">予約不可を変更</div>
+    <div class="field"><label class="label">日付</label><input class="input" id="blk-date" type="date" /></div>
+    <div class="row2">
+      <div class="field"><label class="label">時</label><select class="input" id="blk-time-h"></select></div>
+      <div class="field"><label class="label">分</label><select class="input" id="blk-time-m"><option value="00">00分</option><option value="30">30分</option></select></div>
+    </div>
+    <div class="field"><label class="label">長さ（時間）</label><input class="input" id="blk-dur" type="number" step="0.5" min="0.5" /></div>
+    <button class="btn-primary" onclick="submitEditBlock()">変更する</button>
+    <button type="button" onclick="deleteEditingBlock()" style="width:100%;margin-top:8px;background:#fff0f0;color:#e33;border:1px solid #fcc;border-radius:12px;padding:12px;font-size:15px;font-weight:600;cursor:pointer;">🗑️ この予約不可を解除</button>
+    <button class="btn-secondary" onclick="closeModal('modal-edit-block')">キャンセル</button>
+  </div>
+</div>
+
 <!-- ═══════════════ モーダル：未送信データ一覧 ═══════════════ -->
 <div class="overlay" id="modal-unsent" onclick="closeModal('modal-unsent')">
   <div class="modal" onclick="event.stopPropagation()">
@@ -1055,7 +1072,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-09-30o'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-09-30p'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -4168,8 +4185,65 @@ async function syncTimeBlocks() {
   _setTimeBlocksLocal(server)
   if (document.getElementById('screen-calendar').style.display !== 'none') renderCalendar()
 }
-async function onBlockClick(id) {
-  if (await uiConfirm('この「予約不可」を解除しますか？', '解除する')) { removeTimeBlock(id); renderCalendar() }
+// ── 予約不可の編集 ──
+// 以前はタップ＝解除の確認だけで、時間を直すには「解除して入れ直し」が必要だった。
+let _editingBlockId = null
+
+function onBlockClick(id) {
+  const b = getTimeBlocks().find(x => x.id === id)
+  if (!b) { toast('対象が見つかりません'); return }
+  _editingBlockId = id
+  buildHourOptions('blk-time-h')
+  document.getElementById('blk-date').value = b.date || ''
+  setTimeVal('blk-time-h', 'blk-time-m', b.start || '10:00')
+  document.getElementById('blk-dur').value = ((b.dur || 60) / 60)
+  openModal('modal-edit-block')
+}
+
+async function submitEditBlock() {
+  const id = _editingBlockId
+  if (!id) return
+  const date = document.getElementById('blk-date').value
+  const start = getTimeVal('blk-time-h', 'blk-time-m')
+  const dur = Math.round((parseFloat(document.getElementById('blk-dur').value) || 1) * 60)
+  if (!date) { toast('日付を入れてください'); return }
+  closeModal('modal-edit-block')
+  await updateTimeBlock(id, date, start, dur)
+  _editingBlockId = null
+}
+
+async function deleteEditingBlock() {
+  const id = _editingBlockId
+  if (!id) return
+  if (!(await uiConfirm('この「予約不可」を解除しますか？', '解除する'))) return
+  closeModal('modal-edit-block')
+  _editingBlockId = null
+  await removeTimeBlock(id)
+  renderCalendar()
+}
+
+// サーバーは同じIDの再追加を無視する仕様なので、ID据え置きの更新はできない。
+// そこで「新しいIDで追加 → 古いIDを削除」の順で行う。
+// 途中で失敗しても、消えてしまうより重複が残る方が安全なため追加を先にする。
+async function updateTimeBlock(oldId, date, start, dur) {
+  const before = getTimeBlocks()
+  const old = before.find(b => b.id === oldId)
+  if (!old) { toast('対象が見つかりません'); return }
+  const nb = { id: 'blk-' + Date.now(), date, start, dur: dur || 60 }
+  _setTimeBlocksLocal(before.filter(b => b.id !== oldId).concat([nb]))   // 画面は先に新しい内容へ
+  renderCalendar()
+  const addRes = await api({ action:'setTimeBlock', op:'add', block: nb })
+  if (addRes && addRes.error) {
+    _setTimeBlocksLocal(before)                                          // 元に戻す
+    renderCalendar()
+    toast('変更を保存できませんでした。通信状況をご確認ください')
+    return
+  }
+  const rmRes = await api({ action:'setTimeBlock', op:'remove', id: oldId })
+  if (rmRes && Array.isArray(rmRes.blocks)) _setTimeBlocksLocal(rmRes.blocks)
+  renderCalendar()
+  toast((addRes && addRes.offline) || (rmRes && rmRes.offline)
+    ? '電波が不安定のため保存待ちです' : '予約不可を変更しました')
 }
 function blockThisSlot() {
   const date = document.getElementById('res-date').value
