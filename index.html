@@ -1037,7 +1037,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-09-30g'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-09-30h'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -4819,7 +4819,7 @@ function renderStoryCalendar() {
   const MARK = {
     open:   { t:'○', c:'#c98f8f' },
     few:    { t:'△', c:'#cfa77c' },
-    full:   { t:'×', c:'#c9c0b8' },
+    full:   { t:'満', c:'#c9c0b8' },
     closed: { t:'休', c:'#cfc7c0' },
     past:   { t:'',  c:'#d8d1cb' }
   }
@@ -4848,7 +4848,7 @@ function renderStoryCalendar() {
   const leg = (sym, color, label) =>
     `<span style="white-space:nowrap;"><span style="color:${color};">${sym}</span>&nbsp;${label}</span>`
   document.getElementById('story-legend').innerHTML =
-    leg('○', '#c98f8f', '空きあり') + leg('△', '#cfa77c', 'わずか') + leg('×', '#c9c0b8', '満席')
+    leg('○', '#c98f8f', '空きあり') + leg('△', '#cfa77c', 'わずか') + leg('満', '#c9c0b8', '満席')
   document.getElementById('story-foot').textContent = `10:00 − 19:00　/　火曜定休`
 }
 
