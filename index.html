@@ -1088,7 +1088,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-10-01e'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-10-01f'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -5236,7 +5236,7 @@ function buildSlotReply() {
     lines = dates.map(date => {
       const d = new Date(date)
       const label = `${d.getMonth()+1}月${d.getDate()}日(${DAY_JP[d.getDay()]})`
-      const times = byDate[date].sort().map(t => t + '〜').join(' / ')
+      const times = byDate[date].sort().join(' / ')
       return `・${label} ${times}`
     }).join('\n')
   } else {
