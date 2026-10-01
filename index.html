@@ -1088,7 +1088,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-10-01k'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-10-01l'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -5097,8 +5097,8 @@ function renderStoryCalendar() {
   document.getElementById('story-ctl-label').textContent = `${y}年${m+1}月`
   const MARK = {
     open:   { t:'○', c:'#9c4a4b' },
-    full:   { t:'満', c:'#857a6f' },
-    closed: { t:'休', c:'#857a6f' },   // 火曜定休・登録した休み とも「休」
+    full:   { t:'満', c:'#5f564c' },
+    closed: { t:'休', c:'#5f564c' },   // 火曜定休・登録した休み とも「休」
     past:   { t:'',  c:'#d8d1cb' }
   }
   // 月曜始まり（アプリの月表示と同じ並び）。5番目が土、6番目が日。
@@ -5119,7 +5119,7 @@ function renderStoryCalendar() {
     html += `<div style="text-align:center;padding:0.35vh 0;${dim}">
       <div style="font-size:1.95vh;letter-spacing:0.04em;color:#3a322b;">${day}</div>
       <div style="font-size:2.05vh;line-height:1.2;white-space:nowrap;color:${mk.c};">${mk.t || '&nbsp;'}</div>
-      <div style="font-size:1.15vh;line-height:1.25;white-space:nowrap;letter-spacing:0;color:#735e51;">${info.first || '&nbsp;'}</div>
+      <div style="font-size:1.15vh;line-height:1.25;white-space:nowrap;letter-spacing:0;color:#55443a;">${info.first || '&nbsp;'}</div>
     </div>`
   }
   document.getElementById('story-grid').innerHTML = html
@@ -5128,7 +5128,7 @@ function renderStoryCalendar() {
   const leg = (sym, color, label) =>
     `<span style="white-space:nowrap;"><span style="color:${color};">${sym}</span>&nbsp;${label}</span>`
   document.getElementById('story-legend').innerHTML =
-    leg('○', '#9c4a4b', '空きあり') + leg('満', '#857a6f', '満席')
+    leg('○', '#9c4a4b', '空きあり') + leg('満', '#5f564c', '満席')
   document.getElementById('story-foot').innerHTML =
     `平日 10:00 − 18:00　土日祝 10:00 − 19:00<br>毎週火曜日 定休　その他不定`
 }
