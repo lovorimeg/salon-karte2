@@ -1047,7 +1047,7 @@ select.input { appearance:none; }
       <div id="story-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:0.9vh 0;"></div>
       <div id="story-legend" style="margin-top:2.8vh;display:flex;justify-content:center;flex-wrap:nowrap;gap:1.3em;font-size:1.65vh;letter-spacing:0.08em;color:#a4968b;"></div>
       <!-- 下部は絶対配置にしない：6行になる月で凡例と重なるため、流れの中に置いて中央寄せに任せる -->
-      <div id="story-foot" style="margin-top:2.4vh;text-align:center;font-size:1.55vh;letter-spacing:0.22em;color:#bdb0a6;"></div>
+      <div id="story-foot" style="margin-top:2.4vh;text-align:center;font-size:1.4vh;line-height:1.9;letter-spacing:0.08em;color:#bdb0a6;"></div>
     </div>
   </div>
   <div id="story-controls" style="position:fixed;left:0;right:0;bottom:0;padding:12px 14px calc(14px + env(safe-area-inset-bottom));background:rgba(20,18,17,0.92);display:flex;flex-direction:column;gap:10px;">
@@ -1088,7 +1088,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-10-01h'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-10-01i'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -4849,8 +4849,14 @@ function _normalizeKarteText(s, mode) {
 
 
 // ═══════════════ 空き枠検索 ═══════════════
-const SLOT_OPEN_MIN = 10 * 60   // 10:00
-const SLOT_CLOSE_MIN = 19 * 60  // 19:00（最終施術はこの時刻までに終了）
+const SLOT_OPEN_MIN = 10 * 60   // 10:00（開店は共通）
+const SLOT_CLOSE_MIN = 19 * 60  // 互換用：土日祝の終了時刻
+// 終了時刻は曜日で変わる：平日は18時まで、土日祝は19時まで（最終施術がこの時刻までに終わる枠）
+function _closeMinFor(ds) {
+  const dow = new Date(ds + 'T00:00:00').getDay()
+  const isWeekendOrHoliday = dow === 0 || dow === 6 || !!jpHoliday(ds)
+  return isWeekendOrHoliday ? 19 * 60 : 18 * 60
+}
 let _slotDow = 'all'
 let _slotSelected = new Set()   // "YYYY-MM-DD|HH:MM"
 let _slotDays = []              // [{date, dow, slots:[minutes...]}]
@@ -5038,7 +5044,8 @@ function _storyDayInfo(ds, dur) {
     const [bh,bm] = b.start.split(':').map(Number); const s = bh*60+bm; busy.push([s, s + (b.dur||60)])
   })
   let free = 0, first = ''
-  for (let t = SLOT_OPEN_MIN; t + dur <= SLOT_CLOSE_MIN; t += 30) {
+  const closeMin = _closeMinFor(ds)
+  for (let t = SLOT_OPEN_MIN; t + dur <= closeMin; t += 30) {
     if (!busy.some(([bs,be]) => t < be && (t + dur) > bs)) {
       free++
       if (!first) first = _minToHHMM(t)   // いちばん早く入れる時刻
@@ -5122,7 +5129,8 @@ function renderStoryCalendar() {
     `<span style="white-space:nowrap;"><span style="color:${color};">${sym}</span>&nbsp;${label}</span>`
   document.getElementById('story-legend').innerHTML =
     leg('○', '#c98f8f', '空きあり') + leg('満', '#c9c0b8', '満席')
-  document.getElementById('story-foot').textContent = `10:00 − 19:00　/　毎週火曜日 定休`
+  document.getElementById('story-foot').innerHTML =
+    `平日 10:00 − 18:00　土日祝 10:00 − 19:00<br>毎週火曜日 定休　その他不定`
 }
 
 function setSlotDow(v) {
@@ -5173,7 +5181,8 @@ function runSlotSearch() {
 
     // 30分刻みで空き枠を探す
     const slots = []
-    for (let t = SLOT_OPEN_MIN; t + dur <= SLOT_CLOSE_MIN; t += 30) {
+    const closeMin = _closeMinFor(ds)
+    for (let t = SLOT_OPEN_MIN; t + dur <= closeMin; t += 30) {
       const overlap = busy.some(([bs, be]) => t < be && (t + dur) > bs)
       if (!overlap) slots.push(t)
     }
