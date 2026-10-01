@@ -1088,7 +1088,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-10-01g'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-10-01h'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -5045,7 +5045,7 @@ function _storyDayInfo(ds, dur) {
     }
   }
   if (free === 0) return { state:'full', first:'' }
-  return { state: free <= 2 ? 'few' : 'open', first }
+  return { state: 'open', first }   // 空きが1枠でもあれば○（「残りわずか」の区分は廃止）
 }
 
 // 最初に見せる月を決める。月末に開くと今月はほぼ過去日で空っぽに見えるため、
@@ -5058,7 +5058,7 @@ function _storyInitialMonth() {
   const pad = n => String(n).padStart(2, '0')
   for (let d = now.getDate(); d <= daysInMonth; d++) {
     const st = _storyDayState(`${y}-${pad(m+1)}-${pad(d)}`)
-    if (st === 'open' || st === 'few') return new Date(y, m, 1)           // まだ空きがある＝今月
+    if (st === 'open') return new Date(y, m, 1)                           // まだ空きがある＝今月
   }
   return new Date(y, m + 1, 1)                                            // 今月は満席/休みのみ
 }
@@ -5090,7 +5090,6 @@ function renderStoryCalendar() {
   document.getElementById('story-ctl-label').textContent = `${y}年${m+1}月`
   const MARK = {
     open:   { t:'○', c:'#c98f8f' },
-    few:    { t:'△', c:'#cfa77c' },
     full:   { t:'満', c:'#c9c0b8' },
     closed: { t:'休', c:'#cfc7c0' },   // 火曜定休・登録した休み とも「休」
     past:   { t:'',  c:'#d8d1cb' }
@@ -5122,7 +5121,7 @@ function renderStoryCalendar() {
   const leg = (sym, color, label) =>
     `<span style="white-space:nowrap;"><span style="color:${color};">${sym}</span>&nbsp;${label}</span>`
   document.getElementById('story-legend').innerHTML =
-    leg('○', '#c98f8f', '空きあり') + leg('△', '#cfa77c', 'わずか') + leg('満', '#c9c0b8', '満席')
+    leg('○', '#c98f8f', '空きあり') + leg('満', '#c9c0b8', '満席')
   document.getElementById('story-foot').textContent = `10:00 − 19:00　/　毎週火曜日 定休`
 }
 
