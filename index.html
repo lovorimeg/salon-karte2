@@ -821,8 +821,8 @@ select.input { appearance:none; }
       <label class="label">種類</label>
       <div class="payment-group">
         <button type="button" class="payment-btn active" id="ev-type-holiday" onclick="selectEventType('holiday')">定休日</button>
+        <button type="button" class="payment-btn"        id="ev-type-other"   onclick="selectEventType('other')">休み</button>
         <button type="button" class="payment-btn"        id="ev-type-full"    onclick="selectEventType('full')">満席</button>
-        <button type="button" class="payment-btn"        id="ev-type-other"   onclick="selectEventType('other')">その他</button>
       </div>
     </div>
     <div class="field">
@@ -836,7 +836,7 @@ select.input { appearance:none; }
       <input type="hidden" id="ev-date" />
       <div id="ev-pending-count" style="font-size:13px;color:#007aff;font-weight:600;margin-top:8px;text-align:center;"></div>
     </div>
-    <div class="field"><label class="label">タイトル</label><input class="input" id="ev-title" placeholder="定休日・研修・棚卸しなど" /></div>
+    <div class="field"><label class="label">タイトル</label><input class="input" id="ev-title" placeholder="休み・定休日・研修など" /></div>
     <button class="btn-primary" onclick="submitAddEvent()">追加する</button>
     <button class="btn-secondary" onclick="closeModal('modal-add-event')">キャンセル</button>
     <div style="border-top:1px solid #f0f0f5;margin-top:20px;padding-top:16px;">
@@ -849,8 +849,8 @@ select.input { appearance:none; }
         <div style="font-size:13px;font-weight:600;color:#007aff;margin-bottom:10px;">予定を編集</div>
         <div class="payment-group" style="margin-bottom:8px;">
           <button type="button" class="payment-btn" id="ev-edit-type-holiday" onclick="selectEditEventType('holiday')">定休日</button>
+          <button type="button" class="payment-btn" id="ev-edit-type-other"   onclick="selectEditEventType('other')">休み</button>
           <button type="button" class="payment-btn" id="ev-edit-type-full"    onclick="selectEditEventType('full')">満席</button>
-          <button type="button" class="payment-btn" id="ev-edit-type-other"   onclick="selectEditEventType('other')">その他</button>
         </div>
         <input class="input" id="ev-edit-date" type="date" style="margin-bottom:8px"/>
         <input class="input" id="ev-edit-title" placeholder="タイトル" style="margin-bottom:8px"/>
@@ -1075,7 +1075,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-10-01b'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-10-01c'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -4886,7 +4886,7 @@ async function toggleHolidayDay(ds) {
   const d = new Date(ds + 'T00:00:00')
   if (d.getDay() === 2) { toast('火曜は定休日なので、登録しなくても自動でお休みです'); return }
   const label = `${d.getMonth()+1}月${d.getDate()}日（${DAY_JP[d.getDay()]}）`
-  // 「満席」以外の予定＝その日を休みにしている登録（休み・定休日・その他）
+  // 「満席」以外の予定＝その日を休みにしている登録（定休日＝お店の休み／休み＝自分だけの休み）
   const closures = allEvents.filter(e => e.date === ds && e.type !== 'full')
 
   if (closures.length) {
@@ -4904,9 +4904,9 @@ async function toggleHolidayDay(ds) {
 
   if (!(await uiConfirm(`${label}をお休みにしますか？`, '休みにする'))) return
   const id = 'c-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6)
-  allEvents = [...allEvents, { id, date: ds, title: '休み', type: 'holiday' }]
+  allEvents = [...allEvents, { id, date: ds, title: '休み', type: 'other' }]
   renderCalendar()
-  const res = await api({ action:'addEvent', id, date: ds, title: '休み', type: 'holiday' })
+  const res = await api({ action:'addEvent', id, date: ds, title: '休み', type: 'other' })
   if (res && res.error) {
     allEvents = allEvents.filter(e => String(e.id) !== String(id))   // 保存できなければ取り消す
     renderCalendar()
@@ -4951,7 +4951,7 @@ async function toggleFullDay(ds) {
 
 // 予定の種類 → チップの色 / 表示ラベル
 function _evChipClass(t) { return t === 'holiday' ? 'event-holiday' : t === 'full' ? 'event-full' : 'event-other' }
-function _evTypeLabel(t) { return t === 'holiday' ? '定休日'      : t === 'full' ? '満席'       : 'その他' }
+function _evTypeLabel(t) { return t === 'holiday' ? '定休日'      : t === 'full' ? '満席'       : '休み' }
 
 function _storyDayState(ds, dur) {
   dur = dur || 60
