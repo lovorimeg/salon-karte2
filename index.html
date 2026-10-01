@@ -1075,7 +1075,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-09-30r'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-10-01a'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -1541,9 +1541,10 @@ async function api(params, opts) {
     params = { ...params, id: 'c-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8) }
   }
   const controller = new AbortController()
-  // GASはコールドスタート時に10秒超かかることがある（実測11.4秒）。書き込みは待たされても
-  // 成功させたい（諦めると「未送信」になる）ので30秒、読み取りはキャッシュで代替できるので20秒。
-  const timer = setTimeout(() => controller.abort(), params.action.startsWith('get') ? 20000 : 30000)
+  // GAS側が不安定で、最軽量の処理でも実測で18秒・32秒かかることがある（Google側の問題で対処不能）。
+  // 予約追加などの書き込みは画面を先に閉じて裏で送る方式なので、待ち時間が延びても体感に影響しない。
+  // 諦めて「未送信」にするより待った方が良いので60秒。読み取りはキャッシュで代替できるので20秒。
+  const timer = setTimeout(() => controller.abort(), params.action.startsWith('get') ? 20000 : 60000)
   // 端末に保存された合鍵（顔パス）とPINを毎回の通信に添付（checkPin/setPinは各自のpinを優先）
   const pin = localStorage.getItem('pinCode') || ''
   const deviceToken = localStorage.getItem('deviceToken') || ''
@@ -1614,7 +1615,7 @@ async function api(params, opts) {
 // タイムアウトでも実際はサーバーに届いていることが多く、その場合は再送が即「登録済み」と返るため、
 // ユーザーが何もしなくても赤いバナーが数秒で消える（＝「未送信」が残りっぱなしになりにくい）。
 function _scheduleQueueFlush(delay) {
-  setTimeout(() => { try { flushOfflineQueue() } catch(e) {} }, delay || 1500)
+  setTimeout(() => { try { flushOfflineQueue(true) } catch(e) {} }, delay || 1500)
 }
 
 function _unsentQueueLen() {
@@ -1625,14 +1626,29 @@ function _updateUnsentBanner() {
   const el = document.getElementById('unsent-banner')
   if (!el) return
   const n = _unsentQueueLen()
-  if (n > 0) {
+  // GAS側が遅いだけの一時的な保存待ちは、裏の自動再送で数秒〜数十秒で片付く。
+  // それを毎回赤バナーで知らせると驚かせるだけなので、45秒以上片付かない時だけ出す。
+  // （送信状況の画面では、出ていない分も含めて常に全部確認できる）
+  let stale = false
+  try {
+    const q = JSON.parse(localStorage.getItem('offlineQueue')||'[]')
+    stale = q.some(i => !i.timestamp || (Date.now() - i.timestamp) > 45000)
+  } catch(e) { stale = n > 0 }
+  const show = n > 0 && stale
+  if (show) {
     const c = document.getElementById('unsent-count'); if (c) c.textContent = n
     el.style.display = 'block'
   } else {
     el.style.display = 'none'
   }
-  document.body.classList.toggle('has-unsent', n > 0)  // バナーの高さ分だけ中身を下げる
+  document.body.classList.toggle('has-unsent', show)  // バナーの高さ分だけ中身を下げる
 }
+
+// 保存待ちが残っている間は、静かに再送を試み続ける（赤バナーを出す前に自力で片付ける）。
+setInterval(() => {
+  if (_unsentQueueLen()) { flushOfflineQueue(true); }
+  _updateUnsentBanner()   // 45秒を過ぎた分はここでバナーに出る
+}, 30000)
 
 // 保存待ちキューへの追加。setItemが失敗（保存容量満杯など）したら握りつぶさず false を返す＝呼び出し側が正直にエラー表示する。
 function saveOffline(data) {
@@ -1657,7 +1673,7 @@ let _bootstrapDone = false   // 起動時のまとめ取得(getBootstrap)が成�
 // クラッシュに強い再送：1件ずつ「送信できたことを確認してから」キューの先頭を消す。
 // 送信の途中でアプリが強制終了されても、未送信の項目はキューに残る（サーバーは同一IDの二重登録を無視）。
 // 以前は先にキューを空にしてから送っていたため、途中で落ちると残りが消える穴があった。
-async function flushOfflineQueue() {
+async function flushOfflineQueue(quiet) {   // quiet=true は自動の裏再送（トーストを出さない）
   // 万一「送信中」フラグが立ちっぱなしになっても2分で解除する
   // （立ったままだと以後の再送が全て素通りし、項目が永久に送られなくなるため）
   if (_flushingQueue && (Date.now() - _flushStartedAt) < 120000) return
@@ -1665,7 +1681,7 @@ async function flushOfflineQueue() {
   if (!_unsentQueueLen()) { _updateUnsentBanner(); return }
   _flushingQueue = true
   _flushStartedAt = Date.now()
-  toast('保存待ちのデータを送信中...')
+  if (!quiet) toast('保存待ちのデータを送信中...')
   let sentAny = false
   const errored = []
   const giveUp = []
@@ -1720,8 +1736,8 @@ async function flushOfflineQueue() {
   if (errored.length) {
     try { alert('⚠️ ' + errored.length + '件の保存待ちデータがサーバーに拒否されました。お手数ですが、該当の予約・カルテを入れ直してください。') } catch(e) {}
   }
-  if (left) toast('一部送信できませんでした。電波の良い場所で自動再送します')
-  else if (sentAny) toast('保存待ちデータの送信が完了しました')
+  if (left && !quiet) toast('一部送信できませんでした。電波の良い場所で自動再送します')
+  else if (sentAny && !quiet) toast('保存待ちデータの送信が完了しました')
   if (sentAny) loadAll()
 }
 
