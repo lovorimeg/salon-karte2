@@ -702,6 +702,18 @@ select.input { appearance:none; }
   </div>
 </div>
 
+<!-- ═══════════════ モーダル：その日の予定（1件ずつ編集・削除） ═══════════════ -->
+<div class="overlay" id="modal-day-events" onclick="closeModal('modal-day-events')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="day-events-title">予定</div>
+    <div style="font-size:13px;color:#888;margin:-8px 0 12px;line-height:1.6;">消したいものだけを選んで削除できます。</div>
+    <div id="day-events-list"></div>
+    <div id="day-events-add" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:14px;"></div>
+    <button class="btn-secondary" onclick="closeModal('modal-day-events')">閉じる</button>
+  </div>
+</div>
+
 <!-- ═══════════════ モーダル：予約不可の編集 ═══════════════ -->
 <div class="overlay" id="modal-edit-block" onclick="closeModal('modal-edit-block')">
   <div class="modal" onclick="event.stopPropagation()">
@@ -1075,7 +1087,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-10-01c'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-10-01d'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -4880,27 +4892,81 @@ let _storyMonth = null   // 表示中の月（その月の1日）
 
 // その日が「空き◯／残りわずか△／満席×／休み」のどれかを返す。
 // 判定は空き枠検索と同じ材料（予約・予約不可ブロック・定休日・臨時休業）を使う。
-// 週カレンダーの「休」ボタンで、その日をお休みにする／解除する。
+// ── その日の予定を1件ずつ編集・削除する画面 ──
+// 「休」で一括削除していた頃は、同じ日に入れた別の予定（例：にこ参観日）まで消えてしまっていた。
+let _dayEventsDate = null
+
+function openDayEventsMenu(ds) {
+  _dayEventsDate = ds
+  renderDayEventsMenu()
+  openModal('modal-day-events')
+}
+
+function renderDayEventsMenu() {
+  const ds = _dayEventsDate
+  if (!ds) return
+  const d = new Date(ds + 'T00:00:00')
+  document.getElementById('day-events-title').textContent =
+    `${d.getMonth()+1}月${d.getDate()}日（${DAY_JP[d.getDay()]}）の予定`
+  const list = allEvents.filter(e => e.date === ds)
+  document.getElementById('day-events-list').innerHTML = list.length ? list.map(ev => `
+    <div style="display:flex;align-items:center;gap:6px;padding:10px 0;border-bottom:1px solid #f0f0f5;">
+      <span class="event-chip ${_evChipClass(ev.type)}" style="display:inline-block;flex-shrink:0;max-width:none;">${_evTypeLabel(ev.type)}</span>
+      <div style="flex:1;min-width:0;font-size:15px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${ev.title || ''}</div>
+      <button onclick="editDayEvent('${ev.id}')" style="flex-shrink:0;background:#e8f0fe;color:#007aff;border:1px solid #c0d4fb;border-radius:8px;padding:5px 10px;font-size:13px;cursor:pointer;">編集</button>
+      <button onclick="deleteDayEvent('${ev.id}')" style="flex-shrink:0;background:#fff0f0;color:#e33;border:1px solid #fcc;border-radius:8px;padding:5px 10px;font-size:13px;cursor:pointer;">削除</button>
+    </div>`).join('')
+    : '<div style="color:#aaa;font-size:14px;padding:10px 0;">この日の予定はありません</div>'
+  // まだ無い種類だけ「＋」で足せるようにする
+  const has = t => list.some(e => e.type === t)
+  const btn = (t, label) => has(t) ? '' :
+    `<button onclick="addDayEvent('${t}')" style="background:#f0f0f5;border:none;border-radius:10px;padding:10px 4px;font-size:13px;font-weight:600;color:#444;cursor:pointer;">＋ ${label}</button>`
+  document.getElementById('day-events-add').innerHTML =
+    btn('holiday','定休日') + btn('other','休み') + btn('full','満席')
+}
+
+function editDayEvent(id) {
+  const ds = _dayEventsDate
+  closeModal('modal-day-events')
+  editEventFromCalendar(id, ds)
+}
+
+async function deleteDayEvent(id) {
+  const ev = allEvents.find(e => String(e.id) === String(id))
+  if (!ev) return
+  if (!(await uiConfirm(`「${ev.title || _evTypeLabel(ev.type)}」を削除しますか？`, '削除する'))) return
+  const res = await api({ action:'deleteEvent', id })
+  if (res && res.error) { toast('削除できませんでした: ' + res.error); return }
+  allEvents = allEvents.filter(e => String(e.id) !== String(id))
+  renderDayEventsMenu(); renderCalendar()
+  toast(res && res.offline ? '電波が不安定のため保存待ちです' : '削除しました')
+}
+
+async function addDayEvent(type) {
+  const ds = _dayEventsDate
+  const title = _evTypeLabel(type)
+  const id = 'c-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6)
+  allEvents = [...allEvents, { id, date: ds, title, type }]
+  renderDayEventsMenu(); renderCalendar()
+  const res = await api({ action:'addEvent', id, date: ds, title, type })
+  if (res && res.error) {
+    allEvents = allEvents.filter(e => String(e.id) !== String(id))
+    renderDayEventsMenu(); renderCalendar()
+    toast('追加できませんでした: ' + res.error)
+    return
+  }
+  toast(res && res.offline ? '電波が不安定のため保存待ちです' : `${title}を追加しました`)
+}
+
+// 週カレンダーの「休」ボタン。予定が既にある日は一覧を開いて1件ずつ選べるようにする。
 async function toggleHolidayDay(ds) {
   if (moveMode || fastMoveMode) return   // 移動操作中の誤タップを防ぐ
   const d = new Date(ds + 'T00:00:00')
   if (d.getDay() === 2) { toast('火曜は定休日なので、登録しなくても自動でお休みです'); return }
   const label = `${d.getMonth()+1}月${d.getDate()}日（${DAY_JP[d.getDay()]}）`
-  // 「満席」以外の予定＝その日を休みにしている登録（定休日＝お店の休み／休み＝自分だけの休み）
-  const closures = allEvents.filter(e => e.date === ds && e.type !== 'full')
 
-  if (closures.length) {
-    const names = closures.map(e => '・' + (e.title || '休み')).join('\n')
-    if (!(await uiConfirm(`${label}のお休みを解除しますか？\n次の予定が削除されます：\n${names}`, '解除する'))) return
-    for (const ev of closures) {
-      const res = await api({ action:'deleteEvent', id: ev.id })
-      if (res && res.error) { toast('解除できませんでした: ' + res.error); return }
-    }
-    allEvents = allEvents.filter(e => !(e.date === ds && e.type !== 'full'))
-    renderCalendar()
-    toast('お休みを解除しました')
-    return
-  }
+  // 既に何か予定が入っている日は、まとめて消さず一覧から選んでもらう
+  if (allEvents.some(e => e.date === ds)) { openDayEventsMenu(ds); return }
 
   if (!(await uiConfirm(`${label}をお休みにしますか？`, '休みにする'))) return
   const id = 'c-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6)
