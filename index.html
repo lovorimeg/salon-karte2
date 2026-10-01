@@ -1045,8 +1045,9 @@ select.input { appearance:none; }
       <div style="text-align:center;letter-spacing:0.5em;font-size:3.1vh;margin-bottom:0.4vh;">空き状況</div>
       <div id="story-month" style="text-align:center;letter-spacing:0.18em;font-size:2.2vh;color:#a4968b;margin-bottom:3.4vh;"></div>
       <div id="story-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:0.9vh 0;"></div>
-      <div id="story-legend" style="margin-top:4vh;display:flex;justify-content:center;flex-wrap:nowrap;gap:1.3em;font-size:1.65vh;letter-spacing:0.08em;color:#a4968b;"></div>
-      <div id="story-foot" style="position:absolute;left:0;right:0;bottom:7%;text-align:center;font-size:1.55vh;letter-spacing:0.22em;color:#bdb0a6;"></div>
+      <div id="story-legend" style="margin-top:2.8vh;display:flex;justify-content:center;flex-wrap:nowrap;gap:1.3em;font-size:1.65vh;letter-spacing:0.08em;color:#a4968b;"></div>
+      <!-- 下部は絶対配置にしない：6行になる月で凡例と重なるため、流れの中に置いて中央寄せに任せる -->
+      <div id="story-foot" style="margin-top:2.4vh;text-align:center;font-size:1.55vh;letter-spacing:0.22em;color:#bdb0a6;"></div>
     </div>
   </div>
   <div id="story-controls" style="position:fixed;left:0;right:0;bottom:0;padding:12px 14px calc(14px + env(safe-area-inset-bottom));background:rgba(20,18,17,0.92);display:flex;flex-direction:column;gap:10px;">
@@ -1087,7 +1088,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-10-01d'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-10-01e'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -5019,27 +5020,32 @@ async function toggleFullDay(ds) {
 function _evChipClass(t) { return t === 'holiday' ? 'event-holiday' : t === 'full' ? 'event-full' : 'event-other' }
 function _evTypeLabel(t) { return t === 'holiday' ? '定休日'      : t === 'full' ? '満席'       : '休み' }
 
-function _storyDayState(ds, dur) {
+function _storyDayState(ds, dur) { return _storyDayInfo(ds, dur).state }
+
+// その日の状態に加えて「いちばん早い空き時刻」も返す（ストーリーに 10:00 のように出すため）
+function _storyDayInfo(ds, dur) {
   dur = dur || 60
   const d = new Date(ds + 'T00:00:00')
-  if (d.getDay() === 2) return 'closed'                          // 火曜定休
+  if (d.getDay() === 2) return { state:'closed', first:'' }                          // 火曜定休
   // 「満席」で登録した日は、空きが残っていても「満」と出す（これ以上予約を入れたくない日）
-  if (allEvents.some(e => e.date === ds && e.type === 'full')) return 'full'
+  if (allEvents.some(e => e.date === ds && e.type === 'full')) return { state:'full', first:'' }
   // それ以外の「予定」がある日は休業として扱う＝予定画面のミニカレンダーが「休」と出すのと同じ基準。
-  if (allEvents.some(e => e.date === ds)) return 'closed'
+  if (allEvents.some(e => e.date === ds)) return { state:'closed', first:'' }
   const busy = allReservations
     .filter(r => r.date === ds && r.status !== 'cancelled' && r.status !== 'no_show')
     .map(r => { const [h,m] = (r.time||'00:00').split(':').map(Number); const s = h*60+m; return [s, s + (r.duration||60)] })
   getTimeBlocks().filter(b => b.date === ds).forEach(b => {
     const [bh,bm] = b.start.split(':').map(Number); const s = bh*60+bm; busy.push([s, s + (b.dur||60)])
   })
-  let free = 0
+  let free = 0, first = ''
   for (let t = SLOT_OPEN_MIN; t + dur <= SLOT_CLOSE_MIN; t += 30) {
-    if (!busy.some(([bs,be]) => t < be && (t + dur) > bs)) free++
+    if (!busy.some(([bs,be]) => t < be && (t + dur) > bs)) {
+      free++
+      if (!first) first = _minToHHMM(t)   // いちばん早く入れる時刻
+    }
   }
-  if (free === 0) return 'full'
-  if (free <= 2) return 'few'
-  return 'open'
+  if (free === 0) return { state:'full', first:'' }
+  return { state: free <= 2 ? 'few' : 'open', first }
 }
 
 // 最初に見せる月を決める。月末に開くと今月はほぼ過去日で空っぽに見えるため、
@@ -5100,12 +5106,14 @@ function renderStoryCalendar() {
   const pad = n => String(n).padStart(2,'0')
   for (let day = 1; day <= days; day++) {
     const ds = `${y}-${pad(m+1)}-${pad(day)}`
-    const state = ds < today ? 'past' : _storyDayState(ds)
+    const info = ds < today ? { state:'past', first:'' } : _storyDayInfo(ds)
+    const state = info.state
     const mk = MARK[state]
     const dim = state === 'past' ? 'opacity:0.35;' : ''
     html += `<div style="text-align:center;padding:0.35vh 0;${dim}">
       <div style="font-size:1.95vh;letter-spacing:0.04em;color:#6b6058;">${day}</div>
-      <div style="font-size:2.05vh;line-height:1.25;white-space:nowrap;color:${mk.c};">${mk.t || '&nbsp;'}</div>
+      <div style="font-size:2.05vh;line-height:1.2;white-space:nowrap;color:${mk.c};">${mk.t || '&nbsp;'}</div>
+      <div style="font-size:1.15vh;line-height:1.25;white-space:nowrap;letter-spacing:0;color:#bba9a0;">${info.first || '&nbsp;'}</div>
     </div>`
   }
   document.getElementById('story-grid').innerHTML = html
