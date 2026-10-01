@@ -1040,8 +1040,8 @@ select.input { appearance:none; }
 <!-- 9:16で表示し、スクリーンショットしてそのままストーリーに流せるようにする。
      お客様の名前・メニュー等は一切出さない（○△×と休だけ）。 -->
 <div id="story-overlay" style="display:none;position:fixed;inset:0;background:#2b2724;z-index:1200;overflow:auto;-webkit-overflow-scrolling:touch;">
-  <div id="story-stage" style="min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0;">
-    <div id="story-card" style="position:relative;width:100%;max-width:min(100vw, calc(100vh * 9 / 16));aspect-ratio:9/16;background:#f7f3ef;color:#332b24;display:flex;flex-direction:column;justify-content:center;padding:7% 8% 8%;box-sizing:border-box;font-family:'Hiragino Mincho ProN','Yu Mincho',YuMincho,serif;font-weight:300;">
+  <div id="story-stage" style="height:100%;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0;">
+    <div id="story-card" style="position:relative;width:100%;max-width:min(100vw, calc(100vh * 9 / 16));max-height:100%;aspect-ratio:9/16;background:#f7f3ef;color:#332b24;display:flex;flex-direction:column;justify-content:center;padding:7% 8% 8%;box-sizing:border-box;font-family:'Hiragino Mincho ProN','Yu Mincho',YuMincho,serif;font-weight:300;">
       <!-- letter-spacing は最後の文字の後ろにも隙間を作るため、中央寄せすると左にずれて見える。
            字間を使わず、文字の間に0.5em幅の空白(EN SPACE)を直接入れて正確に中央へ揃える。 -->
       <div style="text-align:center;letter-spacing:0;font-size:3.1vh;margin-bottom:0.4vh;">空 き 状 況</div>
@@ -1090,7 +1090,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-10-01m'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-10-01n'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -5077,6 +5077,19 @@ function openStoryCalendar() {
   document.getElementById('story-overlay').style.display = 'block'
   document.getElementById('story-controls').style.display = 'flex'
   renderStoryCalendar()
+  _syncStoryStagePad()
+}
+
+// 操作バーがカード下部（営業時間の行）に重ならないよう、バーの高さ分だけ余白を空ける。
+// 撮影モード中はバーが消えるので余白も0に戻し、カードを画面いっぱいに中央配置する。
+function _syncStoryStagePad() {
+  const stage = document.getElementById('story-stage')
+  const ctl = document.getElementById('story-controls')
+  if (!stage || !ctl) return
+  stage.style.paddingBottom = ctl.offsetHeight ? ctl.offsetHeight + 'px' : '0'
+  // 余白を付け外しするとスクロール位置が残り、カードが上下に偏って見えるので先頭へ戻す
+  const ov = document.getElementById('story-overlay')
+  if (ov) ov.scrollTop = 0
 }
 function closeStoryCalendar() { document.getElementById('story-overlay').style.display = 'none' }
 function storyMonth(delta) {
@@ -5087,7 +5100,12 @@ function storyMonth(delta) {
 function storyShoot() {
   document.getElementById('story-controls').style.display = 'none'
   const stage = document.getElementById('story-stage')
-  const back = () => { document.getElementById('story-controls').style.display = 'flex'; stage.removeEventListener('click', back) }
+  _syncStoryStagePad()
+  const back = () => {
+    document.getElementById('story-controls').style.display = 'flex'
+    _syncStoryStagePad()
+    stage.removeEventListener('click', back)
+  }
   setTimeout(() => stage.addEventListener('click', back), 300)
   toast('スクリーンショットを撮ってください')
 }
