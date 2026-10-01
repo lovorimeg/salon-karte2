@@ -1042,12 +1042,14 @@ select.input { appearance:none; }
 <div id="story-overlay" style="display:none;position:fixed;inset:0;background:#2b2724;z-index:1200;overflow:auto;-webkit-overflow-scrolling:touch;">
   <div id="story-stage" style="min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0;">
     <div id="story-card" style="position:relative;width:100%;max-width:min(100vw, calc(100vh * 9 / 16));aspect-ratio:9/16;background:#f7f3ef;color:#332b24;display:flex;flex-direction:column;justify-content:center;padding:7% 8% 8%;box-sizing:border-box;font-family:'Hiragino Mincho ProN','Yu Mincho',YuMincho,serif;font-weight:300;">
-      <div style="text-align:center;letter-spacing:0.5em;font-size:3.1vh;margin-bottom:0.4vh;">空き状況</div>
-      <div id="story-month" style="text-align:center;letter-spacing:0.18em;font-size:2.2vh;color:#6b5c4f;margin-bottom:3.4vh;"></div>
+      <!-- letter-spacing は最後の文字の後ろにも隙間を作るため、中央寄せすると左にずれて見える。
+           字間を使わず、文字の間に0.5em幅の空白(EN SPACE)を直接入れて正確に中央へ揃える。 -->
+      <div style="text-align:center;letter-spacing:0;font-size:3.1vh;margin-bottom:0.4vh;">空 き 状 況</div>
+      <div id="story-month" style="text-align:center;letter-spacing:0.18em;padding-left:0.18em;font-size:2.2vh;color:#6b5c4f;margin-bottom:3.4vh;"></div>
       <div id="story-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:0.9vh 0;"></div>
-      <div id="story-legend" style="margin-top:2.8vh;display:flex;justify-content:center;flex-wrap:nowrap;gap:1.3em;font-size:1.65vh;letter-spacing:0.08em;color:#6b5c4f;"></div>
+      <div id="story-legend" style="margin-top:2.8vh;display:flex;justify-content:center;flex-wrap:nowrap;gap:1.3em;font-size:1.65vh;letter-spacing:0.08em;padding-left:0.08em;color:#6b5c4f;"></div>
       <!-- 下部は絶対配置にしない：6行になる月で凡例と重なるため、流れの中に置いて中央寄せに任せる -->
-      <div id="story-foot" style="margin-top:2.4vh;text-align:center;font-size:1.4vh;line-height:1.9;letter-spacing:0.08em;color:#79695b;"></div>
+      <div id="story-foot" style="margin-top:2.4vh;text-align:center;font-size:1.4vh;line-height:1.9;letter-spacing:0.08em;padding-left:0.08em;color:#79695b;"></div>
     </div>
   </div>
   <div id="story-controls" style="position:fixed;left:0;right:0;bottom:0;padding:12px 14px calc(14px + env(safe-area-inset-bottom));background:rgba(20,18,17,0.92);display:flex;flex-direction:column;gap:10px;">
@@ -1088,7 +1090,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-10-01l'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-10-01m'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
