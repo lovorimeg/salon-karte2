@@ -1088,7 +1088,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-10-01f'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-10-01g'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -2176,7 +2176,7 @@ function resActionConfirm() {
   const r = _resActionTarget
   if (!r) return
   const dt = fmtResDatetime(r.date, r.time)
-  const text = `${r.customer_name}様\n\nご返信ありがとうございます🙇‍♀️\nそれでは、${dt}〜で\nご予約をお取りいたしました。\n\nご都合を合わせていただき、ありがとうございます。\n当日お会いできるのを楽しみにしております✨\n（ご返信は不要です🙇‍♀️）`
+  const text = `${r.customer_name}様\n\nご返信ありがとうございます🙇‍♀️\nそれでは、${dt}で\nご予約をお取りいたしました。\n\nご都合を合わせていただき、ありがとうございます。\n当日お会いできるのを楽しみにしております✨\n（ご返信は不要です🙇‍♀️）`
   const btn = document.getElementById('res-action-confirm-btn')
   navigator.clipboard.writeText(text).then(() => {
     toast('変更確定メッセージをコピーしました')
