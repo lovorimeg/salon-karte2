@@ -725,6 +725,7 @@ select.input { appearance:none; }
       <div class="field"><label class="label">分</label><select class="input" id="blk-time-m"><option value="00">00分</option><option value="30">30分</option></select></div>
     </div>
     <div class="field"><label class="label">長さ（時間）</label><input class="input" id="blk-dur" type="number" step="0.5" min="0.5" /></div>
+    <div class="field"><label class="label">理由（カレンダーに表示されます）</label><input class="input" id="blk-memo" placeholder="にこ授業参観・私用・仕込みなど" /></div>
     <button class="btn-primary" onclick="submitEditBlock()">変更する</button>
     <button type="button" onclick="deleteEditingBlock()" style="width:100%;margin-top:8px;background:#fff0f0;color:#e33;border:1px solid #fcc;border-radius:12px;padding:12px;font-size:15px;font-weight:600;cursor:pointer;">🗑️ この予約不可を解除</button>
     <button class="btn-secondary" onclick="closeModal('modal-edit-block')">キャンセル</button>
@@ -1090,7 +1091,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-10-01n'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-10-03a'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -3332,7 +3333,10 @@ function renderWeekCalendar() {
       const topPx = ((bh * 60 + bm - HOUR_START * 60) / 60) * HOUR_H
       const hPx = Math.max((b.dur / 60) * HOUR_H, 22)
       if (topPx < 0 || topPx >= totalH) return ''
-      return `<div class="week-tg-block tg-block-x" style="top:${topPx}px;height:${hPx}px;" onclick="onBlockClick('${b.id}')"><div class="week-tg-bname">🚫 予約不可</div></div>`
+      return `<div class="week-tg-block tg-block-x" style="top:${topPx}px;height:${hPx}px;" onclick="onBlockClick('${b.id}')">
+        <div class="week-tg-bname">🚫 ${b.memo || '予約不可'}</div>
+        ${hPx > 30 && b.memo ? '<div class="week-tg-bmenu">予約不可</div>' : ''}
+      </div>`
     }).join('')
 
     const colClick = (moveMode || fastMoveMode)
@@ -3434,7 +3438,10 @@ function renderDayCalendar() {
     const [bh, bm] = b.start.split(':').map(Number)
     const topPx = ((bh * 60 + bm - START * 60) / 60) * PX
     const hPx = Math.max((b.dur / 60) * PX, PX * 0.5)
-    return `<div class="week-tg-block tg-block-x" style="top:${topPx}px;height:${hPx}px;left:52px;right:8px;" onclick="onBlockClick('${b.id}')"><div style="font-size:13px;font-weight:700;">🚫 予約不可</div></div>`
+    return `<div class="week-tg-block tg-block-x" style="top:${topPx}px;height:${hPx}px;left:52px;right:8px;" onclick="onBlockClick('${b.id}')">
+      <div style="font-size:13px;font-weight:700;">🚫 ${b.memo || '予約不可'}</div>
+      ${hPx > 36 && b.memo ? '<div style="font-size:11px;opacity:0.85;">予約不可</div>' : ''}
+    </div>`
   }).join('')
   dayEl.innerHTML = evBanner +
     `<div style="position:relative;height:${totalH}px;margin:0 0 32px;">${lines}${blocks}${blockEls}</div>`
@@ -4188,8 +4195,8 @@ function _setTimeBlocksLocal(arr) {
   _timeBlocks = arr
   try { localStorage.setItem('timeBlocks', JSON.stringify(arr)) } catch(e) {}
 }
-async function addTimeBlock(date, start, dur) {
-  const b = { id: 'blk-' + Date.now(), date, start, dur: dur || 60 }
+async function addTimeBlock(date, start, dur, memo) {
+  const b = { id: 'blk-' + Date.now(), date, start, dur: dur || 60, memo: memo || '' }
   _setTimeBlocksLocal(getTimeBlocks().concat([b]))  // まず画面に即反映（楽観的）
   const res = await api({ action: 'setTimeBlock', op: 'add', block: b })
   if (res && res.error) {  // 保存できなかったら元に戻して知らせる
@@ -4244,6 +4251,7 @@ function onBlockClick(id) {
   document.getElementById('blk-date').value = b.date || ''
   setTimeVal('blk-time-h', 'blk-time-m', b.start || '10:00')
   document.getElementById('blk-dur').value = ((b.dur || 60) / 60)
+  document.getElementById('blk-memo').value = b.memo || ''
   openModal('modal-edit-block')
 }
 
@@ -4253,9 +4261,10 @@ async function submitEditBlock() {
   const date = document.getElementById('blk-date').value
   const start = getTimeVal('blk-time-h', 'blk-time-m')
   const dur = Math.round((parseFloat(document.getElementById('blk-dur').value) || 1) * 60)
+  const memo = (document.getElementById('blk-memo').value || '').trim()
   if (!date) { toast('日付を入れてください'); return }
   closeModal('modal-edit-block')
-  await updateTimeBlock(id, date, start, dur)
+  await updateTimeBlock(id, date, start, dur, memo)
   _editingBlockId = null
 }
 
@@ -4272,11 +4281,11 @@ async function deleteEditingBlock() {
 // サーバーは同じIDの再追加を無視する仕様なので、ID据え置きの更新はできない。
 // そこで「新しいIDで追加 → 古いIDを削除」の順で行う。
 // 途中で失敗しても、消えてしまうより重複が残る方が安全なため追加を先にする。
-async function updateTimeBlock(oldId, date, start, dur) {
+async function updateTimeBlock(oldId, date, start, dur, memo) {
   const before = getTimeBlocks()
   const old = before.find(b => b.id === oldId)
   if (!old) { toast('対象が見つかりません'); return }
-  const nb = { id: 'blk-' + Date.now(), date, start, dur: dur || 60 }
+  const nb = { id: 'blk-' + Date.now(), date, start, dur: dur || 60, memo: memo || '' }
   _setTimeBlocksLocal(before.filter(b => b.id !== oldId).concat([nb]))   // 画面は先に新しい内容へ
   renderCalendar()
   const addRes = await api({ action:'setTimeBlock', op:'add', block: nb })
@@ -4297,7 +4306,8 @@ function blockThisSlot() {
   const time = getTimeVal('res-time-h','res-time-m')
   if (!date || !time) { showError('res-add-error','日付と時刻を確認してください'); return }
   const dur = Math.round((parseFloat(document.getElementById('res-duration').value)||1) * 60)
-  addTimeBlock(date, time, dur)
+  const memo = (document.getElementById('res-memo').value || '').trim()   // メモがあれば理由として残す
+  addTimeBlock(date, time, dur, memo)
   closeModal('modal-add-res'); cancelNextBook()
   toast('この時間を予約不可にしました')
   renderCalendar()
