@@ -1091,7 +1091,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-10-03a'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-10-04a'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -3334,8 +3334,7 @@ function renderWeekCalendar() {
       const hPx = Math.max((b.dur / 60) * HOUR_H, 22)
       if (topPx < 0 || topPx >= totalH) return ''
       return `<div class="week-tg-block tg-block-x" style="top:${topPx}px;height:${hPx}px;" onclick="onBlockClick('${b.id}')">
-        <div class="week-tg-bname">🚫 ${b.memo || '予約不可'}</div>
-        ${hPx > 30 && b.memo ? '<div class="week-tg-bmenu">予約不可</div>' : ''}
+        <div style="font-weight:600;font-size:10px;line-height:1.3;white-space:normal;overflow-wrap:anywhere;">🚫 ${b.memo || '予約不可'}</div>
       </div>`
     }).join('')
 
