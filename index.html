@@ -1063,11 +1063,37 @@ select.input { appearance:none; }
       <button id="story-mode-all" onclick="setStoryMode('all')" style="background:#fff;color:#1c1c1e;border:none;border-radius:12px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;">全体</button>
       <button id="story-mode-weekday" onclick="setStoryMode('weekday')" style="background:#3a3431;color:#fff;border:none;border-radius:12px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;">平日</button>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-      <button onclick="storyShoot()" style="background:#fff;color:#1c1c1e;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;">📷 撮影モード</button>
-      <button onclick="closeStoryCalendar()" style="background:#3a3431;color:#fff;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;">閉じる</button>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+      <button onclick="storyShoot()" style="background:#fff;color:#1c1c1e;border:none;border-radius:12px;padding:12px 4px;font-size:13px;font-weight:700;cursor:pointer;">📷 撮影</button>
+      <button onclick="openReelScripts()" style="background:#3a3431;color:#fff;border:none;border-radius:12px;padding:12px 4px;font-size:13px;font-weight:600;cursor:pointer;">🎬 リール</button>
+      <button onclick="closeStoryCalendar()" style="background:#3a3431;color:#fff;border:none;border-radius:12px;padding:12px 4px;font-size:13px;font-weight:600;cursor:pointer;">閉じる</button>
     </div>
     <div style="color:#9b918b;font-size:11px;text-align:center;line-height:1.6;">撮影モードにするとこのバーが消えます。<br>スクリーンショットを撮って、画面をタップすると戻ります。</div>
+  </div>
+</div>
+
+<!-- ═══════════════ インスタ・リール用 台本テロップ ═══════════════ -->
+<!-- 台本を選ぶとテロップが9:16で順番に出る。iPhoneの画面収録を押して再生すれば、
+     そのままリールになる。空き状況カレンダーと同じ世界観（細明朝・くすみ色・余白）。 -->
+<div id="reel-overlay" style="display:none;position:fixed;inset:0;background:#2b2724;z-index:1300;overflow:auto;-webkit-overflow-scrolling:touch;">
+  <div id="reel-stage" style="height:100%;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0;">
+    <div id="reel-card" style="position:relative;width:100%;max-width:min(100vw, calc(100vh * 9 / 16));max-height:100%;aspect-ratio:9/16;background:#f7f3ef;color:#332b24;display:flex;align-items:center;justify-content:center;padding:10% 9%;box-sizing:border-box;font-family:'Hiragino Mincho ProN','Yu Mincho',YuMincho,serif;font-weight:300;">
+      <!-- letter-spacing は末尾にも隙間を作り中央寄せが左にずれるので、同じ量を padding-left で補う -->
+      <div id="reel-text" style="text-align:center;font-size:3.3vh;line-height:2.25;letter-spacing:0.11em;padding-left:0.11em;opacity:0;transition:opacity 0.55s ease;"></div>
+    </div>
+  </div>
+  <div id="reel-controls" style="position:fixed;left:0;right:0;bottom:0;padding:12px 14px calc(14px + env(safe-area-inset-bottom));background:rgba(20,18,17,0.92);display:flex;flex-direction:column;gap:10px;">
+    <div style="display:flex;align-items:center;justify-content:center;gap:10px;">
+      <button onclick="reelNav(-1)" style="background:#3a3431;color:#fff;border:none;border-radius:10px;width:42px;height:38px;font-size:18px;cursor:pointer;">‹</button>
+      <div id="reel-ctl-label" style="color:#fff;font-size:14px;font-weight:600;min-width:11em;text-align:center;line-height:1.4;"></div>
+      <button onclick="reelNav(1)" style="background:#3a3431;color:#fff;border:none;border-radius:10px;width:42px;height:38px;font-size:18px;cursor:pointer;">›</button>
+    </div>
+    <div id="reel-shoot-note" style="color:#cbbfb6;font-size:11.5px;line-height:1.7;text-align:center;"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <button onclick="reelPlay()" style="background:#fff;color:#1c1c1e;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;">▶︎ 再生</button>
+      <button onclick="closeReelScripts()" style="background:#3a3431;color:#fff;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;">閉じる</button>
+    </div>
+    <div style="color:#9b918b;font-size:11px;text-align:center;line-height:1.6;">先に iPhone の画面収録を始めて、それから再生。<br>途中で画面をタップすると止まります。</div>
   </div>
 </div>
 
@@ -1095,7 +1121,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-10-05c'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-10-05d'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -5132,6 +5158,160 @@ function storyShoot() {
   }
   setTimeout(() => stage.addEventListener('click', back), 300)
   toast('スクリーンショットを撮ってください')
+}
+
+// ═══════════════ インスタ・リール用 台本テロップ ═══════════════
+// sec は「その文字を出しておく秒数」。text が空の行は文字を出さない余白（締め）。
+// 改行は \n で入れる。1行は画面の端まで行かない長さにする（9:16は横が狭い）。
+const REEL_SCRIPTS = [
+  {
+    title: '平日の昼',
+    aim: '平日の新規',
+    shoot: '誰もいない店内をスマホでゆっくり横に動かすだけ。窓の光・椅子・鏡。顔は映らなくてよい。',
+    lines: [
+      { text: '平日の昼は、\nだいぶ静かです', sec: 3.2 },
+      { text: '急かされない時間に', sec: 2.8 },
+      { text: '髪のことを決めたい人に\n向いています', sec: 3.4 },
+      { text: '土日はどうしても、\n少し駆け足になります', sec: 3.6 },
+      { text: '', sec: 2.8 }
+    ]
+  },
+  {
+    title: '切る前がいちばん長い',
+    aim: 'はじめての方',
+    shoot: 'カウンセリングの席、カルテ、鏡の前の椅子。静物だけで成立する。',
+    lines: [
+      { text: 'はじめての日は、\n切る前がいちばん長い', sec: 3.6 },
+      { text: '今までどうしてきたか', sec: 2.8 },
+      { text: '朝どれくらい\n時間をかけられるか', sec: 3.2 },
+      { text: 'そこを聞かないと、\n似合うところに\n持っていけないので', sec: 4.0 },
+      { text: '', sec: 2.8 }
+    ]
+  },
+  {
+    title: '分け目（見落としポイント②）',
+    aim: 'シリーズ継続・保存',
+    shoot: '自分の髪の分け目を指で変える手元。変える前と後を鏡で。',
+    lines: [
+      { text: '分け目、何年おなじですか', sec: 2.8 },
+      { text: '同じところで\n分け続けると', sec: 2.8 },
+      { text: 'そこだけ\n地肌が目立ってきます', sec: 3.4 },
+      { text: '2センチずらすだけで\n変わります', sec: 3.4 },
+      { text: '', sec: 2.6 }
+    ]
+  },
+  {
+    title: '根元だけでいい',
+    aim: 'リタッチ・継続',
+    shoot: '鏡越しに根元へハケを入れている手元。最後に乾かしたあとの顔まわりを3秒。',
+    lines: [
+      { text: 'ぜんぶ染めなくて、\nいいです', sec: 2.8 },
+      { text: '根元だけで、\n顔のあたりは明るくなります', sec: 3.6 },
+      { text: '時間も短く終わるので', sec: 2.8 },
+      { text: '平日の用事の合間に\n寄る方が多いです', sec: 3.4 },
+      { text: '', sec: 2.6 }
+    ]
+  },
+  {
+    title: '隠すか、ぼかすか',
+    aim: '白髪ぼかしハイライト',
+    shoot: 'ハイライトを入れている手元。または許可をもらって仕上がりの後頭部のみ。',
+    lines: [
+      { text: '白髪は、\n隠すか、ぼかすか', sec: 3.2 },
+      { text: '隠すと、伸びたときに\nまた気になります', sec: 3.6 },
+      { text: 'ぼかすと、伸びても\n境目が出ません', sec: 3.6 },
+      { text: '通う間隔が\nすこし伸びます', sec: 3.0 },
+      { text: '', sec: 2.6 }
+    ]
+  }
+]
+
+let _reelIdx = 0
+let _reelTimer = null
+let _reelPlaying = false
+
+function openReelScripts() {
+  closeStoryCalendar()                 // 空き状況の上に重ねない（閉じると台本に戻る形にする）
+  _reelIdx = 0
+  _reelPlaying = false
+  document.getElementById('reel-overlay').style.display = 'block'
+  document.getElementById('reel-controls').style.display = 'flex'
+  _renderReelInfo()
+  _showReelStill()
+  _syncReelStagePad()
+}
+function closeReelScripts() {
+  _reelStop()
+  document.getElementById('reel-overlay').style.display = 'none'
+}
+
+// 操作バーの高さ分だけ余白を空け、再生中（バーが消える）は0に戻して画面いっぱいに中央配置する
+function _syncReelStagePad() {
+  const stage = document.getElementById('reel-stage')
+  const ctl = document.getElementById('reel-controls')
+  if (!stage || !ctl) return
+  stage.style.paddingBottom = ctl.offsetHeight ? ctl.offsetHeight + 'px' : '0'
+  const ov = document.getElementById('reel-overlay')
+  if (ov) ov.scrollTop = 0
+}
+
+function _renderReelInfo() {
+  const s = REEL_SCRIPTS[_reelIdx]
+  document.getElementById('reel-ctl-label').textContent = `${_reelIdx + 1}/${REEL_SCRIPTS.length}　${s.title}`
+  document.getElementById('reel-shoot-note').textContent = `【${s.aim}】撮るもの：${s.shoot}`
+}
+function reelNav(delta) {
+  if (_reelPlaying) return
+  _reelIdx = (_reelIdx + delta + REEL_SCRIPTS.length) % REEL_SCRIPTS.length
+  _renderReelInfo()
+  _showReelStill()
+}
+// 停止中は1行目（フック）を出しておく。これがそのまま1枚目のカバーになる。
+function _showReelStill() { _setReelText(REEL_SCRIPTS[_reelIdx].lines[0].text) }
+
+function _setReelText(t) {
+  const el = document.getElementById('reel-text')
+  if (!el) return
+  el.style.opacity = '0'
+  // 透明になりきってから差し替える（文字が入れ替わる瞬間が見えないように）
+  setTimeout(() => {
+    el.textContent = ''
+    ;(t || '').split('\n').forEach((line, i) => {
+      if (i) el.appendChild(document.createElement('br'))
+      el.appendChild(document.createTextNode(line))
+    })
+    el.style.opacity = t ? '1' : '0'
+  }, 560)
+}
+
+function reelPlay() {
+  if (_reelPlaying) return
+  _reelPlaying = true
+  document.getElementById('reel-controls').style.display = 'none'
+  _syncReelStagePad()
+  const s = REEL_SCRIPTS[_reelIdx]
+  _setReelText('')                     // 頭に無地の余白を置く（バーが消える瞬間を録画に残さない）
+  let i = 0
+  const step = () => {
+    if (!_reelPlaying) return
+    if (i >= s.lines.length) { _reelStop(); return }
+    const ln = s.lines[i++]
+    _setReelText(ln.text)
+    _reelTimer = setTimeout(step, ln.sec * 1000 + 560)   // 560msはフェードの時間
+  }
+  _reelTimer = setTimeout(step, 1400)
+  const stage = document.getElementById('reel-stage')
+  setTimeout(() => { if (_reelPlaying) stage.addEventListener('click', _reelStop) }, 500)
+}
+function _reelStop() {
+  _reelPlaying = false
+  if (_reelTimer) { clearTimeout(_reelTimer); _reelTimer = null }
+  const stage = document.getElementById('reel-stage')
+  if (stage) stage.removeEventListener('click', _reelStop)
+  const ctl = document.getElementById('reel-controls')
+  if (ctl) ctl.style.display = 'flex'
+  _syncReelStagePad()
+  _showReelStill()
 }
 
 function renderStoryCalendar() {
