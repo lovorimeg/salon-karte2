@@ -1091,7 +1091,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-10-05a'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-10-05b'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -5648,7 +5648,24 @@ function renderSalesSummary(data) {
   if (!data.length) { list.innerHTML = '<div class="empty">売上データがありません</div>'; return }
 
   if (salesView === 'day') {
-    list.innerHTML = data.map(d => `
+    // 会計するとその予約は「来店済み」になる。まだ来店済みでない当日までの予約＝未会計。
+    const today = todayStr()
+    const unpaidOn = ds => allReservations
+      .filter(r => r.date === ds && !r._pending
+        && r.status !== 'visited' && r.status !== 'cancelled' && r.status !== 'no_show')
+      .sort((a,b) => (a.time||'').localeCompare(b.time||''))
+    // 売上がまだ1件も無い日でも、未会計が残っていればカードを出す（今日まで）
+    const haveDate = {}
+    data.forEach(d => { haveDate[d.date] = true })
+    const extraDates = []
+    allReservations.forEach(r => {
+      if (!r.date || r.date > today || haveDate[r.date] || r._pending) return
+      if (r.status === 'visited' || r.status === 'cancelled' || r.status === 'no_show') return
+      if (extraDates.indexOf(r.date) === -1) extraDates.push(r.date)
+    })
+    const rows = data.concat(extraDates.map(dt => ({ date:dt, total:0, cash:0, card:0, qr:0, items:[] })))
+      .sort((a,b) => b.date.localeCompare(a.date))
+    list.innerHTML = rows.map(d => `
       <div class="summary-card">
         <div class="summary-date">${d.date}</div>
         <div class="summary-total">¥${Number(d.total).toLocaleString()}</div>
@@ -5665,6 +5682,19 @@ function renderSalesSummary(data) {
               <span style="color:#aaa;margin-right:8px">${PAY_LABEL[item.payment]||item.payment}</span>
               <span style="font-weight:600">¥${Number(item.amount).toLocaleString()}</span>
             </div>`).join('')}
+          ${(() => {
+            const un = unpaidOn(d.date)
+            if (!un.length) return ''
+            return `<div style="margin-top:10px;padding-top:10px;border-top:1px dashed #f0c9a0;">
+              <div style="font-size:12px;font-weight:700;color:#d2730a;margin-bottom:4px;">⚠️ 未会計 ${un.length}人</div>
+              ${un.map(r => `
+                <div class="summary-item" onclick="openResActionMenu(${JSON.stringify(r).replace(/"/g,'&quot;')})" style="cursor:pointer;">
+                  <span style="flex:1;color:#d2730a;font-weight:600;">${r.customer_name||''}</span>
+                  <span style="color:#c08a55;margin-right:8px">${(r.time||'').slice(0,5)}</span>
+                  <span style="color:#c08a55;font-size:12px;">${r.menu||''}</span>
+                </div>`).join('')}
+            </div>`
+          })()}
         </div>
       </div>`).join('')
     return
