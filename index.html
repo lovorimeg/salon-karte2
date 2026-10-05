@@ -1060,6 +1060,10 @@ select.input { appearance:none; }
       <button onclick="storyMonth(1)" style="background:#3a3431;color:#fff;border:none;border-radius:10px;width:42px;height:38px;font-size:18px;cursor:pointer;">›</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <button id="story-mode-all" onclick="setStoryMode('all')" style="background:#fff;color:#1c1c1e;border:none;border-radius:12px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;">全体</button>
+      <button id="story-mode-weekday" onclick="setStoryMode('weekday')" style="background:#3a3431;color:#fff;border:none;border-radius:12px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;">平日</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
       <button onclick="storyShoot()" style="background:#fff;color:#1c1c1e;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;">📷 撮影モード</button>
       <button onclick="closeStoryCalendar()" style="background:#3a3431;color:#fff;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;">閉じる</button>
     </div>
@@ -1091,7 +1095,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-10-05b'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-10-05c'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -4907,6 +4911,17 @@ function openSlotFinder(mode, target) {
 
 // ═══════════════ インスタ・ストーリー用 空き状況カレンダー ═══════════════
 let _storyMonth = null   // 表示中の月（その月の1日）
+let _storyMode = 'all'   // 'all' = 全曜日 / 'weekday' = 平日を主役にする（土日は薄く）
+
+function setStoryMode(mode) {
+  _storyMode = mode
+  const a = document.getElementById('story-mode-all'), w = document.getElementById('story-mode-weekday')
+  if (a) a.style.background = mode === 'all' ? '#fff' : '#3a3431'
+  if (a) a.style.color      = mode === 'all' ? '#1c1c1e' : '#fff'
+  if (w) w.style.background = mode === 'weekday' ? '#fff' : '#3a3431'
+  if (w) w.style.color      = mode === 'weekday' ? '#1c1c1e' : '#fff'
+  renderStoryCalendar()
+}
 
 // その日が「空き◯／残りわずか△／満席×／休み」のどれかを返す。
 // 判定は空き枠検索と同じ材料（予約・予約不可ブロック・定休日・臨時休業）を使う。
@@ -5085,7 +5100,7 @@ function openStoryCalendar() {
   _storyMonth = _storyInitialMonth()
   document.getElementById('story-overlay').style.display = 'block'
   document.getElementById('story-controls').style.display = 'flex'
-  renderStoryCalendar()
+  setStoryMode('all')
   _syncStoryStagePad()
 }
 
@@ -5122,7 +5137,8 @@ function storyShoot() {
 function renderStoryCalendar() {
   const y = _storyMonth.getFullYear(), m = _storyMonth.getMonth()
   const today = todayStr()
-  document.getElementById('story-month').textContent = `${y}.${m+1}月`
+  document.getElementById('story-month').innerHTML =
+    `${y}.${m+1}月` + (_storyMode === 'weekday' ? '<br><span style="font-size:1.5vh;letter-spacing:0.2em;">平日のご案内</span>' : '')
   document.getElementById('story-ctl-label').textContent = `${y}年${m+1}月`
   const MARK = {
     open:   { t:'○', c:'#9c4a4b' },
@@ -5135,6 +5151,7 @@ function renderStoryCalendar() {
   let html = DOW.map((w,i) =>
     `<div style="text-align:center;font-size:1.6vh;letter-spacing:0.1em;color:${i===6?'#95595a':i===5?'#5c6b82':'#78685b'};padding-bottom:0.8vh;">${w}</div>`
   ).join('')
+  const weekdayOnly = (_storyMode === 'weekday')
   const firstDow = (new Date(y, m, 1).getDay() + 6) % 7   // 日=0→6, 月=1→0 …
   const days = new Date(y, m+1, 0).getDate()
   for (let i = 0; i < firstDow; i++) html += '<div></div>'
@@ -5144,11 +5161,16 @@ function renderStoryCalendar() {
     const info = ds < today ? { state:'past', first:'' } : _storyDayInfo(ds)
     const state = info.state
     const mk = MARK[state]
-    const dim = state === 'past' ? 'opacity:0.35;' : ''
+    // 平日モードでは土日を薄くして、平日の空きが主役になるようにする
+    const dowNum = new Date(ds + 'T00:00:00').getDay()
+    const isWeekend = dowNum === 0 || dowNum === 6
+    const faded = weekdayOnly && isWeekend
+    const dim = state === 'past' ? 'opacity:0.35;' : faded ? 'opacity:0.3;' : ''
+    const showTime = info.first && !faded
     html += `<div style="text-align:center;padding:0.35vh 0;${dim}">
       <div style="font-size:1.95vh;letter-spacing:0.04em;color:#3a322b;">${day}</div>
       <div style="font-size:2.05vh;line-height:1.2;white-space:nowrap;color:${mk.c};">${mk.t || '&nbsp;'}</div>
-      <div style="font-size:1.15vh;line-height:1.25;white-space:nowrap;letter-spacing:0;color:#55443a;">${info.first || '&nbsp;'}</div>
+      <div style="font-size:1.15vh;line-height:1.25;white-space:nowrap;letter-spacing:0;color:#55443a;">${showTime ? info.first : '&nbsp;'}</div>
     </div>`
   }
   document.getElementById('story-grid').innerHTML = html
