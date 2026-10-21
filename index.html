@@ -251,6 +251,9 @@ select.input { appearance:none; }
 .checkout-edit-btn { width:28px; height:28px; border-radius:8px; border:none; background:#f0f0f5; color:#888; font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
 .checkout-del-btn  { width:28px; height:28px; border-radius:8px; border:none; background:#fff0f0; color:#e33; font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
 .checkout-add-btn { display:block; width:100%; text-align:center; background:none; border:1.5px dashed #ddd; border-radius:10px; color:#aaa; font-size:14px; cursor:pointer; padding:10px 0; margin-top:10px; }
+.checkout-discount-btn { display:block; width:100%; text-align:center; background:#fff; border:1.5px solid #ddd; border-radius:10px; color:#555; font-size:14px; font-weight:600; cursor:pointer; padding:10px 0; margin-top:8px; }
+.checkout-discount-btn.active { background:#d6336c; border-color:#d6336c; color:#fff; }
+.checkout-discount-row .checkout-item-price { color:#d6336c; }
 .checkout-total-area { margin-top:16px; padding-top:14px; border-top:2px solid #1c1c1e; display:flex; justify-content:space-between; align-items:baseline; }
 .checkout-total-label { font-size:13px; font-weight:700; letter-spacing:3px; color:#555; }
 .checkout-total-amount { font-size:30px; font-weight:900; color:#1c1c1e; letter-spacing:1px; }
@@ -968,6 +971,7 @@ select.input { appearance:none; }
       <div class="checkout-section-title">M E N U</div>
       <div id="co-menu-list"></div>
       <button class="checkout-add-btn" onclick="addCoItem('menu')">＋ メニューを追加</button>
+      <button class="checkout-discount-btn" id="co-discount-btn" onclick="toggleCoDiscount()">10%割引</button>
       <div class="checkout-total-area">
         <span class="checkout-total-label">TOTAL</span>
         <span class="checkout-total-amount" id="co-total"></span>
@@ -4602,6 +4606,21 @@ let coItems      = []  // [{id, name, price, type:'menu'|'shop'}]
 let coPayment    = 'cash'
 let coRes        = null
 let coEditItemId = null
+// 10%割引。割引額はメニュー合計の10%（1円未満切り捨て）。メニューを足し引きしても自動で計算し直す。
+// 保存時はメニュー名の最後に CO_DISCOUNT_TAG を付け、カルテ・売上明細で割引したことがわかるようにする。
+let coDiscount   = false
+const CO_DISCOUNT_TAG = '（10%割引）'
+const coSubtotal = () => coItems.reduce((s,i) => s+Number(i.price), 0)
+const coDiscountAmount = () => coDiscount ? Math.floor(coSubtotal() / 10) : 0
+const coTotal = () => coSubtotal() - coDiscountAmount()
+// 割引後の金額で保存済みのカルテを開き直したとき（メニュー名に割引の印がある）は、二重に割引しない
+const _coAlreadyDiscounted = () => coItems.some(i => String(i.name).includes(CO_DISCOUNT_TAG))
+
+function toggleCoDiscount() {
+  if (!coDiscount && _coAlreadyDiscounted()) { toast('この金額はすでに10%割引済みです'); return }
+  coDiscount = !coDiscount
+  renderCoItems()
+}
 
 function resCardCheckout(r) {
   const rj = JSON.stringify(r).replace(/"/g,'&quot;')
@@ -4639,6 +4658,7 @@ function openCheckout() {
   if (!res) { toast('予約情報が取得できませんでした'); return }
   coRes = res
   coItems = []
+  coDiscount = false
   // 当日のカルテがあれば「実際の施術内容（カルテ）」を会計の初期内容にする。
   // 予約はあくまで予定なので、カルテを直した後の会計が予約の内容に戻らないように。
   const karte = _findSameDayKarte(res.customer_id, res.date)
@@ -4666,7 +4686,7 @@ function closeCheckout() {
 }
 
 function showCheckoutComplete(customerName, pending) {
-  const total = coItems.reduce((s,i) => s+Number(i.price), 0)
+  const total = coTotal()
   document.getElementById('co-complete-name').textContent = customerName + ' 様'
   document.getElementById('co-complete-total').textContent = '¥ ' + total.toLocaleString()
   // 電波不安定で保存待ちになった場合は正直に表示（黙って未送信、を防ぐ）
@@ -4693,12 +4713,22 @@ function renderCoItems() {
         <button class="checkout-edit-btn" onclick="editCoItem(${item.id})" title="編集">✎</button>
         <button class="checkout-del-btn"  onclick="delCoItem(${item.id})"  title="削除">✕</button>
       </div>
-    </div>`).join('')
+    </div>`).join('') + (coDiscount ? `
+    <div class="checkout-item checkout-discount-row">
+      <span class="checkout-item-name">10%割引</span>
+      <span class="checkout-item-price">− ¥ ${coDiscountAmount().toLocaleString()}</span>
+      <div class="checkout-item-btns">
+        <button class="checkout-del-btn" onclick="toggleCoDiscount()" title="割引をやめる">✕</button>
+      </div>
+    </div>` : '')
+  document.getElementById('co-discount-btn').classList.toggle('active', coDiscount)
   calcCoTotals()
+  // 現金のお預かり入力済みなら、お釣りも割引後の金額で計算し直す
+  if (coPayment === 'cash' && document.getElementById('co-cash-input').value) calcChange()
 }
 
 function calcCoTotals() {
-  const total = coItems.reduce((s,i) => s+Number(i.price), 0)
+  const total = coTotal()
   document.getElementById('co-total').textContent = '¥ ' + total.toLocaleString()
 }
 
@@ -4800,7 +4830,7 @@ function selectCoPayment(m) {
 }
 
 function calcChange() {
-  const total    = coItems.reduce((s,i) => s+Number(i.price), 0)
+  const total    = coTotal()
   const received = Number(document.getElementById('co-cash-input').value) || 0
   const change   = received - total
   const el = document.getElementById('co-change')
@@ -4811,8 +4841,8 @@ function calcChange() {
 
 async function confirmCheckout() {
   if (!coRes) return
-  const total = coItems.reduce((s,i) => s+Number(i.price), 0)
-  const menuText = coItems.map(i => i.name).join('・')
+  const total = coTotal()
+  const menuText = coItems.map(i => i.name).join('・') + (coDiscountAmount() ? CO_DISCOUNT_TAG : '')
   const btn = document.querySelector('.checkout-confirm-btn')
   btn.textContent = '処理中...'; btn.disabled = true
 
@@ -5753,6 +5783,7 @@ function renderSalesSummary(data) {
       <div class="summary-total">¥${m.total.toLocaleString()}</div>
       <div class="summary-grid">
         <div class="summary-cell"><div class="summary-cell-label">来店人数</div><div class="summary-cell-val">${m.visits}人</div></div>
+        <div class="summary-cell"><div class="summary-cell-label">客単価</div><div class="summary-cell-val">${m.visits ? '¥' + Math.round(m.total / m.visits).toLocaleString() : '—'}</div></div>
         <div class="summary-cell"><div class="summary-cell-label">現金</div><div class="summary-cell-val">¥${m.cash.toLocaleString()}</div></div>
         <div class="summary-cell"><div class="summary-cell-label">カード</div><div class="summary-cell-val">¥${m.card.toLocaleString()}</div></div>
         <div class="summary-cell"><div class="summary-cell-label">QR決済</div><div class="summary-cell-val">¥${m.qr.toLocaleString()}</div></div>
