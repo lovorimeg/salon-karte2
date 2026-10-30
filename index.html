@@ -1100,7 +1100,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-10-31a'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-10-31b'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -4246,6 +4246,7 @@ function _setTimeBlocksLocal(arr) {
 async function addTimeBlock(date, start, dur, memo) {
   const b = { id: 'blk-' + Date.now(), date, start, dur: dur || 60, memo: memo || '' }
   _setTimeBlocksLocal(getTimeBlocks().concat([b]))  // まず画面に即反映（楽観的）
+  renderCalendar()
   const res = await api({ action: 'setTimeBlock', op: 'add', block: b })
   if (res && res.error) {  // 保存できなかったら元に戻して知らせる
     _setTimeBlocksLocal(getTimeBlocks().filter(x => x.id !== b.id))
@@ -4253,11 +4254,13 @@ async function addTimeBlock(date, start, dur, memo) {
     toast('予約不可の保存に失敗しました。通信状況をご確認ください')
   } else if (res && Array.isArray(res.blocks)) {
     _setTimeBlocksLocal(res.blocks)  // サーバーの確定値（他端末で入れたブロックも取り込む）
+    renderCalendar()
   }
 }
 async function removeTimeBlock(id) {
   const removed = getTimeBlocks().find(b => b.id === id)
   _setTimeBlocksLocal(getTimeBlocks().filter(b => b.id !== id))
+  renderCalendar()  // 解除は押した瞬間に画面へ反映する（サーバー応答を待たない。GASが遅いと残って見えるため）
   const res = await api({ action: 'setTimeBlock', op: 'remove', id })
   if (res && res.error) {
     if (removed) _setTimeBlocksLocal(getTimeBlocks().concat([removed]))
@@ -4265,6 +4268,7 @@ async function removeTimeBlock(id) {
     toast('解除の保存に失敗しました。通信状況をご確認ください')
   } else if (res && Array.isArray(res.blocks)) {
     _setTimeBlocksLocal(res.blocks)
+    renderCalendar()
   }
 }
 // 起動時にサーバーのブロックを取り込む。初回だけ、この端末に残っている
