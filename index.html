@@ -1100,7 +1100,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-10-30a'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-10-31a'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -1343,12 +1343,13 @@ function _onSwFreshAvailable() {
 function startApp() {
   // 起動直後にGASへ何本も同時に投げないこと。まとめ取得(getBootstrap)を先に終わらせ、
   // 残りはその後に回す。書き込み(未送信の再送)も行列の後ろに並ばないよう loadAll の完了後に行う。
-  loadAll().then(() => {
+  loadAll().then(async () => {
     // 予約不可ブロック・薬剤テンプレはまとめ取得に含まれる。
     // まとめ取得が使えなかった時と、初回の引っ越しが未完了の端末だけ個別に同期する。
     if (!_bootstrapDone || !localStorage.getItem('timeBlocksMigrated'))     syncTimeBlocks()
     if (!_bootstrapDone || !localStorage.getItem('karteTemplatesMigrated')) syncKarteTemplates()
-    flushOfflineQueue()  // 前回送信できなかった保存待ちデータを、読み込みが落ち着いてから送る
+    await flushOfflineQueue(true)  // 前回の保存待ちを静かに送ってから、
+    _warnStuckReservations()       // それでも残った「予約」は見逃せない形で知らせる
   })
   loadJpHolidays()
   // iOSが保存領域を勝手に消すのを防ぐ（対応ブラウザのみ・非対応でも無害）＝未送信キューが消えにくくなる
@@ -1636,6 +1637,25 @@ async function api(params, opts) {
   }
 }
 
+// 起動時・画面復帰時に、まだ送れていない「予約」が残っていたら見逃せない形で知らせる。
+// （カルテ等は後から直せるが、予約の抜けは来店の取りこぼしに直結するので予約だけ強く知らせる）
+let _warnStuckShownAt = 0
+async function _warnStuckReservations() {
+  // 短時間に何度も出さない（画面復帰のたびに連発しない）
+  if (Date.now() - _warnStuckShownAt < 60000) return
+  let q
+  try { q = JSON.parse(localStorage.getItem('offlineQueue')||'[]') } catch(e) { return }
+  const pend = (q||[]).filter(i => i.action === 'addReservation')
+  if (!pend.length) return
+  _warnStuckShownAt = Date.now()
+  const lines = pend.map(i => '・' + _resDesc((allCustomers.find(c=>c.id===i.customer_id)||{}).name, i.date, i.time)).join('\n')
+  const retry = await uiConfirm(
+    '⚠️ まだ保存できていない予約があります\n\n' + lines +
+    '\n\n電波の良い場所で「今すぐ再送」を押してください。',
+    '今すぐ再送', 'あとで')
+  if (retry) await flushOfflineQueue(false)
+}
+
 // 保存待ちになったら少し待って自動で送り直す。
 // タイムアウトでも実際はサーバーに届いていることが多く、その場合は再送が即「登録済み」と返るため、
 // ユーザーが何もしなくても赤いバナーが数秒で消える（＝「未送信」が残りっぱなしになりにくい）。
@@ -1766,7 +1786,7 @@ window.addEventListener('online', () => {
 })
 // ホーム画面アプリを開き直した時・タブに戻った時も再送を試みる
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) flushOfflineQueue()
+  if (!document.hidden) flushOfflineQueue(true).then(() => _warnStuckReservations())
 })
 
 // ── 送信待ちの予約を画面に出す（⏳付き）──
@@ -1796,14 +1816,14 @@ function _withPending(list) {
 }
 
 // ── 確認ダイアログ（iOSのホーム画面アプリで confirm() が出ない問題に対応）──
-function uiConfirm(message, okLabel) {
+function uiConfirm(message, okLabel, cancelLabel) {
   return new Promise(resolve => {
     const ov = document.createElement('div')
     ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:2000;display:flex;align-items:center;justify-content:center;padding:24px;'
     ov.innerHTML = `<div style="background:#fff;border-radius:16px;max-width:340px;width:100%;padding:22px 20px;">
       <div data-uic-msg style="font-size:15px;line-height:1.7;white-space:pre-wrap;color:#1c1c1e;margin-bottom:18px;text-align:center;"></div>
       <div style="display:flex;gap:10px;">
-        <button data-uic="0" style="flex:1;padding:13px;border-radius:12px;border:none;background:#f0f0f5;color:#1c1c1e;font-size:15px;font-weight:600;cursor:pointer;">キャンセル</button>
+        <button data-uic="0" style="flex:1;padding:13px;border-radius:12px;border:none;background:#f0f0f5;color:#1c1c1e;font-size:15px;font-weight:600;cursor:pointer;">${cancelLabel || 'キャンセル'}</button>
         <button data-uic="1" style="flex:1;padding:13px;border-radius:12px;border:none;background:#ff3b30;color:#fff;font-size:15px;font-weight:700;cursor:pointer;">${okLabel || 'OK'}</button>
       </div>
     </div>`
@@ -1814,6 +1834,32 @@ function uiConfirm(message, okLabel) {
     ov.querySelector('[data-uic="0"]').onclick = () => done(false)
     ov.onclick = e => { if (e.target === ov) done(false) }
   })
+}
+
+// 見逃せない1ボタンの警告（保存失敗など「必ず気づいてほしい」時に使う）。背景タップでは閉じない。
+function uiAlert(message, okLabel) {
+  return new Promise(resolve => {
+    const ov = document.createElement('div')
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2200;display:flex;align-items:center;justify-content:center;padding:24px;'
+    ov.innerHTML = `<div style="background:#fff;border-radius:16px;max-width:340px;width:100%;padding:22px 20px;">
+      <div data-uic-msg style="font-size:15px;line-height:1.7;white-space:pre-wrap;color:#1c1c1e;margin-bottom:18px;text-align:center;"></div>
+      <button data-uic="1" style="width:100%;padding:13px;border-radius:12px;border:none;background:#ff3b30;color:#fff;font-size:15px;font-weight:700;cursor:pointer;">${okLabel || 'OK'}</button>
+    </div>`
+    ov.querySelector('[data-uic-msg]').textContent = message
+    document.body.appendChild(ov)
+    ov.querySelector('[data-uic="1"]').onclick = () => { ov.remove(); resolve(true) }
+  })
+}
+
+// 予約を「海原さん 11/16(日) 16:00」のように読みやすく表す（保存失敗の警告文などに使う）
+const _WEEKDAYS_JP = ['日','月','火','水','木','金','土']
+function _resDesc(name, date, time) {
+  let dstr = date || ''
+  try {
+    const p = String(date||'').split('-').map(Number)
+    if (p[0] && p[1] && p[2]) dstr = p[1] + '/' + p[2] + '(' + _WEEKDAYS_JP[new Date(p[0], p[1]-1, p[2]).getDay()] + ')'
+  } catch(e) {}
+  return (String(name||'').replace(/^⏳/, '') || 'お客様') + 'さん ' + dstr + ' ' + (time || '')
 }
 
 // ── トースト ──
@@ -4479,12 +4525,14 @@ async function submitAddReservation() {
   // ── 送信は裏で。結果に応じて画面を正す ──
   const res = await api({ action:'addReservation', id:newId, customer_id:cid, date, time,
                           menu, duration, price, memo, status:'reserved' })
+  const desc = _resDesc(cust?.name, date, time)
   if (res && res.error) {
     // 保存できなかったので画面からも取り消す（登録できたように見せない）
     allReservations = allReservations.filter(r => String(r.id) !== String(newId))
     _persistReservations()
     updateResBadge(); renderCalendar(); loadHome()
-    toast('登録できませんでした: ' + res.error)
+    // 予約の消失は重大なので、トーストではなく見逃せない警告で知らせる
+    await uiAlert('⚠️ 予約を登録できませんでした\n\n' + desc + '\n理由: ' + res.error + '\n\nお手数ですが、もう一度登録してください。', '閉じる')
     return
   }
   if (res && res.offline) {
@@ -4493,7 +4541,13 @@ async function submitAddReservation() {
       ? { ...r, _pending:true, customer_name: '⏳' + (cust?.name || '') } : r)
     _persistReservations()
     renderCalendar()
-    toast('電波が不安定のため保存待ちです（⏳表示）。電波が戻ると自動送信されます')
+    // 「追加しました」と思って離れると未保存に気づけないため、ブロッキングで知らせて再送もできるようにする。
+    // （送れるまで ⏳ 付きで残り、自動でも再送を続けるが、この場で気づいてもらうのが最優先）
+    const retry = await uiConfirm(
+      '⚠️ この予約はまだ保存できていません\n\n' + desc +
+      '\n\n電波の良い場所で「今すぐ再送」を押してください。\n送れるまで ⏳ 付きで残り、自動でも再送を続けます。',
+      '今すぐ再送', 'あとで')
+    if (retry) await flushOfflineQueue(false)
   }
   // 成功時はサーバーの行＝newId で一致しているので、予約の全件再取得（1往復）は不要
 }
