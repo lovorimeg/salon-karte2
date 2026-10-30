@@ -1100,7 +1100,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-10-21a'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-10-30a'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -1709,11 +1709,9 @@ async function flushOfflineQueue(quiet) {   // quiet=true は自動の裏再送�
   if (!quiet) toast('保存待ちのデータを送信中...')
   let sentAny = false
   const errored = []
-  const giveUp = []
   const _same = (a, b) => a && b && a.timestamp === b.timestamp && a.action === b.action
   const _readQ  = () => { try { return JSON.parse(localStorage.getItem('offlineQueue')||'[]') } catch(e) { return [] } }
   const _writeQ = a  => { try { localStorage.setItem('offlineQueue', JSON.stringify(a)) } catch(e) {} }
-  const MAX_TRIES = 5   // これ以上送れない項目は隔離して、後続をブロックしないようにする
   try {
     // 今キューにある分だけを1周する。1件が送れなくても**次の項目に進む**のが要点。
     // 以前は先頭が送れないと break していたため、送れない1件が後続を永久に止めていた（＝毎回「未送信」が残る原因）。
@@ -1728,14 +1726,16 @@ async function flushOfflineQueue(quiet) {   // quiet=true は自動の裏再送�
       try { r = await api(item, { noQueue: true }) }     // 失敗してもキューへ入れ直さない＝二重化しない
       catch (e) { r = { offline: true } }
       if (r && r.offline) {
-        // 送れなかった：試行回数を数えて末尾へ回す。上限を超えたら隔離してユーザーに知らせる。
+        // 送れなかった：試行回数を数えて末尾へ回す（後続を先に処理）。
+        // 以前は5回で「諦めて」キューから消していたが、GASが数分不調なだけで予約が消える原因になった
+        // （海原純子さんの予約消失 2026-10-30）。ループは1件で止まらないので後続のブロックも起きない。
+        // 送れるまで残し続け、どうしても不要なものは送信状況の「取りやめ」で消してもらう。
         const q2 = _readQ()
         const i2 = q2.findIndex(x => _same(x, item))
         if (i2 !== -1) {
           const it = q2.splice(i2, 1)[0]
           it._tries = (it._tries || 0) + 1
-          if (it._tries >= MAX_TRIES) giveUp.push(it)    // キューから外す（後続を止めない）
-          else q2.push(it)                               // 末尾へ回して後続を先に処理
+          q2.push(it)
           _writeQ(q2)
         }
         continue
@@ -1750,12 +1750,6 @@ async function flushOfflineQueue(quiet) {   // quiet=true は自動の裏再送�
       if (['checkout','addVisit','updateVisit','deleteVisit'].indexOf(item.action) !== -1) _markSalesDirty()
     }
   } finally { _flushingQueue = false }
-  if (giveUp.length) {
-    try {
-      const names = giveUp.map(i => { const d = _describeUnsent(i); return '・' + d.title + (d.detail ? '（' + d.detail + '）' : '') }).join('\n')
-      alert('⚠️ 次のデータが何度も送信できなかったため、送信を諦めました。\nお手数ですが入れ直してください。\n\n' + names)
-    } catch(e) {}
-  }
   _updateUnsentBanner()
   const left = _unsentQueueLen()
   if (errored.length) {
