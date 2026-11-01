@@ -1100,7 +1100,7 @@ select.input { appearance:none; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwGzxecEfGoPlm9H20Hth0qLqExiEvLn3LKH9P_TgZzHZRVMJblbF50EFgubhY3ugZf/exec'
 const API_SECRET = 'lovori2024salon'
-const APP_BUILD = '2026-10-31b'  // 反映確認用のバージョン印（デプロイのたびに更新する）
+const APP_BUILD = '2026-11-02a'  // 反映確認用のバージョン印（デプロイのたびに更新する）
 
 // ── 状態 ──
 let allCustomers     = []
@@ -5819,7 +5819,12 @@ function renderSalesSummary(data) {
     m.visits += d.items.length
     // メニュー別カウント
     d.items.forEach(item => {
-      const menus = (item.menu || '').split(/[・、,]/).map(s => s.trim()).filter(Boolean)
+      let menus = (item.menu || '').split(/[・、,]/).map(s => s.trim()).filter(Boolean)
+      // 同じ日にカットとリタッチの両方をした人は「カットリタッチ」1つとして数える（別々に割らない）
+      if (menus.includes('カット') && menus.includes('リタッチ')) {
+        menus = menus.filter(mn => mn !== 'カット' && mn !== 'リタッチ')
+        menus.push('カットリタッチ')
+      }
       menus.forEach(mn => { m.menuCount[mn] = (m.menuCount[mn] || 0) + 1 })
     })
   })
